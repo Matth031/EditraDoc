@@ -66,10 +66,16 @@ async function waitChildExitOrKill(proc, maxWaitMs) {
   if (!proc) return;
   const deadline = Date.now() + maxWaitMs;
   while (Date.now() < deadline) {
-    if (proc.exitCode != null || proc.signalCode != null || proc.killed) return;
+    if (proc.exitCode != null || proc.signalCode != null || proc.killed) {
+      // Laisser le temps à la mort de se propager avant que gracefullyCloseAll() vérifie
+      await new Promise((r) => setTimeout(r, 150));
+      return;
+    }
     await new Promise((r) => setTimeout(r, 120));
   }
   killElectronProcess(proc);
+  // Attendre que SIGKILL prenne effet (évite que gracefullyCloseAll() trouve le process encore vivant)
+  await new Promise((r) => setTimeout(r, 400));
 }
 
 /**
@@ -93,12 +99,15 @@ async function closeElectronApp(app, closeMs) {
     await app.close().catch(() => {});
   }
   if (process.env.CI) {
-    await waitChildExitOrKill(proc, 12000);
-    // Tue tout le groupe de processus (Python + autres petits-enfants d'Electron)
+    // Tuer les enfants directs d'Electron (Python, renderer) AVANT d'attendre leur mort
+    // — ne pas tuer le groupe de processus : cela peut inclure xvfb et casser les tests suivants
     if (proc?.pid && process.platform === "linux") {
-      try { process.kill(-proc.pid, "SIGKILL"); } catch { /* déjà mort */ }
-      await new Promise((r) => setTimeout(r, 400));
+      const { execSync } = require("child_process");
+      try {
+        execSync(`pkill -KILL -P ${proc.pid}`, { stdio: "ignore" });
+      } catch { /* pas d'enfants ou déjà morts */ }
     }
+    await waitChildExitOrKill(proc, 8000);
   }
 }
 
