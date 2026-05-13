@@ -19,9 +19,9 @@ jobs:
         working-directory: app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -34,7 +34,7 @@ jobs:
         run: npm run dist:win
 
       - name: Upload installer as workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: editify-windows-setup
           path: EditraDoc-Setup.exe
@@ -42,7 +42,7 @@ jobs:
 
       - name: Attach installer to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: EditraDoc-Setup.exe
           generate_release_notes: true

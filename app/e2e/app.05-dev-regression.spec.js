@@ -92,13 +92,16 @@ test("05-Dev: __EDITIFY_I18N expose fr/en/es/pt avec clés minimales", async () 
   });
   const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
+  // Signature Playwright : (fn, arg, options). Ne pas passer options en 2e paramètre
+  // (sinon timeout = défaut = timeout du test, ex. 180 s en CI + teardown bloqué).
   await page.waitForFunction(
     () => {
       const D = window.__EDITIFY_I18N;
       if (!D) return false;
       return ["fr", "en", "es", "pt"].every((lang) => D[lang]?.welcomeTitle && D[lang]?.appName);
     },
-    { timeout: 60000, polling: 200 }
+    null,
+    { timeout: e2eCi.waitForBareI18nTimeoutMs(), polling: 200 }
   );
   const ok = await page.evaluate(() => {
     const D = window.__EDITIFY_I18N;
@@ -110,7 +113,7 @@ test("05-Dev: __EDITIFY_I18N expose fr/en/es/pt avec clés minimales", async () 
     return { ok: true };
   });
   expect(ok.ok, ok.reason).toBe(true);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("05-Dev: localStorage editify:lang=pt appliqué au rechargement (loadPreferredLanguage)", async () => {
@@ -129,7 +132,7 @@ test("05-Dev: localStorage editify:lang=pt appliqué au rechargement (loadPrefer
   });
   await expect(page.locator("#welcomeTitle")).toContainText("Bem-vindo");
   await expect(page.locator(":root")).toHaveAttribute("lang", /pt/i);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("05-Dev: IPC app:set-language met à jour documentElement.lang (alignement BCP 47)", async () => {
@@ -140,7 +143,7 @@ test("05-Dev: IPC app:set-language met à jour documentElement.lang (alignement 
   });
   await page.waitForTimeout(200);
   await expect(page.locator(":root")).toHaveAttribute("lang", /en/i);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("05-Dev: PDF ouvert + changement langue → colonnes Miniatures/Ajouts (non figées)", async () => {
@@ -153,12 +156,12 @@ test("05-Dev: PDF ouvert + changement langue → colonnes Miniatures/Ajouts (non
   await page.evaluate(() => window.__maniE2E.setLanguage("fr"));
   await expect(page.locator("#thumbsTitle")).toHaveText("Miniatures");
   await expect(page.locator("#changesTitle")).toHaveText("Ajouts");
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("05-Dev: menu orthographe ctx - titre présent après langue ES", async () => {
   const { app, page } = await launchAppWithPdfFixture();
   await page.evaluate(() => window.__maniE2E.setLanguage("es"));
   await expect(page.locator("#ctxSpellTitleEl")).toHaveText("Ortografia");
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

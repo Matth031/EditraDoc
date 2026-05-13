@@ -38,9 +38,43 @@ function mergeProcessEnv(overrides = {}) {
   return base;
 }
 
+/** Attente `window.__EDITIFY_I18N` (bundle léger) : CI peut être très lent. */
+function waitForBareI18nTimeoutMs() {
+  return process.env.CI ? 120000 : 60000;
+}
+
+/**
+ * Ferme l’app Playwright Electron ; sous xvfb/CI, `app.close()` peut ne jamais résoudre
+ * (processus bloqué) et déclencher « Worker teardown timeout ».
+ * @param {import("@playwright/test").ElectronApplication} app
+ * @param {number} [closeMs]
+ */
+async function closeElectronApp(app, closeMs = 15000) {
+  const proc = typeof app.process === "function" ? app.process() : null;
+  try {
+    await Promise.race([
+      app.close(),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Electron app.close() timeout")), closeMs);
+      })
+    ]);
+  } catch {
+    try {
+      if (proc && typeof proc.kill === "function" && !proc.killed) {
+        proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
+      }
+    } catch {
+      /* ignore */
+    }
+    await app.close().catch(() => {});
+  }
+}
+
 module.exports = {
   electronLaunchArgs,
   electronLaunchTimeoutMs,
   electronFirstWindowTimeoutMs,
-  mergeProcessEnv
+  mergeProcessEnv,
+  waitForBareI18nTimeoutMs,
+  closeElectronApp
 };
