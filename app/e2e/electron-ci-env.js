@@ -94,6 +94,11 @@ async function closeElectronApp(app, closeMs) {
   }
   if (process.env.CI) {
     await waitChildExitOrKill(proc, 12000);
+    // Tue tout le groupe de processus (Python + autres petits-enfants d'Electron)
+    if (proc?.pid && process.platform === "linux") {
+      try { process.kill(-proc.pid, "SIGKILL"); } catch { /* déjà mort */ }
+      await new Promise((r) => setTimeout(r, 400));
+    }
   }
 }
 
