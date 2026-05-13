@@ -16,4 +16,31 @@ function electronLaunchArgs(extra = []) {
   return args;
 }
 
-module.exports = { electronLaunchArgs };
+/** Timeout `electron.launch` / `firstWindow` : machines CI souvent plus lentes. */
+function electronLaunchTimeoutMs() {
+  return process.env.CI ? 180000 : 90000;
+}
+
+function electronFirstWindowTimeoutMs() {
+  return electronLaunchTimeoutMs();
+}
+
+/**
+ * @param {Record<string, string | undefined>} [overrides]
+ * @returns {Record<string, string | undefined>}
+ */
+function mergeProcessEnv(overrides = {}) {
+  const base = { ...process.env, ...overrides };
+  if (process.env.CI && process.platform === "linux") {
+    base.ELECTRON_DISABLE_GPU = "1";
+    base.LIBGL_ALWAYS_SOFTWARE = "1";
+  }
+  return base;
+}
+
+module.exports = {
+  electronLaunchArgs,
+  electronLaunchTimeoutMs,
+  electronFirstWindowTimeoutMs,
+  mergeProcessEnv
+};

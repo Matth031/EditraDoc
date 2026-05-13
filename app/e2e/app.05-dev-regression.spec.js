@@ -8,6 +8,7 @@ const { test, expect, _electron: electron } = require("@playwright/test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");
+const e2eCi = require("./electron-ci-env");
 const { waitForPdfPagesRendered } = require("./helpers");
 
 function getRepoPdfFixture() {
@@ -22,14 +23,14 @@ function getRepoPdfFixture() {
 async function launchAppE2EBare() {
   const app = await electron.launch({
     executablePath: electronPath,
-    args: require("./electron-ci-env").electronLaunchArgs(),
-    env: {
-      ...process.env,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
       MANI_PDF_E2E: "1"
-    }
+    })
   });
-  const page = await app.firstWindow();
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
     timeout: 90000,
@@ -42,15 +43,15 @@ async function launchAppWithPdfFixture() {
   const pdfPath = getRepoPdfFixture();
   const app = await electron.launch({
     executablePath: electronPath,
-    args: require("./electron-ci-env").electronLaunchArgs(),
-    env: {
-      ...process.env,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
       MANI_PDF_E2E: "1",
       MANI_PDF_E2E_PDF_PATH: pdfPath
-    }
+    })
   });
-  const page = await app.firstWindow();
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
     timeout: 90000,
@@ -75,8 +76,30 @@ async function openPdfFromMenu(app, page) {
   await expect(page.locator("#pagesContainer .pdf-page").first()).toBeVisible({ timeout: 30000 });
 }
 
+/**
+ * Ce test ne dépend que de `renderer-i18n-data.js` (avant la fin de `renderer.js`).
+ * Ne pas attendre `__maniE2E.setLanguage` : sous CI lent, le bundle renderer peut dépasser 2 min.
+ */
 test("05-Dev: __EDITIFY_I18N expose fr/en/es/pt avec clés minimales", async () => {
-  const { app, page } = await launchAppE2EBare();
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
+      ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
+      MANI_PDF_E2E: "1"
+    })
+  });
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForFunction(
+    () => {
+      const D = window.__EDITIFY_I18N;
+      if (!D) return false;
+      return ["fr", "en", "es", "pt"].every((lang) => D[lang]?.welcomeTitle && D[lang]?.appName);
+    },
+    { timeout: 60000, polling: 200 }
+  );
   const ok = await page.evaluate(() => {
     const D = window.__EDITIFY_I18N;
     if (!D || typeof D !== "object") return { ok: false, reason: "no I18N" };
@@ -100,7 +123,10 @@ test("05-Dev: localStorage editify:lang=pt appliqué au rechargement (loadPrefer
     window.localStorage.setItem("editify:lang", "pt");
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage);
+  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
+    timeout: 90000,
+    polling: 250
+  });
   await expect(page.locator("#welcomeTitle")).toContainText("Bem-vindo");
   await expect(page.locator(":root")).toHaveAttribute("lang", /pt/i);
   await app.close();

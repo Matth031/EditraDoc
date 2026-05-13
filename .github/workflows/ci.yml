@@ -36,6 +36,8 @@ jobs:
 
       - name: Run electron smoke e2e
         run: xvfb-run -a npm run e2e
+        env:
+          ELECTRON_DISABLE_GPU: "1"
 
       - name: Build package (dir)
         run: npm run build

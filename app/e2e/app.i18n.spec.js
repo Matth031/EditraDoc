@@ -3,6 +3,7 @@
  */
 const { test, expect, _electron: electron } = require("@playwright/test");
 const electronPath = require("electron");
+const e2eCi = require("./electron-ci-env");
 const path = require("path");
 const fs = require("fs");
 const { waitForPdfPagesRendered } = require("./helpers");
@@ -19,17 +20,20 @@ async function launchApp() {
   const pdfPath = getRepoPdfFixture();
   const app = await electron.launch({
     executablePath: electronPath,
-    args: require("./electron-ci-env").electronLaunchArgs(),
-    env: {
-      ...process.env,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
       MANI_PDF_E2E: "1",
       MANI_PDF_E2E_PDF_PATH: pdfPath
-    }
+    })
   });
-  const page = await app.firstWindow();
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage);
+  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
+    timeout: 90000,
+    polling: 250
+  });
   return { app, page };
 }
 

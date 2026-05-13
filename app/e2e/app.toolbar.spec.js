@@ -1,5 +1,6 @@
 const { test, expect, _electron: electron } = require("@playwright/test");
 const electronPath = require("electron");
+const e2eCi = require("./electron-ci-env");
 
 /**
  * Non-régression : barre HTML #appToolbar
@@ -10,14 +11,14 @@ const electronPath = require("electron");
 async function launchAppBare() {
   const app = await electron.launch({
     executablePath: electronPath,
-    args: require("./electron-ci-env").electronLaunchArgs(),
-    env: {
-      ...process.env,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
       MANI_PDF_E2E: "1"
-    }
+    })
   });
-  const page = await app.firstWindow();
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(() => !!window.maniPdfApi);
   return { app, page };
