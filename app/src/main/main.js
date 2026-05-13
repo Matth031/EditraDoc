@@ -969,6 +969,10 @@ app.on("before-quit", () => {
   stopBackgroundTimers();
 });
 
+app.on("will-quit", () => {
+  stopPythonService();
+});
+
 app.on("window-all-closed", () => {
   stopPythonService();
   if (process.platform !== "darwin") app.quit();
