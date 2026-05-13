@@ -18,6 +18,7 @@ try {
 
 let mainWindow = null;
 let autosaveInterval = null;
+let jobQueueIntervalId = null;
 let pythonProcess = null;
 
 /**
@@ -459,6 +460,17 @@ function startAutosave() {
   }, 30000);
 }
 
+function stopBackgroundTimers() {
+  if (jobQueueIntervalId != null) {
+    clearInterval(jobQueueIntervalId);
+    jobQueueIntervalId = null;
+  }
+  if (autosaveInterval != null) {
+    clearInterval(autosaveInterval);
+    autosaveInterval = null;
+  }
+}
+
 function startPythonService() {
   const { command, args, cwd, env } = getPythonLaunchConfig();
   pythonProcess = spawn(command, args, {
@@ -478,9 +490,19 @@ function startPythonService() {
 }
 
 function stopPythonService() {
-  if (pythonProcess) {
-    pythonProcess.kill();
-    pythonProcess = null;
+  if (!pythonProcess) return;
+  const p = pythonProcess;
+  pythonProcess = null;
+  try {
+    // E2E Playwright : SIGTERM peut laisser Python vivre assez longtemps pour bloquer
+    // le teardown du worker (gracefullyCloseAll). En prod, TERM reste le défaut.
+    if (process.env.MANI_PDF_E2E === "1" && process.platform !== "win32") {
+      p.kill("SIGKILL");
+    } else {
+      p.kill();
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -940,7 +962,11 @@ app.whenReady().then(() => {
   createMenu();
   startAutosave();
   startPythonService();
-  setInterval(processJobQueue, 500);
+  jobQueueIntervalId = setInterval(processJobQueue, 500);
+});
+
+app.on("before-quit", () => {
+  stopBackgroundTimers();
 });
 
 app.on("window-all-closed", () => {
