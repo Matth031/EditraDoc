@@ -2,8 +2,8 @@
 
 ## Installation (Windows — 30 secondes)
 
-👉 Télécharger l’application :
-https://github.com/Matth031/EditraDoc/releases/download/v1.0.0/EditraDoc-Setup.exe
+👉 Télécharger l’application (dernière release publiée) :  
+https://github.com/Matth031/EditraDoc/releases/latest/download/EditraDoc-Setup.exe
 
 Puis :
 
@@ -20,7 +20,7 @@ Puis :
 - Ouvrir un PDF et naviguer page par page
 - Ajouter du texte, des formes et des images
 - Enregistrer une nouvelle version du PDF
-- Fusionner, diviser, compresser, protéger/déprotéger (outils PDF intégrés)
+- Fusionner et diviser (outils PDF intégrés)
 
 ## Confidentialité (en pratique)
 
@@ -39,7 +39,7 @@ Pour les détails techniques, la sécurité, les tests et l’architecture: voir
 
 **EditraDoc** est un outil de manipulation de PDF orienté **confidentialité** et **simplicité** : les fichiers restent sur le poste, le rendu et les interactions passent par une fenêtre Electron et des processus locaux.
 
-**Problème adressé** : de nombreux services en ligne imposent l’**envoi** des PDF sur des serveurs tiers pour fusionner, diviser ou compresser. Cela peut être incompatible avec des contraintes de confidentialité ou de politique interne.
+**Problème adressé** : de nombreux services en ligne imposent l’**envoi** des PDF sur des serveurs tiers pour fusionner ou diviser. Cela peut être incompatible avec des contraintes de confidentialité ou de politique interne.
 
 **Public cible** : utilisateurs et équipes qui veulent traiter des PDF **localement**, avec un code **auditable** et une chaîne d’outils intégrée (visualisation, annotations, opérations batch via file d’attente).
 
@@ -74,7 +74,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 - **Propriétés** : couleurs, polices, marges pour le texte ; remplissage, contour, opacité pour les formes.
 - **Menus contextuels** pour le texte, les formes, les images et la zone de page vide.
 - **Découpe avancée** : définition de **groupes de pages** (overlay dédié).
-- **Outils PDF** (via Python / pypdf) : **fusion**, **division** (plage ou groupes), **compression**, **protection** et **déprotection** par mot de passe.
+- **Outils PDF** (via Python / pypdf) : **fusion**, **division** (plage ou groupes).
 - **Enregistrement** : export PDF en intégrant annotations et calques (route `/apply-annotations` côté service Python).
 - **File d’attente de jobs** avec suivi, journal de session, persistance de session.
 - **Correcteur orthographique** intégré (suggestions, dictionnaire utilisateur).
@@ -212,7 +212,7 @@ Une fois le **`.exe`** obtenu (racine du dépôt après build, ou téléchargeme
 
 > **Note :** `EditraDoc-Setup.exe` à la racine est **généré localement** par la build ; il n’est en général **pas** versionné dans Git (fichier volumineux, entrée dans `.gitignore`). S’il est absent, soit lancer une build (`npm run dist:win` dans `app/`), soit télécharger l’installateur depuis **Releases** / **Actions** comme ci-dessus.
 
-Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un tag **`v1.0.0`**, l’installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l’artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**).
+Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un **tag de version** (ex. **`v1.0.1`**), l’installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l’artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**).
 
 ---
 
