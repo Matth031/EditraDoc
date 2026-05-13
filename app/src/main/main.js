@@ -26,8 +26,8 @@ let pythonProcess = null;
  */
 function getApplicationRoot() {
   if (!app.isPackaged) {
-    // __dirname = app/src/main -> racine app = ../../../
-    return path.join(__dirname, "..", "..", "..");
+    // __dirname = app/src/main → racine du package Electron (dossier contenant package.json) = ../../
+    return path.join(__dirname, "..", "..");
   }
   return path.join(process.resourcesPath, "app.asar.unpacked");
 }

@@ -2270,28 +2270,49 @@ function buildSuggestedSaveAsName(tab) {
   }
 }
 
-async function toBase64FromUrl(url) {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  const buf = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+/**
+ * Encode une image (blob:, data:, http(s):) en base64 brute pour l'export Python.
+ * fetch(blob:) peut échouer selon l'environnement : repli XHR + FileReader.
+ */
+async function imageSrcToBase64(src) {
+  const s = String(src || "");
+  if (!s) throw new Error("src vide");
+  if (s.startsWith("data:")) {
+    const idx = s.indexOf("base64,");
+    if (idx === -1) throw new Error("data: sans base64");
+    return s.slice(idx + 7);
+  }
+  let blob;
+  try {
+    const res = await fetch(s);
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    blob = await res.blob();
+  } catch {
+    blob = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", s);
+      xhr.responseType = "blob";
+      xhr.onload = () => resolve(xhr.response);
+      xhr.onerror = () => reject(new Error("xhr_blob"));
+      xhr.send();
+    });
+  }
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const t = String(r.result || "");
+      const i = t.indexOf("base64,");
+      if (i === -1) reject(new Error("filereader"));
+      else resolve(t.slice(i + 7));
+    };
+    r.onerror = () => reject(r.error || new Error("filereader"));
+    r.readAsDataURL(blob);
+  });
 }
 
-async function savePdfAs() {
+async function exportActivePdfToPath(outputPath) {
   const tab = getActiveTab();
-  if (!tab) {
-    setStatus("Enregistrer sous: aucun PDF actif.");
-    return;
-  }
-  const suggested = buildSuggestedSaveAsName(tab);
-  const r = await window.maniPdfApi.savePdfAsDialog(suggested);
-  if (!r?.ok) {
-    if (!r?.cancelled) setStatus(r?.error || "Enregistrer sous annulé.");
-    return;
-  }
+  if (!tab) return { ok: false, error: "no_active_pdf" };
 
   const canvases = {};
   try {
@@ -2324,26 +2345,55 @@ async function savePdfAs() {
     });
   } catch {}
 
-  // Images: convertir les object URLs en base64 (pour que Python puisse les réinjecter).
   try {
     for (const pageKey of Object.keys(annotationsByPage)) {
       const arr = annotationsByPage[pageKey] || [];
       for (const a of arr) {
         if (a.type === "image" && a.src) {
-          a.src_base64 = await toBase64FromUrl(a.src);
+          a.src_base64 = await imageSrcToBase64(a.src);
         }
       }
     }
-  } catch {}
+  } catch {
+    return { ok: false, error: "image_encode_failed" };
+  }
 
-  setStatus("Export PDF…");
   const exportResult = await window.maniPdfApi.exportPdfWithAnnotations({
     input_path: tab.path,
-    output_path: r.path,
+    output_path: outputPath,
     canvases_px_by_page: canvases,
     annotations_by_page: annotationsByPage
   });
-  setStatus(exportResult?.ok ? "PDF exporté." : exportResult?.error || "Export PDF échoué.");
+  return exportResult;
+}
+
+async function savePdfAs() {
+  const tab = getActiveTab();
+  if (!tab) {
+    setStatus(t("stSaveAsNoPdf"));
+    return;
+  }
+  const suggested = buildSuggestedSaveAsName(tab);
+  const r = await window.maniPdfApi.savePdfAsDialog(suggested);
+  if (!r?.ok) {
+    if (!r?.cancelled) setStatus(r?.error || t("stSaveAsCancelled"));
+    return;
+  }
+
+  setStatus(t("stExporting"));
+  const exportResult = await exportActivePdfToPath(r.path);
+  if (exportResult?.ok) {
+    setStatus(t("stExported"));
+    try {
+      tab.isDirty = false;
+    } catch {
+      /* ignore */
+    }
+  } else if (exportResult?.error === "image_encode_failed") {
+    setStatus(t("stExportImageEncodeFailed"));
+  } else {
+    setStatus(exportResult?.error || t("stExportFailed"));
+  }
 }
 
 chrome.bind({
@@ -2632,6 +2682,13 @@ document.addEventListener("mousedown", (event) => {
 function isTypingContext(target) {
   if (!target) return false;
   const tag = target.tagName?.toLowerCase();
+  if (tag === "input") {
+    const type = String(target.type || "").toLowerCase();
+    // file / boutons : pas de saisie clavier — ne pas bloquer Ctrl+S, etc.
+    if (type === "file" || type === "button" || type === "submit" || type === "reset") {
+      return false;
+    }
+  }
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
@@ -2897,6 +2954,7 @@ try {
     tcm,
     pasteClipboardIntoActivePage,
     clickManiColorValidateButtonForInputId,
-    setLanguage
+    setLanguage,
+    exportActivePdfToPath
   });
 } catch {}

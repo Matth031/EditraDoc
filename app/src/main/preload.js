@@ -24,7 +24,16 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   },
   saveSession: (payload) => ipcRenderer.invoke("session:save", payload),
   loadSession: () => ipcRenderer.invoke("session:load"),
-  savePdfAsDialog: (suggestedName) => ipcRenderer.invoke("dialog:savePdfAs", suggestedName),
+  savePdfAsDialog: (suggestedName) => {
+    // Mode tests e2e : bypass dialogue natif (chemin fixe).
+    try {
+      const e2eSave = process?.env?.MANI_PDF_E2E_SAVE_AS_PATH;
+      if (e2eSave && typeof e2eSave === "string") {
+        return Promise.resolve({ ok: true, path: e2eSave });
+      }
+    } catch {}
+    return ipcRenderer.invoke("dialog:savePdfAs", suggestedName);
+  },
   exportPdfWithAnnotations: (payload) => ipcRenderer.invoke("pdf:export-with-annotations", payload),
   createJob: (input) => ipcRenderer.invoke("job:create", input),
   listJobs: () => ipcRenderer.invoke("job:list"),
