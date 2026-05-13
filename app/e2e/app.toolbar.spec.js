@@ -10,7 +10,7 @@ const electronPath = require("electron");
 async function launchAppBare() {
   const app = await electron.launch({
     executablePath: electronPath,
-    args: ["."],
+    args: require("./electron-ci-env").electronLaunchArgs(),
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",

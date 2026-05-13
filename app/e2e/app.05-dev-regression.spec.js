@@ -22,7 +22,7 @@ function getRepoPdfFixture() {
 async function launchAppE2EBare() {
   const app = await electron.launch({
     executablePath: electronPath,
-    args: ["."],
+    args: require("./electron-ci-env").electronLaunchArgs(),
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
@@ -31,7 +31,10 @@ async function launchAppE2EBare() {
   });
   const page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage);
+  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
+    timeout: 90000,
+    polling: 250
+  });
   return { app, page };
 }
 
@@ -39,7 +42,7 @@ async function launchAppWithPdfFixture() {
   const pdfPath = getRepoPdfFixture();
   const app = await electron.launch({
     executablePath: electronPath,
-    args: ["."],
+    args: require("./electron-ci-env").electronLaunchArgs(),
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
@@ -49,7 +52,10 @@ async function launchAppWithPdfFixture() {
   });
   const page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage);
+  await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
+    timeout: 90000,
+    polling: 250
+  });
   return { app, page };
 }
 
