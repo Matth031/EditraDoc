@@ -122,7 +122,7 @@ test("export PDF : image raptor.png embarquée puis fichier supprimé", async ()
   await waitForPdfPagesRendered(page);
   assertPdfHasEmbeddedImageXObjects(outPdf);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
   fs.unlinkSync(outPdf);
   expect(fs.existsSync(outPdf)).toBe(false);
 });

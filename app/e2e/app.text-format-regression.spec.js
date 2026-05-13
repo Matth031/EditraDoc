@@ -71,7 +71,7 @@ test("sans sélection : Gras couvre tout le texte", async () => {
     { timeout: 10000 }
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("sans sélection : Italique couvre tout le texte", async () => {
@@ -96,7 +96,7 @@ test("sans sélection : Italique couvre tout le texte", async () => {
     { timeout: 10000 }
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("sans sélection : Souligné couvre tout le texte", async () => {
@@ -123,5 +123,5 @@ test("sans sélection : Souligné couvre tout le texte", async () => {
     { timeout: 10000 }
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

@@ -90,7 +90,7 @@ test("colonne Ajouts: clic sélectionne l’annotation sur la page", async () =>
   );
   expect(stateId).toBe(ids[1]);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("colonne Ajouts + bouton supprimer retire les annotations", async () => {
@@ -112,5 +112,5 @@ test("colonne Ajouts + bouton supprimer retire les annotations", async () => {
   await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(0);
   await expect(page.locator("#changesList .change-item")).toHaveCount(0);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

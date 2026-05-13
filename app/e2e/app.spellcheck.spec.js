@@ -47,7 +47,7 @@ test("IPC spellcheckAnalyze détecte « trste » en fr-FR", async () => {
   expect(res.errors.length).toBeGreaterThan(0);
   const w = res.errors.find((e) => e.word === "trste");
   expect(w).toBeTruthy();
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("annotation texte : même chaîne analysée que l’utilisateur (je suis trste)", async () => {
@@ -76,5 +76,5 @@ test("annotation texte : même chaîne analysée que l’utilisateur (je suis tr
   expect(res?.ok).toBe(true);
   expect((res?.errors || []).length).toBeGreaterThan(0);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

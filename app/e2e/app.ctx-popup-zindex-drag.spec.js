@@ -103,7 +103,7 @@ test("z-index: modale couleur au-dessus du menu Forme + Valider visible", async 
   await page.locator("#maniColorModalClose").click();
   await expect(colorModal).toBeHidden({ timeout: 3000 });
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("saisie manuelle dans le menu Forme: le menu reste ouvert (focus)", async () => {
@@ -133,7 +133,7 @@ test("saisie manuelle dans le menu Forme: le menu reste ouvert (focus)", async (
   await expect(shapeMenu).toBeVisible();
   await expect(shapeMenu).not.toHaveClass("hidden");
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("glisser le titre déplace le menu Forme", async () => {
@@ -179,7 +179,7 @@ test("glisser le titre déplace le menu Forme", async () => {
   const moved = Math.abs(after.left - before.left) + Math.abs(after.top - before.top);
   expect(moved, "le menu doit avoir bougé après drag depuis le titre").toBeGreaterThan(20);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("hooks couleur: maniAfterColorCommit et openManiColorPicker définis", async () => {
@@ -197,7 +197,7 @@ test("hooks couleur: maniAfterColorCommit et openManiColorPicker définis", asyn
       typeof window.openManiColorPicker === "function"
   );
   expect(ok).toBe(true);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("nuancier: Valider applique #ff0000 au remplissage + menu Forme reste ouvert", async () => {
@@ -237,7 +237,7 @@ test("nuancier: Valider applique #ff0000 au remplissage + menu Forme reste ouver
   }, id);
   expect(String(fill || "").toLowerCase()).toBe("#ff0000");
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("applyPanelColorForTest: même pipeline que le nuancier (remplissage ctx)", async () => {
@@ -269,5 +269,5 @@ test("applyPanelColorForTest: même pipeline que le nuancier (remplissage ctx)",
   }, id);
   expect(String(fill || "").toLowerCase()).toBe("#2ecc71");
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

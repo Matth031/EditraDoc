@@ -104,7 +104,7 @@ expect.extend({
 test("app boots and shows title", async () => {
   const { app, page } = await launchApp();
   await expect(page.locator("h1")).toHaveText("EditraDoc");
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("load PDF, remove tab, add and edit text", async () => {
@@ -255,5 +255,5 @@ test("load PDF, remove tab, add and edit text", async () => {
   await page.locator("#changesList .change-item").first().click();
   await expect(page.locator("#annotationLayer .annotation.text.selected")).toHaveCount(1);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

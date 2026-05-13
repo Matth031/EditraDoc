@@ -79,7 +79,7 @@ test("i18n: écran d’accueil + colonnes + tooltips (EN)", async () => {
   await expect(page.locator("#addTextBtn")).toContainText("Text");
   const tt = await page.locator("#zoomInBtn").getAttribute("data-tooltip");
   expect(tt || "").toMatch(/zoom/i);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("i18n: menu contextuel texte + modal couleur (ES)", async () => {
@@ -88,7 +88,7 @@ test("i18n: menu contextuel texte + modal couleur (ES)", async () => {
   await expect(page.locator("#ctxTextMenuTitle")).toHaveText("Texto");
   await expect(page.locator("#maniColorModalTitle")).toHaveText("Color");
   await expect(page.locator("#maniColorValidateBtn")).toHaveText("Aplicar");
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("i18n: split + formes après ouverture PDF (PT)", async () => {
@@ -115,7 +115,7 @@ test("i18n: split + formes après ouverture PDF (PT)", async () => {
   const firstShapeBtn = page.locator("#shapeGrid button[data-shape='rect']").first();
   await expect(firstShapeBtn).toContainText("Retangulo");
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("i18n: document.documentElement.lang suit la langue UI", async () => {
@@ -124,5 +124,5 @@ test("i18n: document.documentElement.lang suit la langue UI", async () => {
   await expect(page.locator(":root")).toHaveAttribute("lang", /fr/);
   await page.evaluate(() => window.__maniE2E.setLanguage("en"));
   await expect(page.locator(":root")).toHaveAttribute("lang", /en/);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

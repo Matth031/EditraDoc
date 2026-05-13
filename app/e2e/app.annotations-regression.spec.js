@@ -77,7 +77,7 @@ test("pas de champs Largeur/Hauteur/Rotation/Opacite globaux dans le header", as
   await expect(page.locator("#propRotation")).toHaveCount(0);
   await expect(page.locator("#propOpacity")).toHaveCount(0);
   await expect(page.locator("#pdfToolsBtn")).toHaveCount(0);
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("forme etoile: rendu SVG + menu contextuel (rotation, opacite)", async () => {
@@ -126,7 +126,7 @@ test("forme etoile: rendu SVG + menu contextuel (rotation, opacite)", async () =
     { timeout: 10000 }
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("image: menu contextuel rotation / opacite", async () => {
@@ -168,7 +168,7 @@ test("image: menu contextuel rotation / opacite", async () => {
     { timeout: 10000 }
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("texte: menu contextuel contient rotation et opacite", async () => {
@@ -189,7 +189,7 @@ test("texte: menu contextuel contient rotation et opacite", async () => {
   await expect(textMenu.locator("#ctxTextRotation")).toBeVisible();
   await expect(textMenu.locator("#ctxTextOpacity")).toBeVisible();
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("Options (barre F10): section Outils PDF + Fusion avec un seul PDF (message attendu)", async () => {
@@ -207,5 +207,5 @@ test("Options (barre F10): section Outils PDF + Fusion avec un seul PDF (message
   await page.locator("#toolbarOptionsMenu #mergeBtn").click();
   await expect(page.locator("#statusText")).toContainText(/Fusion|2 PDF|PDF/i, { timeout: 10000 });
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

@@ -62,5 +62,5 @@ test("clic droit sur canvas vierge -> menu -> ajouter texte", async () => {
   await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(1, {
     timeout: 15000
   });
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

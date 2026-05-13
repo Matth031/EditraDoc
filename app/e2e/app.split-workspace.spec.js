@@ -91,7 +91,7 @@ test("Split: overlay visible, deux groupes, miniatures = nombre de pages, Echap 
   await page.keyboard.press("Escape");
   await expect(overlay).toBeHidden();
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("Split: bouton + Groupe ajoute un groupe (groupe 3)", async () => {
@@ -113,7 +113,7 @@ test("Split: bouton + Groupe ajoute un groupe (groupe 3)", async () => {
     .inputValue();
   expect(lastGroupName).toMatch(/groupe\s*3/i);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("annotation: transform-origin aligné coin haut-gauche (rotation / resize)", async () => {
@@ -133,5 +133,5 @@ test("annotation: transform-origin aligné coin haut-gauche (rotation / resize)"
   expect(origin).toBeTruthy();
   expect(String(origin).startsWith("0px")).toBeTruthy();
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

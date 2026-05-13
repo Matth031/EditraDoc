@@ -88,7 +88,7 @@ test.describe("Formes : taille minimale (CSS + modèle)", () => {
       expect(css[t].minHeight, `${t} min-height`).toBe("0px");
     }
 
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   });
 
   test("modèle + DOM: rectangle peut descendre à quelques px (pas le plancher CSS 90×60)", async () => {
@@ -124,7 +124,7 @@ test.describe("Formes : taille minimale (CSS + modèle)", () => {
     expect(dims.offsetW).toBeGreaterThan(0);
     expect(dims.offsetH).toBeGreaterThan(0);
 
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   });
 });
 
@@ -149,7 +149,7 @@ test.describe("Menus contextuels : clic droit sans sélection préalable", () =>
     await expect(menu).toBeVisible({ timeout: 8000 });
     await expect(menu.locator("#ctxShapeRotation")).toBeVisible();
 
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   });
 
   test("image: menu image visible", async () => {
@@ -172,7 +172,7 @@ test.describe("Menus contextuels : clic droit sans sélection préalable", () =>
     await expect(menu).toBeVisible({ timeout: 8000 });
     await expect(menu.locator("#ctxImageRotation")).toBeVisible();
 
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   });
 
   test("texte: menu texte visible", async () => {
@@ -197,6 +197,6 @@ test.describe("Menus contextuels : clic droit sans sélection préalable", () =>
     await expect(menu).toBeVisible({ timeout: 8000 });
     await expect(menu.locator("#ctxTextRotation")).toBeVisible();
 
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   });
 });

@@ -44,29 +44,56 @@ function waitForBareI18nTimeoutMs() {
 }
 
 /**
+ * @param {import("child_process").ChildProcess | null} proc
+ */
+function killElectronProcess(proc) {
+  if (!proc || typeof proc.kill !== "function" || proc.killed) return;
+  try {
+    proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Playwright peut résoudre `app.close()` avant que le PID enfant ait émis `exit`
+ * (ex. sous-processus Python). `gracefullyCloseAll()` au shutdown du worker attend
+ * alors encore ce PID → « Worker teardown timeout ».
+ * @param {import("child_process").ChildProcess | null} proc
+ * @param {number} maxWaitMs
+ */
+async function waitChildExitOrKill(proc, maxWaitMs) {
+  if (!proc) return;
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (proc.exitCode != null || proc.signalCode != null || proc.killed) return;
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  killElectronProcess(proc);
+}
+
+/**
  * Ferme l’app Playwright Electron ; sous xvfb/CI, `app.close()` peut ne jamais résoudre
- * (processus bloqué) et déclencher « Worker teardown timeout ».
+ * (processus bloqué) ou laisser le PID vivre → « Worker teardown timeout ».
  * @param {import("@playwright/test").ElectronApplication} app
  * @param {number} [closeMs]
  */
-async function closeElectronApp(app, closeMs = 15000) {
+async function closeElectronApp(app, closeMs) {
+  const ms = closeMs ?? (process.env.CI ? 25000 : 12000);
   const proc = typeof app.process === "function" ? app.process() : null;
   try {
     await Promise.race([
       app.close(),
       new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Electron app.close() timeout")), closeMs);
+        setTimeout(() => reject(new Error("Electron app.close() timeout")), ms);
       })
     ]);
   } catch {
-    try {
-      if (proc && typeof proc.kill === "function" && !proc.killed) {
-        proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
-      }
-    } catch {
-      /* ignore */
-    }
+    killElectronProcess(proc);
     await app.close().catch(() => {});
+  }
+  if (process.env.CI) {
+    await waitChildExitOrKill(proc, 12000);
   }
 }
 

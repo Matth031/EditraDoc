@@ -97,5 +97,5 @@ test("toolbar HTML: masquée hors plein écran, F10/F11 via main", async () => {
   );
   expect(await getComputedDisplay(page, "#appToolbar")).toBe("none");
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
