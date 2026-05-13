@@ -55,9 +55,6 @@
     toolbarOptionsBtn: "ttToolbarOptions",
     mergeBtn: "ttMerge",
     splitBtn: "ttSplit",
-    compressBtn: "ttCompress",
-    protectBtn: "ttProtect",
-    unprotectBtn: "ttUnprotect",
     toolbarAboutMenuItem: "ttAboutMenu",
     toolbarSessionLogMenuItem: "ttSessionLog",
     toolbarAboutBtn: "ttAboutBtn",
@@ -187,9 +184,6 @@
       aboutCreditsEl,
       mergeBtn,
       splitBtn,
-      compressBtn,
-      protectBtn,
-      unprotectBtn,
       pageInfo,
       toolbarF10Hint,
       shapeModal,
@@ -247,9 +241,6 @@
     try {
       if (mergeBtn) mergeBtn.textContent = t("merge");
       if (splitBtn) splitBtn.textContent = t("split");
-      if (compressBtn) compressBtn.textContent = t("compress");
-      if (protectBtn) protectBtn.textContent = t("protect");
-      if (unprotectBtn) unprotectBtn.textContent = t("unprotect");
     } catch {
       /* ignore */
     }

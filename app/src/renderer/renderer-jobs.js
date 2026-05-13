@@ -214,61 +214,6 @@
     requireDeps().openSplitWorkspace();
   }
 
-  async function createCompressJob() {
-    const d = requireDeps();
-    const tab = d.getActiveTab();
-    if (!tab) {
-      d.setStatus(d.t("stCompressNoPdf"));
-      return;
-    }
-    const outputPath = buildDefaultOutputPath(tab.path, "compressed");
-    await enqueuePdfJob(
-      "compress",
-      { input_path: tab.path, output_path: outputPath },
-      d.t("stCompressJobAdded")
-    );
-  }
-
-  async function createProtectJob() {
-    const d = requireDeps();
-    const tab = d.getActiveTab();
-    if (!tab) {
-      d.setStatus(d.t("stProtectNoPdf"));
-      return;
-    }
-    const password = window.prompt(d.t("promptProtectPassword"), "");
-    if (!password) {
-      d.setStatus(d.t("stProtectCancelled"));
-      return;
-    }
-    const outputPath = buildDefaultOutputPath(tab.path, "protected");
-    await enqueuePdfJob(
-      "protect",
-      { input_path: tab.path, output_path: outputPath, password },
-      d.t("stProtectJobAdded")
-    );
-  }
-
-  async function createUnprotectJob() {
-    const d = requireDeps();
-    const tab = d.getActiveTab();
-    if (!tab) {
-      d.setStatus(d.t("stUnprotectNoPdf"));
-      return;
-    }
-    const password = window.prompt(d.t("promptUnprotectPassword"), "");
-    if (password === null) {
-      d.setStatus(d.t("stUnprotectCancelled"));
-      return;
-    }
-    const outputPath = buildDefaultOutputPath(tab.path, "unprotected");
-    await enqueuePdfJob(
-      "unprotect",
-      { input_path: tab.path, output_path: outputPath, password },
-      d.t("stUnprotectJobAdded")
-    );
-  }
-
   window.__editifyJobs = {
     bind,
     buildDefaultOutputPath,
@@ -277,9 +222,6 @@
     refreshSensitiveActions,
     refreshPythonHealth,
     createMergeJob,
-    createSplitJob,
-    createCompressJob,
-    createProtectJob,
-    createUnprotectJob
+    createSplitJob
   };
 })();

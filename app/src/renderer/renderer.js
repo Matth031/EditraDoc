@@ -24,7 +24,7 @@
  * - `renderer-text-ctx-menu.js` : menu contextuel texte + orthographe (`window.__editifyTextCtxMenu` + `bind()` après `syncPropertyInputs`).
  * - `renderer-shape-image-ctx-menu.js` : menus forme + image (`window.__editifyShapeImageCtxMenu`, `sim.bind()` avant `tcm.bind()`).
  * - `renderer-split-workspace.js` : overlay Split par groupes (`window.__editifySplitWorkspace`, `sw.bind()` après `jobs.bind()` / `enqueuePdfJob`).
- * - `renderer-jobs.js` : file d'attente PDF, journal session + toasts (merge/compress/protect…) (`window.__editifyJobs`, `jobs.bind()` avant `sw.bind()`).
+ * - `renderer-jobs.js` : file d'attente PDF, journal session + toasts (merge/split…) (`window.__editifyJobs`, `jobs.bind()` avant `sw.bind()`).
  * - `renderer-app-chrome.js` : barre d’outils HTML, menus, À propos, menu canvas vierge (`window.__editifyAppChrome`, `chrome.bind()` après `savePdfAs`).
  * - `renderer-tooltips.js` : infobulles `[data-tooltip]` (`window.__editifyTooltips`, `tooltips.bind()` après `sw.bind()`).
  * - `renderer-session.js` : persistance session onglets/annotations (`window.__editifySession`, `session.bind()` après `__editifySidebars.bind()`).
@@ -155,9 +155,6 @@ const blankCanvasCtxMenu = document.getElementById("blankCanvasCtxMenu");
 const blankAddTextBtn = document.getElementById("blankAddTextBtn");
 const blankAddShapeBtn = document.getElementById("blankAddShapeBtn");
 const blankAddImageBtn = document.getElementById("blankAddImageBtn");
-const compressBtn = document.getElementById("compressBtn");
-const protectBtn = document.getElementById("protectBtn");
-const unprotectBtn = document.getElementById("unprotectBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomInfo = document.getElementById("zoomInfo");
@@ -2481,9 +2478,6 @@ i18nApply.bind({
   aboutCreditsEl,
   mergeBtn,
   splitBtn,
-  compressBtn,
-  protectBtn,
-  unprotectBtn,
   pageInfo,
   toolbarF10Hint,
   shapeModal,
@@ -2570,18 +2564,6 @@ mergeBtn?.addEventListener?.("click", () => {
 splitBtn?.addEventListener?.("click", () => {
   chrome.closeAllFlyoutMenus();
   jobs.createSplitJob();
-});
-compressBtn?.addEventListener?.("click", () => {
-  chrome.closeAllFlyoutMenus();
-  void jobs.createCompressJob();
-});
-protectBtn?.addEventListener?.("click", () => {
-  chrome.closeAllFlyoutMenus();
-  void jobs.createProtectJob();
-});
-unprotectBtn?.addEventListener?.("click", () => {
-  chrome.closeAllFlyoutMenus();
-  void jobs.createUnprotectJob();
 });
 closeShapeModalBtn?.addEventListener?.("click", closeShapePicker);
 shapeModal?.addEventListener?.("mousedown", (event) => {
@@ -2889,9 +2871,6 @@ try {
     chrome.closeAllFlyoutMenus();
     if (action === "merge") void jobs.createMergeJob();
     else if (action === "split") jobs.createSplitJob();
-    else if (action === "compress") void jobs.createCompressJob();
-    else if (action === "protect") void jobs.createProtectJob();
-    else if (action === "unprotect") void jobs.createUnprotectJob();
   });
 } catch {
   /* ignore */

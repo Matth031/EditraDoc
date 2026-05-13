@@ -134,12 +134,6 @@ function loadSensitiveLog() {
   }
 }
 
-function appendSensitiveAction(entry) {
-  sensitiveActions.push(entry);
-  if (sensitiveActions.length > 200) sensitiveActions = sensitiveActions.slice(-200);
-  fs.writeFileSync(sensitiveLogPath, JSON.stringify(sensitiveActions, null, 2), "utf8");
-}
-
 function loadJobs() {
   try {
     if (!fs.existsSync(jobsStatePath)) return;
@@ -160,14 +154,7 @@ function persistJobs() {
 }
 
 /** Types de jobs autorisés (file d'attente → service Python local). */
-const ALLOWED_JOB_TYPES = new Set([
-  "merge",
-  "split",
-  "split_groups",
-  "compress",
-  "protect",
-  "unprotect"
-]);
+const ALLOWED_JOB_TYPES = new Set(["merge", "split", "split_groups"]);
 
 /**
  * Valide le payload avant mise en file (chemins existants, sorties co-localisées avec la source).
@@ -238,17 +225,6 @@ function validateJobPayload(jobType, payload) {
             }
           }
         }
-      }
-      return null;
-    }
-    case "compress":
-    case "protect":
-    case "unprotect": {
-      const e = requireExistingFile("PDF source", p.input_path);
-      if (e) return e;
-      if (!p.output_path || typeof p.output_path !== "string") return "Chemin de sortie requis.";
-      if (!isOutputPdfInSameDirectoryAsInput(p.input_path, p.output_path)) {
-        return "La sortie doit etre dans le meme dossier que le PDF source.";
       }
       return null;
     }
@@ -449,18 +425,6 @@ function createMenu() {
             {
               label: "Diviser",
               click: () => mainWindow?.webContents?.send?.("app:pdf-tool", "split")
-            },
-            {
-              label: "Compression",
-              click: () => mainWindow?.webContents?.send?.("app:pdf-tool", "compress")
-            },
-            {
-              label: "Protéger",
-              click: () => mainWindow?.webContents?.send?.("app:pdf-tool", "protect")
-            },
-            {
-              label: "Déprotéger",
-              click: () => mainWindow?.webContents?.send?.("app:pdf-tool", "unprotect")
             }
           ]
         }
@@ -640,9 +604,6 @@ async function processJobQueue() {
   if (next.type === "merge") route = "/merge";
   if (next.type === "split") route = "/split";
   if (next.type === "split_groups") route = "/split-groups";
-  if (next.type === "compress") route = "/compress";
-  if (next.type === "protect") route = "/protect";
-  if (next.type === "unprotect") route = "/unprotect";
 
   try {
     const result = await postToPython(route, next.payload);
@@ -660,16 +621,6 @@ async function processJobQueue() {
     next.progress = 100;
     next.error = error.message;
   } finally {
-    if (next.type === "protect" || next.type === "unprotect") {
-      appendSensitiveAction({
-        ts: new Date().toISOString(),
-        type: next.type,
-        status: next.status,
-        inputPath: next.payload?.input_path || null,
-        outputPath: next.payload?.output_path || null,
-        error: next.error || null
-      });
-    }
     activeJobId = null;
     persistJobs();
   }

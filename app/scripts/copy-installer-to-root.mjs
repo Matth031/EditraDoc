@@ -27,19 +27,22 @@ if (!files.length) {
   fail(`Aucun fichier .exe dans ${distDir}.`);
 }
 
-// Préférence : le setup du produit courant, sinon le plus récent.
-const setupFiles = files.filter((f) => /setup/i.test(f));
-const preferred =
-  setupFiles.find((f) => /editradoc/i.test(f)) ||
-  setupFiles
-    .map((name) => ({ name, mtimeMs: fs.statSync(path.join(distDir, name)).mtimeMs }))
-    .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.name ||
-  files
-    .map((name) => ({ name, mtimeMs: fs.statSync(path.join(distDir, name)).mtimeMs }))
-    .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.name;
+function sortByMtimeDesc(names) {
+  return [...names].sort(
+    (a, b) => fs.statSync(path.join(distDir, b)).mtimeMs - fs.statSync(path.join(distDir, a)).mtimeMs
+  );
+}
 
-const srcName = preferred;
-const src = path.join(distDir, srcName);
+// Plusieurs setups peuvent coexister (anciennes versions) : prendre le plus récent parmi EditraDoc, sinon le plus récent tout court.
+const setupFiles = files.filter((f) => /setup/i.test(f));
+const editraSetups = setupFiles.filter((f) => /editradoc/i.test(f));
+const preferred =
+  sortByMtimeDesc(editraSetups)[0] || sortByMtimeDesc(setupFiles)[0] || sortByMtimeDesc(files)[0];
+
+if (!preferred) {
+  fail("Impossible de determiner quel .exe copier.");
+}
+const src = path.join(distDir, preferred);
 
 fs.copyFileSync(src, dest);
 console.log(`[copy-installer-to-root] OK : ${path.relative(repoRoot, src)} -> ${destName}`);
