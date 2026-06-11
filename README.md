@@ -13,8 +13,15 @@ Puis :
 ✅ Aucun prérequis technique
 ✅ Pas besoin d’installer Node.js ou Python
 
-L'outil n'est pas encore signé, donc avertissement Windows à l'installation.
-Pas de panique ! Le code est open source, n'importe qui peut l'auditer (avec l'aide d'une IA s'il n'y connait rien) et vérifier qu'il est sain.
+L'outil n'est pas encore signé numériquement : Windows peut donc afficher un avertissement lors de l'installation.
+
+Cela ne signifie pas que l'application est dangereuse, mais simplement que Windows ne reconnaît pas encore l'éditeur.
+
+Pour limiter les risques :
+
+* téléchargez EditraDoc uniquement depuis ce dépôt GitHub officiel ;
+* le code source est public et peut être consulté ou audité ;
+* l'application fonctionne localement : vos PDF ne sont pas envoyés sur un service en ligne.
 
 ---
 
