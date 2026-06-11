@@ -13,6 +13,9 @@ Puis :
 ✅ Aucun prérequis technique
 ✅ Pas besoin d’installer Node.js ou Python
 
+L'outil n'est pas encore signé, donc avertissement Windows à l'installation.
+Pas de panique ! Le code est open source, n'importe qui peut l'auditer (avec l'aide d'une IA s'il n'y connait rien) et vérifier qu'il est sain.
+
 ---
 
 ## Ce que fait EditraDoc
