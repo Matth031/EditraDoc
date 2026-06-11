@@ -17,7 +17,7 @@ L'outil n'est pas encore signé numériquement : Windows peut donc afficher un a
 
 Cela ne signifie pas que l'application est dangereuse, mais simplement que Windows ne reconnaît pas encore l'éditeur.
 
-Pour limiter les risques :
+Pour installer EditraDoc en confiance :
 
 * téléchargez EditraDoc uniquement depuis ce dépôt GitHub officiel ;
 * le code source est public et peut être consulté ou audité ;
