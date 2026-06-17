@@ -5,3 +5,5 @@ scripts/_html-convert-runner.cjs
 scripts/spikes/**/out/
 scripts/spikes/**/_electron-runner.cjs
 scripts/spikes/**/_analyze_pdfs.py
+e2e/fixtures/html/*.pdf
+e2e/fixtures/html/*.convert-result.json

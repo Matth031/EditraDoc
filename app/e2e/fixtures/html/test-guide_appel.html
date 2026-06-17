@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guide d'appel commercial - MindRampart</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f3;
+  --card: #fff;
+  --text: #1a1a18;
+  --muted: #6b6b63;
+  --border: #e2e0d8;
+  --cl-bg: #EEF2FF; --cl-bord: #C7D2FE; --cl-text: #3730A3;
+  --matt-bg: #ECFDF5; --matt-bord: #6EE7B7; --matt-text: #065F46;
+  --pts-bg: #FFFBEB; --pts-bord: #FCD34D; --pts-text: #78350F;
+  --warn-bg: #FFF7ED; --warn-bord: #FED7AA; --warn-text: #9A3412;
+  --ok-bg: #ECFDF5; --ok-bord: #6EE7B7; --ok-text: #065F46;
+  --obj-bg: #FFF7ED; --obj-bord: #FED7AA; --obj-text: #9A3412;
+  --tiede-bg: #FFFBEB; --tiede-bord: #FCD34D; --tiede-text: #78350F;
+  --froid-bg: #F1F5F9; --froid-bord: #CBD5E1; --froid-text: #334155;
+  --accent: #534AB7;
+  --green: #085041;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+/* HEADER */
+.hd {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(248,247,243,0.96); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 11px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.hd-left h1 { font-size: 15px; font-weight: 600; }
+.hd-left p { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.btn-reset {
+  flex-shrink: 0;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 7px 16px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+/* LAYOUT */
+.main { max-width: 880px; margin: 0 auto; padding: 28px 24px 80px; }
+
+/* SECTION TITLE */
+.stitle {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 32px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.stitle::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.stitle:first-child { margin-top: 0; }
+
+/* PITCH CARD */
+.pitch {
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 4px solid var(--accent); border-radius: 10px;
+  padding: 18px 20px;
+}
+.pitch .plabel {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--accent); margin-bottom: 10px;
+}
+.pitch .pscript {
+  font-size: 15px; line-height: 1.75; font-style: italic; color: var(--text);
+}
+.pitch .pscript strong { font-style: normal; color: var(--accent); }
+.pitch .pnotes {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.pitch .pnotes span {
+  font-size: 12px; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 11px;
+}
+
+/* BRANCH SYSTEM */
+.branches { display: flex; flex-direction: column; gap: 6px; }
+
+/* CLIENT TRIGGER */
+.cbtn {
+  width: 100%; text-align: left;
+  background: var(--cl-bg); border: 1px solid var(--cl-bord);
+  border-radius: 9px; padding: 10px 14px;
+  display: flex; align-items: flex-start; gap: 10px;
+  cursor: pointer; font-size: 13.5px; color: var(--cl-text);
+  font-weight: 500; font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+.cbtn:hover { background: #E0E7FF; border-color: #A5B4FC; }
+.cbtn.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+.cbtn .ch {
+  font-size: 10px; flex-shrink: 0; width: 14px; margin-top: 3px;
+  transition: transform 0.2s; opacity: 0.65;
+}
+.cbtn.open .ch { transform: rotate(90deg); }
+.ctag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; flex-shrink: 0;
+  background: var(--cl-bord); color: var(--cl-text);
+  padding: 2px 7px; border-radius: 4px; margin-top: 1px;
+}
+.cbtn.obj-btn { background: var(--obj-bg); border-color: var(--obj-bord); color: var(--obj-text); }
+.cbtn.obj-btn:hover { background: #FEF3C7; }
+.cbtn.obj-btn .ctag { background: var(--obj-bord); color: var(--obj-text); }
+.cbtn.obj-btn.open { border-bottom-color: transparent; }
+.cbtn.chaud { background: var(--ok-bg); border-color: var(--ok-bord); color: var(--ok-text); }
+.cbtn.chaud:hover { background: #D1FAE5; }
+.cbtn.chaud .ctag { background: var(--ok-bord); color: var(--ok-text); }
+.cbtn.chaud.open { border-bottom-color: transparent; }
+.cbtn.tiede { background: var(--tiede-bg); border-color: var(--tiede-bord); color: var(--tiede-text); }
+.cbtn.tiede:hover { background: #FEF3C7; }
+.cbtn.tiede .ctag { background: var(--tiede-bord); color: var(--tiede-text); }
+.cbtn.tiede.open { border-bottom-color: transparent; }
+.cbtn.froid { background: var(--froid-bg); border-color: var(--froid-bord); color: var(--froid-text); }
+.cbtn.froid:hover { background: #E2E8F0; }
+.cbtn.froid .ctag { background: var(--froid-bord); color: var(--froid-text); }
+.cbtn.froid.open { border-bottom-color: transparent; }
+
+/* BRANCH BODY */
+.bbody {
+  display: none; padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--cl-bord); border-top: none;
+  border-bottom-left-radius: 9px; border-bottom-right-radius: 9px;
+}
+.bbody.visible { display: block; }
+.bbody.obj { border-color: var(--obj-bord); }
+.bbody.chaud { border-color: var(--ok-bord); }
+.bbody.tiede { border-color: var(--tiede-bord); }
+.bbody.froid { border-color: var(--froid-bord); }
+
+/* CARDS INSIDE BODY */
+.matt {
+  background: var(--matt-bg); border: 1px solid var(--matt-bord);
+  border-radius: 8px; padding: 13px 15px; margin-bottom: 10px;
+}
+.matt .clabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #059669; margin-bottom: 7px; }
+.matt .script { font-size: 14.5px; line-height: 1.75; font-style: italic; color: var(--matt-text); }
+
+.pts {
+  background: var(--pts-bg); border: 1px solid var(--pts-bord);
+  border-radius: 8px; padding: 11px 15px; margin-bottom: 14px;
+}
+.pts .clabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #D97706; margin-bottom: 8px; }
+.pts ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.pts ul li { font-size: 13px; color: var(--pts-text); padding-left: 17px; position: relative; }
+.pts ul li::before { content: '→'; position: absolute; left: 0; color: #F59E0B; font-size: 11px; top: 2px; }
+
+.warn {
+  background: var(--warn-bg); border: 1px solid var(--warn-bord);
+  border-radius: 7px; padding: 9px 13px; margin-bottom: 10px;
+  font-size: 12.5px; color: var(--warn-text);
+}
+.warn strong { font-weight: 600; }
+
+.ok-flag {
+  background: #ECFDF5; border: 1px solid #6EE7B7;
+  border-radius: 7px; padding: 9px 13px; margin-bottom: 10px;
+  font-size: 12.5px; color: #065F46;
+}
+.ok-flag strong { font-weight: 600; }
+
+/* SUB BRANCHES */
+.sublabel {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--muted); margin-bottom: 7px;
+}
+.subbranches {
+  border-left: 2px solid var(--cl-bord);
+  padding-left: 12px; margin-left: 4px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.subbranches .cbtn { font-size: 13px; padding: 9px 12px; }
+.subbranches .bbody { padding: 11px 13px; }
+.subbranches .matt .script { font-size: 13.5px; }
+.subbranches .pts ul li { font-size: 12.5px; }
+
+.rule {
+  font-size: 12.5px; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+}
+.rule strong { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="hd-left">
+    <h1>Guide d'appel commercial - MindRampart</h1>
+    <p>Cliquez sur une reponse client pour derouler la suite de la conversation</p>
+  </div>
+  <button class="btn-reset" onclick="collapseAll()">&#8635; Tout replier</button>
+</header>
+
+<main class="main">
+
+  <!-- ACCROCHE -->
+  <div class="stitle" style="margin-top:0">Phrase d'accroche - toujours la meme</div>
+  <div class="pitch">
+    <div class="plabel">Vous dites en ouvrant l'appel</div>
+    <p class="pscript">
+      &laquo; Bonjour <strong>[Prenom]</strong>, je suis Matt De Forni, consultant en automatisation IA securisee pour les PME de la region. Je vous appelle parce que <strong>[contexte bref : secteur, recommandation, evenement]</strong>. Je ne vais pas vous prendre longtemps - juste une question : est-ce que l'IA, c'est un sujet que vous avez deja commence a explorer dans votre entreprise ? &raquo;
+    </p>
+    <div class="pnotes">
+      <span>Preparer le contexte avant chaque appel</span>
+      <span>Terminer sur une question ouverte</span>
+      <span>Silence apres la question - laisser repondre</span>
+      <span>Ton : curieux, pas commercial</span>
+    </div>
+  </div>
+
+  <!-- PHASE 1 -->
+  <div class="stitle">Phase 1 - Reponse du client</div>
+  <div class="branches">
+
+    <!-- 1. Non pas du tout -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Non, on n'a pas du tout commence &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; C'est en fait une bonne position de depart - vous partez sans mauvaises habitudes. La majorite des PME qui ont essaye seules ont ensuite du tout retravailler. Qu'est-ce qui vous a retenu jusqu'ici ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Retourner le retard en avantage (pas de mauvaises habitudes)</li>
+            <li>La question "qu'est-ce qui vous a retenu" ouvre le vrai diagnostic</li>
+            <li>Ecouter attentivement : la reponse donne le levier de la suite</li>
+          </ul>
+        </div>
+        <div class="sublabel">Suite selon leur reponse</div>
+        <div class="subbranches">
+
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Pas le temps / on est debordes &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est justement pour ca que mon diagnostic est calibre pour etre leger : 2h chez vous, je ressors avec ce que l'IA peut faire concretement pour votre equipe, priorise par impact immediat. Pas besoin de mobiliser toute votre equipe. Est-ce qu'on peut prevoir un echange de 20 min cette semaine pour voir si ca a du sens ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Minimiser l'effort percu : "2h", "pas mobiliser toute l'equipe"</li>
+                  <li>Proposer un premier engagement tres leger : l'echange de 20 min</li>
+                  <li>Objectif de l'appel = le RDV de 20 min, pas vendre le diagnostic</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On ne sait pas par ou commencer &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est exactement mon role. Je ne viens pas vendre un outil - je viens d'abord comprendre vos douleurs operationnelles reelles, puis cartographier ce qui a du sens pour votre metier. En 2h on a une vision claire et priorisee. On peut prevoir ca ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Se positionner comme guide / cartographe, pas vendeur d'outil</li>
+                  <li>"Douleurs operationnelles" = langage client, pas jargon IA</li>
+                  <li>Enchainer directement vers la prise de RDV</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On n'a pas vu la necessite / ca marche bien comme ca &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; Je comprends. Juste une question rapide : est-ce qu'il y a dans vos equipes des taches repetitives - saisie, reporting, redaction de documents - qui prennent du temps sans vraie valeur ajoutee ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Ne pas argumenter sur l'IA en general : descendre au concret immediat</li>
+                  <li>La tache repetitive = ouverture quasi-universelle en PME</li>
+                  <li>S'ils repondent "oui" : la necessite se justifie d'elle-meme</li>
+                  <li>S'ils repondent "non" : dequalifier proprement et prendre conge</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On n'a pas le budget pour ca &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; Compris. Juste pour calibrer : quel serait un investissement qui vous semblerait raisonnable pour identifier deux ou trois automatisations qui font gagner 2h par semaine a votre equipe ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Ne pas defendre le prix avant qu'il soit demande</li>
+                  <li>La question retourne la charge : c'est eux qui ancrent la valeur</li>
+                  <li>Si reponse absurde : dequalifier proprement</li>
+                  <li>Si budget serieux mais limite : mentionner les financements OPCO</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. On y reflechit -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; On regarde ca / on commence a y reflechir &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Tres bien. Qu'est-ce qui vous a amene a vous poser la question ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Question ouverte sur leur motivation reelle - ne pas devancer la reponse</li>
+            <li>Identifier l'origine : pression concurrentielle, interne, reglementaire, media</li>
+            <li>L'origine donne l'angle juste pour la suite</li>
+          </ul>
+        </div>
+        <div class="sublabel">Suite selon leur reponse</div>
+        <div class="subbranches">
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Un concurrent l'utilise / on voit ca partout &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est un signal que le marche bouge. La vraie question, c'est : est-ce que vos concurrents l'utilisent vraiment de facon structuree, ou est-ce qu'ils font comme tout le monde - quelques essais sans vraie strategie ? Mon diagnostic permet justement de distinguer ce qui produit un vrai avantage concurrentiel de ce qui n'est que de la communication. &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Ne pas valider la peur irrationnelle ("tout le monde le fait")</li>
+                  <li>Positionner le diagnostic comme reponse a la question strategique reelle</li>
+                  <li>Angle : "ce qui produit un avantage" vs "ce qui est de la com"</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Un employe en interne a commence a l'utiliser &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; Interessant. Est-ce que c'est un usage encadre par l'entreprise, ou plutot chacun qui fait a sa sauce avec ses comptes personnels ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Question de qualification : usage cadre ou shadow IT</li>
+                  <li>"Chacun a sa sauce" = signal fort de risque donnees - voir branche shadow IT</li>
+                  <li>Usage cadre : valoriser et se positionner en complement structurant</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Oui ChatGPT -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Oui, on utilise ChatGPT / des outils IA &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Interessant. C'est utilise par qui dans l'equipe, et pour quoi precisement ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne pas critiquer l'usage existant - valoriser d'abord</li>
+            <li>"Qui + quoi" = diagnostic en 10 secondes : revele le shadow IT ou l'usage superficiel</li>
+            <li>Ecouter sans interrompre</li>
+          </ul>
+        </div>
+        <div class="sublabel">Suite selon leur reponse</div>
+        <div class="subbranches">
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Chacun fait a sa sauce / usage perso sans cadre &raquo;
+            </button>
+            <div class="bbody">
+              <div class="warn"><strong>Signal fort :</strong> donnees professionnelles dans des outils grand public = risque RGPD et shadow IT non maitrise.</div>
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est le cas dans la grande majorite des PME que je rencontre. Ce que vous decrivez, c'est ce qu'on appelle le shadow IT - et ca cree deux problemes concrets : vos donnees professionnelles circulent dans des outils grand public sans controle RGPD, et l'efficacite reste tres en deca du possible. Est-ce que vous avez une idee du type de donnees que vos equipes mettent dans ces outils ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Nommer le phenomene "shadow IT" = credibilite immediate</li>
+                  <li>Poser le risque de facon factuelle, sans dramatiser</li>
+                  <li>La question sur les donnees = prise de conscience progressive</li>
+                  <li>Produit naturel : Diagnostic Automatisation IA avec volet securite</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On l'utilise pour [tache precise, usage cadre] &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est un bon debut. La valeur suivante est de connecter cet usage a vos process metier pour que ce soit systematique et securise, pas ponctuel. Est-ce que vous avez mesure ce que ca represente comme gain de temps aujourd'hui ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Valider l'usage existant - ne pas devaloriser ce qu'ils ont fait</li>
+                  <li>Ouvrir vers la systematisation et la securisation</li>
+                  <li>La question sur le gain mesure = ouverture naturelle vers le ROI</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On a Microsoft Copilot / un outil pro paye &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est bien. Est-ce que vos equipes l'utilisent vraiment au quotidien, ou c'est encore sous-utilise par rapport au potentiel ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Les outils pro sont souvent peu utilises faute d'accompagnement concret</li>
+                  <li>Si sous-utilise : Atelier IA pratique = produit naturel</li>
+                  <li>Si bien utilise : Audit des pratiques pour la securisation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Formation -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; On a eu une formation / on a essaye &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Et qu'est-ce que ca a donne en pratique ? Est-ce que votre equipe utilise vraiment l'IA au quotidien depuis ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Question directe sur le resultat reel - pas sur la qualite de la formation</li>
+            <li>La reponse honnete est presque toujours "pas vraiment"</li>
+            <li>Laisser le client l'admettre lui-meme - ne pas presupposer</li>
+          </ul>
+        </div>
+        <div class="sublabel">Suite selon leur reponse</div>
+        <div class="subbranches">
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Pas vraiment / ca n'a pas suivi / retour a la normale &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est le cas le plus frequent. Les formations generalistes ne tiennent pas parce qu'elles ne sont pas ancrees dans les vrais problemes metier. Ce n'est pas un probleme de motivation de vos equipes - c'est un probleme de methode. Mon atelier part directement de vos cas d'usage reels et on construit des automatisations qui tournent le jour meme. Vos equipes repartent avec quelque chose qui marche, pas des slides. &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Ne pas critiquer la formation precedente par son nom</li>
+                  <li>"Probleme de methode, pas de motivation" = deculpabilise le client</li>
+                  <li>Argument fort : "qui tourne le jour meme" - avoir un exemple concret pret</li>
+                  <li>Produit : Atelier IA pratique</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Ca marche a moitie / certains oui, d'autres non &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est classique. Les early adopters internes ont trouve leur chemin, mais il n'y a pas de cadre commun. Ca cree des inegalites dans l'equipe et des angles morts sur la securite des donnees. Est-ce que vous savez ce que font exactement ceux qui l'utilisent ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Identifier les champions internes : opportunite de s'appuyer sur eux</li>
+                  <li>L'absence de cadre = risque shadow IT potentiel a pointer</li>
+                  <li>Angle double : homogeneiser l'equipe + securiser les pratiques</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. On cherche quelqu'un -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; On cherche quelqu'un justement &raquo;
+      </button>
+      <div class="bbody">
+        <div class="ok-flag"><strong>Signal d'achat.</strong> Qualifier le besoin avant toute chose - ne pas passer en mode presentation.</div>
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Parfait. Pour que je comprenne votre besoin : c'est plutot pour automatiser des process, former vos equipes, ou securiser ce qui est deja en place ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Trois axes = trois offres differentes - qualifier avant de parler prix</li>
+            <li>Rester en mode ecoute, pas en mode presentation</li>
+          </ul>
+        </div>
+        <div class="sublabel">Selon leur besoin</div>
+        <div class="subbranches">
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Automatiser des process &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est exactement ce que couvre mon Diagnostic Automatisation IA. En 2h sur site, je cartographie vos process, j'identifie les automatisations a fort ROI, et vous avez un plan d'action priorise sous une semaine. C'est 1 500 euros HT. On peut prevoir ca quand ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Produit : Diagnostic Automatisation IA - 1 500 euros HT</li>
+                  <li>Donner le prix directement : il est accessible et clairement defini</li>
+                  <li>Aller directement vers la prise de RDV</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Former nos equipes &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; Mon Atelier IA pratique est fait pour ca - demi-journee ou journee complete, on part de vos cas d'usage metier reels et vos equipes repartent avec des outils qui fonctionnent. Combien de personnes vous pensez mobiliser ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Produit : Atelier IA pratique</li>
+                  <li>La question sur le groupe qualifie le volume et donc le tarif</li>
+                  <li>Ne pas donner de prix avant de connaitre le nombre de participants</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Securiser / verifier la conformite &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est mon Audit Flash IA - il couvre les pratiques internes, le cadre RGPD et les nouvelles obligations europeennes sur l'IA. La duree et le tarif dependent de votre taille. Vous etes combien de collaborateurs ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Produit : Audit Flash IA - TPE 4 500 euros HT / PME 7 000 euros HT</li>
+                  <li>Taille de l'entreprise obligatoire avant de donner un prix</li>
+                  <li>Ne pas entrer dans les details de l'AI Act : "nouvelles obligations europeennes" suffit</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Comment vous avez eu mon contact -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Comment vous avez eu mon contact ? &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; J'ai [cherche des PME actives dans votre secteur en Haute-Garonne / ete recommande par X / vu votre activite via LinkedIn]. Mon approche est tres locale - je travaille principalement dans un rayon de 100km autour de Toulouse, justement pour pouvoir intervenir rapidement sur site. &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Toujours avoir une reponse honnete et precise - preparer la raison avant chaque session d'appels</li>
+            <li>La proximite geographique est un argument de reassurance cle pour les PME</li>
+            <li>Ne jamais improviser sur la source du contact</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. C'est quoi votre diagnostic -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; C'est quoi concretement votre diagnostic ? &raquo;
+      </button>
+      <div class="bbody">
+        <div class="ok-flag"><strong>Signal positif.</strong> La question sur le contenu indique un interet reel. Enchainer vers le RDV apres la reponse.</div>
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; C'est une seance de 2h en entreprise : je passe en revue vos process cles, j'observe vos outils, je pose des questions sur votre quotidien operationnel. J'identifie 3 a 5 points d'entree IA a fort retour. Vous avez un livrable sous une semaine : les automatisations prioritaires, le niveau d'effort, et les risques a eviter. C'est actionnable immediatement. 1 500 euros HT. On peut prevoir ca ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Insister sur l'aspect concret et actionnable - pas un rapport academique</li>
+            <li>Mentionner le livrable = preuve tangible pour le client</li>
+            <li>Donner le prix directement - il est accessible</li>
+            <li>Enchainer immediatement vers la prise de RDV</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. C'est combien -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; C'est combien ? Vous avez des tarifs ? &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Mon Diagnostic Automatisation IA est a 1 500 euros HT - prestation a prix fixe, 2h sur site, livrable sous une semaine. Pour la formation equipes ou l'audit de conformite, ca depend de votre taille et de votre contexte - je prefere qu'on en parle apres avoir compris votre situation. Vous avez 2 minutes qu'on voit si ca a du sens pour vous ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Donner le prix du Diagnostic sans hesiter - son accessibilite est un avantage</li>
+            <li>Pour l'Atelier et l'Audit Flash : differer apres qualification obligatoire</li>
+            <li>Enchainer vers un echange court - ne pas clore l'appel sur le prix</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. Envoyez une plaquette -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Envoyez-moi une plaquette / une doc &raquo;
+      </button>
+      <div class="bbody">
+        <div class="warn"><strong>Attention.</strong> L'esquive "envoyez une doc" est souvent un refus poli. Obtenir un minimum d'info avant d'envoyer quoi que ce soit.</div>
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Bien sur. Pour que ce que je vous envoie soit vraiment pertinent, est-ce que vous pouvez me dire rapidement quel est votre principal defi en ce moment - organisation, productivite, ou conformite ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>La question filtre les vrais interesses des esquiveurs</li>
+            <li>Reponse substantielle = signal d'interet reel - qualifier et proposer RDV</li>
+            <li>Reponse vague : envoyer quand meme + relance J+7 maximum</li>
+            <li>Ne jamais envoyer sans noter la date de relance dans le CRM</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. Je dois en parler -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Je dois en parler avec mon associe / directeur / DSI &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Tout a fait logique. Pour faciliter cette conversation, est-ce qu'il vous serait utile que je prepare une note de 2 pages sur les enjeux specifiques a votre secteur ? Ca vous donne un support concret pour en discuter en interne. Et quand est-ce que vous pensez avoir une reponse ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Transformer l'attente passive en action : la note travaille a votre place</li>
+            <li>Obtenir une date de retour et la noter dans le CRM</li>
+            <li>Si "je ne sais pas" : proposer un rappel dans 10 jours</li>
+            <li>Ne jamais clore sans date</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11. Pas interesse -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; On n'est pas interesses / pas une priorite &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Je comprends. Avant qu'on se quitte, juste pour me situer : c'est parce que vous avez deja un partenaire sur ce sujet, ou parce que l'IA en general n'est pas une priorite en ce moment ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne jamais insister ou argumenter face a un refus direct</li>
+            <li>La question sert a comprendre : definitif ou conjoncturel ?</li>
+          </ul>
+        </div>
+        <div class="sublabel">Suite selon leur reponse</div>
+        <div class="subbranches">
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; On a deja quelqu'un pour ca &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; Tres bien. Est-ce que c'est quelqu'un de specialise en securite IA et conformite RGPD, ou plutot un generaliste ? Je vous pose la question parce que mon positionnement est specifiquement sur l'angle securite et conformite - qui est souvent le complement de ce que font les agences generalistes. &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Ne pas ceder immediatement : qualifier si le partenaire couvre vraiment tout</li>
+                  <li>L'angle securite / conformite est rarement couvert par les agences generalistes</li>
+                  <li>Si vraiment couvert : lacher proprement, rester en contact</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="branch">
+            <button class="cbtn" onclick="tog(this)">
+              <span class="ch">&#9654;</span>
+              <span class="ctag">Client</span>
+              &laquo; Pas une priorite / on verra plus tard &raquo;
+            </button>
+            <div class="bbody">
+              <div class="matt">
+                <div class="clabel">Vous dites</div>
+                <p class="script">&laquo; C'est note. Je vais vous envoyer une note courte sur les points de vigilance IA pour les PME de votre secteur - sans engagement, juste pour avoir un repere quand le sujet reviendra. Je peux vous relancer dans 3 mois ? &raquo;</p>
+              </div>
+              <div class="pts">
+                <div class="clabel">Points cles</div>
+                <ul>
+                  <li>Maintenir un contact utile : la note = valeur percue sans engagement</li>
+                  <li>Obtenir l'accord pour une relance et noter la date</li>
+                  <li>Cloturer proprement, sans insistance</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12. Gatekeeper -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Situation</span>
+        Secretaire / gardien - &laquo; Je vais lui transmettre votre message &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Merci. Pour que votre message soit precis : je suis Matt De Forni, consultant en automatisation IA securisee pour les PME. Mon sujet c'est comment faire gagner du temps aux equipes avec l'IA sans mettre les donnees de l'entreprise en danger. C'est [Prenom du dirigeant] lui-meme qui gere ce type de sujet ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne jamais laisser un message vague - donner une phrase qui accroche</li>
+            <li>La derniere question qualifie le bon interlocuteur</li>
+            <li>Si pas le bon : demander le nom et le contact direct</li>
+            <li>Proposer un rappel a un horaire precis plutot qu'attendre d'etre rappele</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13. References -->
+    <div class="branch">
+      <button class="cbtn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Client</span>
+        &laquo; Vous avez des references / des exemples clients ? &raquo;
+      </button>
+      <div class="bbody">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Oui. Sans citer de noms sans accord explicite, j'ai recemment accompagne une PME dans [secteur similaire] qui a identifie 3 automatisations permettant de gagner plusieurs heures par semaine sur des taches de reporting et de traitement de documents. Si vous souhaitez, je peux vous mettre en contact avec un client satisfait - c'est la meilleure preuve que je puisse vous donner. &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne jamais citer un client sans son accord explicite</li>
+            <li>Avoir 1 ou 2 exemples generiques prepares : secteur, resultat, sans nom</li>
+            <li>L'offre de mise en contact = signal fort de confiance et de transparence</li>
+            <li>Si pas encore de references locales : jouer la carte de la proximite et de la specialisation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- fin phase 1 -->
+
+  <!-- PHASE 2: OBJECTIONS -->
+  <div class="stitle">Phase 2 - Objections en cours de conversation</div>
+  <div class="branches">
+
+    <div class="branch">
+      <button class="cbtn obj-btn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Objection</span>
+        &laquo; C'est trop cher / on n'a pas le budget &raquo;
+      </button>
+      <div class="bbody obj">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Je comprends la reaction. Pour recadrer : mon diagnostic a 1 500 euros HT, c'est l'equivalent d'une a deux journees de consulting classique. Ce qu'il produit, c'est une cartographie precise de ce que l'IA peut faire pour vous, ce qu'elle ne peut pas faire, et par ou commencer. La vraie question c'est : combien vous coute aujourd'hui une heure de votre equipe sur des taches repetitives ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne jamais baisser le prix directement</li>
+            <li>Recadrer sur le ROI, pas sur le tarif</li>
+            <li>La question inversee : le client calcule lui-meme la valeur</li>
+            <li>Dernier recours si budget serieux : mentionner les financements OPCO</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn obj-btn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Objection</span>
+        &laquo; On s'en occupe en interne / on a quelqu'un en interne &raquo;
+      </button>
+      <div class="bbody obj">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; C'est une bonne initiative. La question c'est : votre equipe a-t-elle aussi le temps de gerer la partie securite des donnees et la conformite reglementaire ? C'est la ou la plupart des PME prennent des risques sans le savoir - les nouvelles obligations europeennes sur l'IA creent des contraintes concretes, et le RGPD s'applique a tous vos usages IA existants. &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Valider leur initiative - ne pas la critiquer</li>
+            <li>L'angle reglementaire et securite est rarement couvert en interne</li>
+            <li>Ne pas entrer dans les details de l'AI Act : "nouvelles obligations europeennes" suffit</li>
+            <li>Se positionner en complement, pas en concurrent de leur ressource interne</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn obj-btn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Objection</span>
+        &laquo; On travaille deja avec un prestataire informatique &raquo;
+      </button>
+      <div class="bbody obj">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Tres bien. Est-ce que ce partenaire a une expertise specifique en IA et conformite reglementaire, ou c'est plutot votre infrastructure et support informatique classique ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Les prestataires IT generalistes ne couvrent quasi jamais l'AI Act ou le shadow IT structure</li>
+            <li>Se positionner systematiquement en complement, jamais en concurrent</li>
+            <li>Si vraiment tout est couvert : lacher proprement, laisser une porte ouverte</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn obj-btn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Objection</span>
+        &laquo; On est trop petits pour ca / ca ne nous concerne pas &raquo;
+      </button>
+      <div class="bbody obj">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Au contraire - mon offre est calibree specifiquement pour les TPE et PME. C'est meme la que les gains sont les plus rapides, parce qu'il y a moins de couches, moins de processus internes. Une PME de 10 personnes peut implementer une automatisation en une semaine. Une grande entreprise met 6 mois. Vous etes combien de collaborateurs ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Retourner l'objection : la taille est un avantage, pas un handicap</li>
+            <li>La comparaison "1 semaine vs 6 mois" est concrete et parlante</li>
+            <li>La question sur la taille qualifie et relance la conversation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn obj-btn" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Objection</span>
+        &laquo; On a deja essaye, ca n'a pas marche pour nous &raquo;
+      </button>
+      <div class="bbody obj">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Je comprends. Qu'est-ce qui s'est passe exactement - c'etait quoi l'approche et pourquoi ca n'a pas tenu ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Ne pas defensivement valoriser votre propre approche - d'abord comprendre</li>
+            <li>La reponse revele souvent : mauvais outil, mauvaise formation, pas de suivi</li>
+            <li>Si formation generaliste sans ancrage metier : c'est votre argument naturel</li>
+            <li>Si shadow IT mal gere : aussi votre argument</li>
+            <li>Si vraiment echec structurel interne : dequalifier proprement</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PHASE 3: CLOTURE -->
+  <div class="stitle">Phase 3 - Cloture de l'appel</div>
+  <div class="rule"><strong>Regle absolue :</strong> chaque appel se termine par une action concrete de votre part ou de la leur. Jamais &laquo; je vous laisse y reflechir &raquo; sans date.</div>
+  <div class="branches">
+
+    <div class="branch">
+      <button class="cbtn chaud" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Chaud</span>
+        Interet clair - signal d'achat
+      </button>
+      <div class="bbody chaud">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Parfait. Je vous propose qu'on se voit [cette semaine / la semaine prochaine] pour un point de 30 minutes, en visio ou chez vous si vous etes dans le secteur. Je vous envoie une confirmation avec ma plaquette dans la foulee. Mardi ou jeudi, vous avez un creneau ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Proposer deux dates precises - facilite le "oui"</li>
+            <li>Envoyer confirmation + plaquette dans les 2h apres l'appel</li>
+            <li>Pas de "je vous laisse y reflechir" - cloturer sur une date</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn tiede" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Tiede</span>
+        Interet mais pas urgent
+      </button>
+      <div class="bbody tiede">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; Je comprends. Je vais vous envoyer [une note sectorielle sur les risques IA pour votre metier / le questionnaire shadow IA que j'utilise avec mes clients] - c'est court et souvent parlant. Et je vous rappelle dans 3 semaines. Vous preferez debut ou fin de semaine ? &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Garder le lien par un envoi concret et utile - pas la plaquette commerciale</li>
+            <li>La question sur le moment du rappel = engagement implicite a repondre</li>
+            <li>Ne jamais clore un tiede sans date de relance notee dans le CRM</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="branch">
+      <button class="cbtn froid" onclick="tog(this)">
+        <span class="ch">&#9654;</span>
+        <span class="ctag">Froid</span>
+        Non, pas interesse
+      </button>
+      <div class="bbody froid">
+        <div class="matt">
+          <div class="clabel">Vous dites</div>
+          <p class="script">&laquo; C'est note, merci pour votre temps. Je ne vous relance pas avant [2 a 6 mois]. Si entre-temps le sujet devient urgent - et ca peut aller vite avec les nouvelles reglementations - vous savez ou me trouver. &raquo;</p>
+        </div>
+        <div class="pts">
+          <div class="clabel">Points cles</div>
+          <ul>
+            <li>Cloturer proprement, sans insistance</li>
+            <li>Laisser une porte ouverte : la reglementation peut accelerer les choses</li>
+            <li>CRM : noter "froid" + date de relance minimum 2 mois</li>
+            <li>Ne pas gacher du temps a insister sur un "non" clair</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+function tog(btn) {
+  const body = btn.nextElementSibling;
+  const ch = btn.querySelector('.ch');
+  const open = body.classList.contains('visible');
+  body.classList.toggle('visible', !open);
+  btn.classList.toggle('open', !open);
+  ch.innerHTML = open ? '&#9654;' : '&#9660;';
+}
+
+function collapseAll() {
+  document.querySelectorAll('.bbody').forEach(b => b.classList.remove('visible'));
+  document.querySelectorAll('.cbtn').forEach(b => {
+    b.classList.remove('open');
+    b.querySelector('.ch').innerHTML = '&#9654;';
+  });
+}
+</script>
+</body>
+</html>

@@ -5,9 +5,9 @@ const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
 const { assertHtmlToPdfCreatedWithoutError, cleanupGeneratedPdf } = require("./helpers");
 
-const repoRoot = path.resolve(process.cwd(), "..");
-const htmlFixture = path.join(repoRoot, "tests", "html-convert-minimal.html");
-const outPdf = path.join(repoRoot, "tests", "html-convert-minimal.pdf");
+const fixturesDir = path.join(__dirname, "fixtures", "html");
+const htmlFixture = path.join(fixturesDir, "html-convert-minimal.html");
+const outPdf = path.join(fixturesDir, "html-convert-minimal.pdf");
 
 /** true = supprimer les PDF générés en fin de test ; false = conserver pour debug */
 const DELETE_OUTPUT_PDF = true;
@@ -83,8 +83,8 @@ test("HTML → PDF : écrasement silencieux PDF existant (AC-HTML-02)", async ()
 });
 
 test("HTML → PDF : asset manquant signalé (AC-HTML-03)", async () => {
-  const missingFixture = path.join(repoRoot, "tests", "html-convert-missing-asset.html");
-  const missingOut = path.join(repoRoot, "tests", "html-convert-missing-asset.pdf");
+  const missingFixture = path.join(fixturesDir, "html-convert-missing-asset.html");
+  const missingOut = path.join(fixturesDir, "html-convert-missing-asset.pdf");
   if (!fs.existsSync(missingFixture)) {
     throw new Error(`Fixture introuvable: ${missingFixture}`);
   }

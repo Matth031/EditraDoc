@@ -5,10 +5,10 @@ const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
 const { assertHtmlToPdfCreatedWithoutError, cleanupGeneratedPdf } = require("./helpers");
 
-const repoRoot = path.resolve(process.cwd(), "..");
-const guideHtml = path.join(repoRoot, "tests", "test-guide_appel.html");
-const guidePdf = path.join(repoRoot, "tests", "test-guide_appel.pdf");
-const resultJson = path.join(repoRoot, "tests", "test-guide_appel.convert-result.json");
+const fixturesDir = path.join(__dirname, "fixtures", "html");
+const guideHtml = path.join(fixturesDir, "test-guide_appel.html");
+const guidePdf = path.join(fixturesDir, "test-guide_appel.pdf");
+const resultJson = path.join(fixturesDir, "test-guide_appel.convert-result.json");
 
 /** true = supprimer le PDF (et le rapport JSON) en fin de test ; false = conserver pour debug */
 const DELETE_OUTPUT_PDF = true;

@@ -13,7 +13,7 @@ const { spawnSync } = require("node:child_process");
 const electronPath = require("electron");
 
 const appRoot = path.join(__dirname, "..");
-const defaultInput = path.resolve(appRoot, "..", "tests", "test-guide_appel.html");
+const defaultInput = path.join(appRoot, "e2e", "fixtures", "html", "test-guide_appel.html");
 const inputPath = path.resolve(process.argv[2] || defaultInput);
 
 if (!fs.existsSync(inputPath)) {
