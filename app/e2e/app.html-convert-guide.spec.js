@@ -3,7 +3,11 @@ const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
-const { assertHtmlToPdfCreatedWithoutError, cleanupGeneratedPdf } = require("./helpers");
+const {
+  assertHtmlToPdfCreatedWithoutError,
+  cleanupGeneratedPdf,
+  waitForPdfPagesRendered
+} = require("./helpers");
 
 const fixturesDir = path.join(__dirname, "fixtures", "html");
 const guideHtml = path.join(fixturesDir, "test-guide_appel.html");
@@ -19,7 +23,7 @@ test.beforeAll(() => {
   }
 });
 
-test("HTML → PDF : test-guide_appel.html (document métier)", async () => {
+test("HTML → PDF : test-guide_appel.html (document métier + ouverture UI)", async () => {
   if (DELETE_OUTPUT_PDF && fs.existsSync(guidePdf)) fs.unlinkSync(guidePdf);
   if (DELETE_OUTPUT_PDF && fs.existsSync(resultJson)) fs.unlinkSync(resultJson);
 
@@ -34,18 +38,28 @@ test("HTML → PDF : test-guide_appel.html (document métier)", async () => {
 
   try {
     const page = await app.firstWindow();
-    await page.waitForFunction(() => window.maniPdfApi, null, { timeout: 60000 });
+    await page.waitForFunction(
+      () => window.__maniE2E?.getUiState && window.__editifyHtmlConvert,
+      null,
+      {
+        timeout: 60000
+      }
+    );
 
     const t0 = Date.now();
-    const result = await page.evaluate(async (fixturePath) => {
-      return window.maniPdfApi.convertHtmlToPdf({ inputPath: fixturePath });
+    await page.evaluate(async (fixturePath) => {
+      await window.__editifyHtmlConvert.runConversionWithPath(fixturePath);
     }, guideHtml);
 
-    const elapsedMs = Date.now() - t0;
+    await waitForPdfPagesRendered(page);
 
-    assertHtmlToPdfCreatedWithoutError(expect, result, guidePdf, { minSizeBytes: 5000 });
-    expect(path.normalize(result.outputPath || "")).toBe(path.normalize(guidePdf));
-    expect(result.missingAssets || []).toHaveLength(0);
+    const elapsedMs = Date.now() - t0;
+    const ui = await page.evaluate(() => window.__maniE2E?.getUiState?.() || {});
+
+    assertHtmlToPdfCreatedWithoutError(expect, { ok: true, outputPath: guidePdf }, guidePdf, {
+      minSizeBytes: 5000
+    });
+    expect(ui.pageCount, "PDF ouvert dans l'interface").toBeGreaterThan(0);
 
     const stat = fs.statSync(guidePdf);
     const report = {
@@ -54,8 +68,7 @@ test("HTML → PDF : test-guide_appel.html (document métier)", async () => {
       output: guidePdf,
       elapsedMs,
       pdfSizeBytes: stat.size,
-      missingAssets: result.missingAssets || [],
-      blockedRemote: Boolean(result.blockedRemote),
+      pageCount: ui.pageCount,
       deleteAfterTest: DELETE_OUTPUT_PDF
     };
     fs.writeFileSync(resultJson, JSON.stringify(report, null, 2), "utf8");

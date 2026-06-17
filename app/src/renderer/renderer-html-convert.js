@@ -14,6 +14,7 @@
    * @property {(msg: string) => void} [showToastBrief]
    * @property {{ append: (row: { category?: string, message?: string }) => void }} sessionLog
    * @property {() => void} closeMenus
+   * @property {(filePath: string, fileName: string) => Promise<void>} openPdfAtPath
    */
 
   /** @type {HtmlConvertDeps | null} */
@@ -84,7 +85,15 @@
           toast(d.t("stHtmlRemoteBlocked"));
         }
       }
-      d.setStatus(d.t("stHtmlConvertDone"));
+      if (result.outputPath && typeof d.openPdfAtPath === "function") {
+        try {
+          await d.openPdfAtPath(result.outputPath, outName);
+        } catch {
+          d.setStatus(d.t("stHtmlConvertOpenFailed"));
+        }
+      } else {
+        d.setStatus(d.t("stHtmlConvertDone"));
+      }
     } catch {
       d.setStatus(d.t("stHtmlConvertFailed"));
     } finally {

@@ -1956,7 +1956,8 @@ htmlConvert.bind({
   setStatus,
   showToastBrief,
   sessionLog,
-  closeMenus: () => chrome.closeAllFlyoutMenus()
+  closeMenus: () => chrome.closeAllFlyoutMenus(),
+  openPdfAtPath: (filePath, fileName) => addPdfTab(filePath, fileName)
 });
 sw.bind({
   getActiveTab,

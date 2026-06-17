@@ -3,7 +3,11 @@ const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
-const { assertHtmlToPdfCreatedWithoutError, cleanupGeneratedPdf } = require("./helpers");
+const {
+  assertHtmlToPdfCreatedWithoutError,
+  cleanupGeneratedPdf,
+  waitForPdfPagesRendered
+} = require("./helpers");
 
 const fixturesDir = path.join(__dirname, "fixtures", "html");
 const htmlFixture = path.join(fixturesDir, "html-convert-minimal.html");
@@ -41,6 +45,44 @@ test("HTML → PDF : conversion nominale via IPC (AC-HTML-01)", async () => {
     }, htmlFixture);
 
     assertHtmlToPdfCreatedWithoutError(expect, result, outPdf);
+  } finally {
+    await e2eCi.closeElectronApp(app);
+    cleanupGeneratedPdf(outPdf, DELETE_OUTPUT_PDF);
+  }
+});
+
+test("HTML → PDF : ouverture automatique dans l'interface après conversion", async () => {
+  if (DELETE_OUTPUT_PDF && fs.existsSync(outPdf)) fs.unlinkSync(outPdf);
+
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: ["."],
+    env: e2eCi.mergeProcessEnv({
+      MANI_PDF_E2E: "1",
+      MANI_PDF_E2E_HTML_PATH: htmlFixture
+    })
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await page.waitForFunction(
+      () => window.__maniE2E?.getUiState && window.__editifyHtmlConvert,
+      null,
+      {
+        timeout: 60000
+      }
+    );
+
+    await page.evaluate(async (fixturePath) => {
+      await window.__editifyHtmlConvert.runConversionWithPath(fixturePath);
+    }, htmlFixture);
+
+    await waitForPdfPagesRendered(page);
+
+    assertHtmlToPdfCreatedWithoutError(expect, { ok: true, outputPath: outPdf }, outPdf);
+    const ui = await page.evaluate(() => window.__maniE2E?.getUiState?.() || {});
+    expect(ui.pageCount, "PDF chargé dans le viewer").toBeGreaterThan(0);
+    expect(ui.activeTabId, "onglet actif après conversion").toBeTruthy();
   } finally {
     await e2eCi.closeElectronApp(app);
     cleanupGeneratedPdf(outPdf, DELETE_OUTPUT_PDF);
