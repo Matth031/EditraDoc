@@ -36,6 +36,7 @@ const idxTextCtxMenu = srcs.findIndex((s) => rel(s) === "renderer-text-ctx-menu.
 const idxShapeImageCtxMenu = srcs.findIndex((s) => rel(s) === "renderer-shape-image-ctx-menu.js");
 const idxSplitWorkspace = srcs.findIndex((s) => rel(s) === "renderer-split-workspace.js");
 const idxJobs = srcs.findIndex((s) => rel(s) === "renderer-jobs.js");
+const idxHtmlConvert = srcs.findIndex((s) => rel(s) === "renderer-html-convert.js");
 const idxAppChrome = srcs.findIndex((s) => rel(s) === "renderer-app-chrome.js");
 const idxTooltips = srcs.findIndex((s) => rel(s) === "renderer-tooltips.js");
 const idxSession = srcs.findIndex((s) => rel(s) === "renderer-session.js");
@@ -57,6 +58,7 @@ if (idxShapeImageCtxMenu === -1)
   fail("index.html : script renderer-shape-image-ctx-menu.js introuvable.");
 if (idxSplitWorkspace === -1) fail("index.html : script renderer-split-workspace.js introuvable.");
 if (idxJobs === -1) fail("index.html : script renderer-jobs.js introuvable.");
+if (idxHtmlConvert === -1) fail("index.html : script renderer-html-convert.js introuvable.");
 if (idxAppChrome === -1) fail("index.html : script renderer-app-chrome.js introuvable.");
 if (idxTooltips === -1) fail("index.html : script renderer-tooltips.js introuvable.");
 if (idxSession === -1) fail("index.html : script renderer-session.js introuvable.");
@@ -77,7 +79,8 @@ if (
   idxTextCtxMenu >= idxShapeImageCtxMenu ||
   idxShapeImageCtxMenu >= idxSplitWorkspace ||
   idxSplitWorkspace >= idxJobs ||
-  idxJobs >= idxAppChrome ||
+  idxJobs >= idxHtmlConvert ||
+  idxHtmlConvert >= idxAppChrome ||
   idxAppChrome >= idxTooltips ||
   idxTooltips >= idxSession ||
   idxSession >= idxPdfViewer ||

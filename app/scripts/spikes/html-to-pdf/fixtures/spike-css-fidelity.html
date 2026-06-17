@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spike CSS fidelity</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 2cm 1.5cm;
+    }
+    @font-face {
+      font-family: "SpikeLocal";
+      src: url("./SpikeLocal.woff2") format("woff2");
+      font-weight: normal;
+    }
+    body {
+      font-family: "SpikeLocal", Georgia, serif;
+      color: #222;
+    }
+    .screen-only {
+      background: lime;
+      padding: 8px;
+    }
+  </style>
+  <style media="print">
+    .screen-only {
+      display: none !important;
+    }
+    .print-only {
+      display: block !important;
+      color: navy;
+      font-weight: bold;
+    }
+    h1 {
+      color: maroon;
+    }
+  </style>
+</head>
+<body>
+  <h1>Titre page 1 — spike CSS</h1>
+  <p class="screen-only">VISIBLE ÉCRAN SEULEMENT (lime)</p>
+  <p class="print-only" style="display: none">VISIBLE IMPRESSION SEULEMENT (navy)</p>
+  <p>Police locale SpikeLocal + repli Georgia.</p>
+  <table style="border-collapse: collapse; width: 100%; margin-top: 1em">
+    <tr>
+      <th style="border: 2px solid #333; padding: 6px">Col A</th>
+      <th style="border: 2px solid #333; padding: 6px">Col B</th>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #666; padding: 6px">cellule 1</td>
+      <td style="border: 1px solid #666; padding: 6px">cellule 2</td>
+    </tr>
+  </table>
+  <div style="page-break-before: always; margin-top: 2em">
+    <h2>Page 2 forcée (page-break-before)</h2>
+    <p>Contenu après saut de page.</p>
+  </div>
+</body>
+</html>

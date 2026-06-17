@@ -11,7 +11,13 @@ export default [
   js.configs.recommended,
   eslintConfigPrettier,
   {
-    ignores: ["node_modules/**", "src/renderer/renderer.js", "src/renderer/renderer-i18n-data.js"]
+    ignores: [
+      "node_modules/**",
+      "src/renderer/renderer.js",
+      "src/renderer/renderer-i18n-data.js",
+      "scripts/_html-convert-runner.cjs",
+      "scripts/spikes/**/_electron-runner.cjs"
+    ]
   },
   {
     files: ["e2e/**/*.js"],
@@ -32,6 +38,16 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
+      globals: {
+        ...globals.node
+      }
+    }
+  },
+  {
+    files: ["scripts/**/*.cjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
       globals: {
         ...globals.node
       }
@@ -91,6 +107,7 @@ export default [
       "src/renderer/renderer-shape-image-ctx-menu.js",
       "src/renderer/renderer-split-workspace.js",
       "src/renderer/renderer-jobs.js",
+      "src/renderer/renderer-html-convert.js",
       "src/renderer/renderer-app-chrome.js",
       "src/renderer/renderer-tooltips.js",
       "src/renderer/renderer-session.js",

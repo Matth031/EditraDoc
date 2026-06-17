@@ -51,6 +51,7 @@
     welcomeOpenPdfBtn: "ttToolbarOpenPdf",
     toolbarOpenPdfBtn: "ttToolbarOpenPdf",
     toolbarSaveAsBtn: "ttToolbarSaveAs",
+    toolbarHtmlToPdfBtn: "ttHtmlToPdf",
     toolbarQuitBtn: "ttToolbarQuit",
     toolbarOptionsBtn: "ttToolbarOptions",
     mergeBtn: "ttMerge",
@@ -170,6 +171,7 @@
       menuInfoLabel,
       toolbarOpenPdfBtn,
       toolbarSaveAsBtn,
+      toolbarHtmlToPdfBtn,
       toolbarQuitBtn,
       toolbarAboutMenuItem,
       toolbarSessionLogMenuItem,
@@ -218,6 +220,7 @@
     if (menuInfoLabel) menuInfoLabel.textContent = t("menuInfo");
     if (toolbarOpenPdfBtn) toolbarOpenPdfBtn.textContent = t("openPdf");
     if (toolbarSaveAsBtn) toolbarSaveAsBtn.textContent = t("saveAs");
+    if (toolbarHtmlToPdfBtn) toolbarHtmlToPdfBtn.textContent = t("htmlToPdf");
     if (toolbarQuitBtn) toolbarQuitBtn.textContent = t("quit");
     if (toolbarAboutMenuItem) toolbarAboutMenuItem.textContent = t("about");
     if (toolbarSessionLogMenuItem) toolbarSessionLogMenuItem.textContent = t("menuSessionLog");

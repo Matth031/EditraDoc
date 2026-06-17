@@ -1,5 +1,25 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+/**
+ * Bypass dialogue natif en E2E si une variable d'environnement est définie.
+ * @param {string} envVarName
+ * @param {string} ipcChannel
+ * @param {unknown} [ipcArg]
+ */
+function openDialogOrE2eBypass(envVarName, ipcChannel, ipcArg) {
+  try {
+    const e2ePath = process?.env?.[envVarName];
+    if (e2ePath && typeof e2ePath === "string") {
+      return Promise.resolve({ ok: true, path: e2ePath });
+    }
+  } catch {
+    /* ignore */
+  }
+  return ipcArg === undefined
+    ? ipcRenderer.invoke(ipcChannel)
+    : ipcRenderer.invoke(ipcChannel, ipcArg);
+}
+
 // API minimale exposée au renderer (contextIsolation) - pas de require("fs") côté UI.
 contextBridge.exposeInMainWorld("maniPdfApi", {
   isE2E: () => {
@@ -11,29 +31,11 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   },
   openPdf: (path) => ipcRenderer.invoke("pdf:open", path),
   readPdfBytes: (path) => ipcRenderer.invoke("pdf:read-bytes", path),
-  openPdfDialog: () => {
-    // Mode tests e2e: bypass le dialogue natif pour stabilité.
-    // Retourne le fichier défini via env MANI_PDF_E2E_PDF_PATH.
-    try {
-      const e2ePath = process?.env?.MANI_PDF_E2E_PDF_PATH;
-      if (e2ePath && typeof e2ePath === "string") {
-        return Promise.resolve({ ok: true, path: e2ePath });
-      }
-    } catch {}
-    return ipcRenderer.invoke("dialog:openPdf");
-  },
+  openPdfDialog: () => openDialogOrE2eBypass("MANI_PDF_E2E_PDF_PATH", "dialog:openPdf"),
   saveSession: (payload) => ipcRenderer.invoke("session:save", payload),
   loadSession: () => ipcRenderer.invoke("session:load"),
-  savePdfAsDialog: (suggestedName) => {
-    // Mode tests e2e : bypass dialogue natif (chemin fixe).
-    try {
-      const e2eSave = process?.env?.MANI_PDF_E2E_SAVE_AS_PATH;
-      if (e2eSave && typeof e2eSave === "string") {
-        return Promise.resolve({ ok: true, path: e2eSave });
-      }
-    } catch {}
-    return ipcRenderer.invoke("dialog:savePdfAs", suggestedName);
-  },
+  savePdfAsDialog: (suggestedName) =>
+    openDialogOrE2eBypass("MANI_PDF_E2E_SAVE_AS_PATH", "dialog:savePdfAs", suggestedName),
   exportPdfWithAnnotations: (payload) => ipcRenderer.invoke("pdf:export-with-annotations", payload),
   createJob: (input) => ipcRenderer.invoke("job:create", input),
   listJobs: () => ipcRenderer.invoke("job:list"),
@@ -51,6 +53,9 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   onFullscreenChanged: (cb) => ipcRenderer.on("window:fullscreen-changed", (_, full) => cb(full)),
   onToolbarF10Toggle: (cb) => ipcRenderer.on("toolbar:f10-toggle", () => cb()),
   onPdfToolAction: (cb) => ipcRenderer.on("app:pdf-tool", (_, action) => cb(action)),
+  onHtmlToPdfRequested: (cb) => ipcRenderer.on("app:html-to-pdf", () => cb()),
+  openHtmlDialog: () => openDialogOrE2eBypass("MANI_PDF_E2E_HTML_PATH", "dialog:openHtml"),
+  convertHtmlToPdf: (payload) => ipcRenderer.invoke("convert:html-to-pdf", payload),
   onAboutRequested: (cb) => ipcRenderer.on("app:about", () => cb()),
   onSessionLogRequested: (cb) => ipcRenderer.on("app:session-log", () => cb()),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),

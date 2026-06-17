@@ -110,6 +110,7 @@ const tcm = window.__editifyTextCtxMenu;
 const sim = window.__editifyShapeImageCtxMenu;
 const sw = window.__editifySplitWorkspace;
 const jobs = window.__editifyJobs;
+const htmlConvert = window.__editifyHtmlConvert;
 const chrome = window.__editifyAppChrome;
 const tooltips = window.__editifyTooltips;
 const session = window.__editifySession;
@@ -199,6 +200,7 @@ const sessionLogHint = document.getElementById("sessionLogHint");
 const welcomeOpenPdfBtn = document.getElementById("welcomeOpenPdfBtn");
 const toolbarOpenPdfBtn = document.getElementById("toolbarOpenPdfBtn");
 const toolbarSaveAsBtn = document.getElementById("toolbarSaveAsBtn");
+const toolbarHtmlToPdfBtn = document.getElementById("toolbarHtmlToPdfBtn");
 const toolbarQuitBtn = document.getElementById("toolbarQuitBtn");
 const menuLangLabel = document.getElementById("menuLangLabel");
 const menuToolsLabel = document.getElementById("menuToolsLabel");
@@ -1930,21 +1932,31 @@ tcm.bind({
   hideImageAnnotationCtxMenu: () => window.__editifyShapeImageCtxMenu.hideImageAnnotationCtxMenu(),
   hideChangesContextMenu
 });
+const showToastBrief = (msg) => {
+  try {
+    showToast({ message: msg, timeoutMs: 5200 });
+  } catch {
+    /* ignore */
+  }
+};
 jobs.bind({
   sessionLog,
   tr,
-  showToastBrief: (msg) => {
-    try {
-      showToast({ message: msg, timeoutMs: 5200 });
-    } catch {
-      /* ignore */
-    }
-  },
+  showToastBrief,
   t,
   setStatus,
   state,
   getActiveTab,
   openSplitWorkspace: () => sw.openSplitWorkspace()
+});
+htmlConvert.bind({
+  toolbarHtmlToPdfBtn,
+  t,
+  tr,
+  setStatus,
+  showToastBrief,
+  sessionLog,
+  closeMenus: () => chrome.closeAllFlyoutMenus()
 });
 sw.bind({
   getActiveTab,
@@ -2408,6 +2420,7 @@ chrome.bind({
   welcomeOpenPdfBtn,
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
+  toolbarHtmlToPdfBtn,
   toolbarQuitBtn,
   toolbarCloseBtn,
   toolbarAboutMenuItem,
@@ -2464,6 +2477,7 @@ i18nApply.bind({
   menuInfoLabel,
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
+  toolbarHtmlToPdfBtn,
   toolbarQuitBtn,
   toolbarAboutMenuItem,
   toolbarSessionLogMenuItem,

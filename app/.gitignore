@@ -1,3 +1,7 @@
 coverage/
 bundle-python/win/*
 !bundle-python/win/.gitkeep
+scripts/_html-convert-runner.cjs
+scripts/spikes/**/out/
+scripts/spikes/**/_electron-runner.cjs
+scripts/spikes/**/_analyze_pdfs.py

@@ -105,7 +105,9 @@ async function closeElectronApp(app, closeMs) {
       const { execSync } = require("child_process");
       try {
         execSync(`pkill -KILL -P ${proc.pid}`, { stdio: "ignore" });
-      } catch { /* pas d'enfants ou déjà morts */ }
+      } catch {
+        /* pas d'enfants ou déjà morts */
+      }
     }
     await waitChildExitOrKill(proc, 8000);
   }

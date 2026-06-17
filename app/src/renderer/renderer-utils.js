@@ -53,10 +53,18 @@
     }
   }
 
+  /** Nom de fichier sans chemin (affichage UI, journal). */
+  function baseNameFromPath(filePath) {
+    if (!filePath || typeof filePath !== "string") return "document";
+    const parts = filePath.split(/[/\\]/);
+    return parts[parts.length - 1] || "document";
+  }
+
   window.__editifyUtils = {
     logText,
     newAnnotationId,
     deepClone,
-    cloneForClipboard
+    cloneForClipboard,
+    baseNameFromPath
   };
 })();

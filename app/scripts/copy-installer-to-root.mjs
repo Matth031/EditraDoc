@@ -29,7 +29,8 @@ if (!files.length) {
 
 function sortByMtimeDesc(names) {
   return [...names].sort(
-    (a, b) => fs.statSync(path.join(distDir, b)).mtimeMs - fs.statSync(path.join(distDir, a)).mtimeMs
+    (a, b) =>
+      fs.statSync(path.join(distDir, b)).mtimeMs - fs.statSync(path.join(distDir, a)).mtimeMs
   );
 }
 

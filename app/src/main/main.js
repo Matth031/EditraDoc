@@ -5,6 +5,7 @@ const { spawn } = require("node:child_process");
 const http = require("node:http");
 const { log } = require("./logger");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
+const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const spellcheckService = require("./spellcheck-service");
 
 // Ensure logs go to project root by default.
@@ -373,6 +374,19 @@ function createMenu() {
           }
         },
         { type: "separator" },
+        {
+          label: "Convertir",
+          submenu: [
+            {
+              label: "HTML vers PDF",
+              click: () => {
+                if (!mainWindow) return;
+                mainWindow.webContents.send("app:html-to-pdf");
+              }
+            }
+          ]
+        },
+        { type: "separator" },
         { role: "quit" }
       ]
     },
@@ -681,14 +695,34 @@ ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   }
 });
 
-ipcMain.handle("dialog:openPdf", async () => {
+/**
+ * Dialogue natif « ouvrir un fichier » (réutilisé PDF / HTML).
+ * @param {{ name: string, extensions: string[] }[]} filters
+ */
+async function showOpenFileDialog(filters) {
   if (!mainWindow) return { ok: false, error: "Fenetre principale indisponible." };
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
-    filters: [{ name: "PDF", extensions: ["pdf"] }]
+    filters
   });
   if (result.canceled || !result.filePaths[0]) return { ok: false, cancelled: true };
   return { ok: true, path: result.filePaths[0] };
+}
+
+ipcMain.handle("dialog:openPdf", () => showOpenFileDialog([{ name: "PDF", extensions: ["pdf"] }]));
+
+ipcMain.handle("dialog:openHtml", () =>
+  showOpenFileDialog([{ name: "HTML", extensions: ["html", "htm"] }])
+);
+
+ipcMain.handle("convert:html-to-pdf", async (_, payload) => {
+  try {
+    const inputPath = payload && typeof payload === "object" ? payload.inputPath : null;
+    const outputPath = payload && typeof payload === "object" ? payload.outputPath : undefined;
+    return await convertHtmlToPdf(inputPath, outputPath);
+  } catch {
+    return { ok: false, error: "Échec de la conversion HTML vers PDF." };
+  }
 });
 
 ipcMain.handle("session:save", async (_, payload) => {

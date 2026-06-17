@@ -60,9 +60,10 @@
       const clickManiColorValidateButtonForInputId = /** @type {(id: string) => void} */ (
         d.clickManiColorValidateButtonForInputId
       );
-      const exportActivePdfToPath = /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
-        d.exportActivePdfToPath
-      );
+      const exportActivePdfToPath =
+        /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
+          d.exportActivePdfToPath
+        );
 
       window.__maniE2E.resetUiState = () => {
         try {
