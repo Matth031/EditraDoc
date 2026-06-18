@@ -30,6 +30,7 @@ Pour installer EditraDoc en confiance :
 - Ouvrir un PDF et naviguer page par page
 - Ajouter du texte, des formes et des images
 - Enregistrer une nouvelle version du PDF
+- **Convertir un fichier HTML local en PDF** (même dossier que le source, ouverture automatique dans l’interface)
 - Fusionner et diviser (outils PDF intégrés)
 
 ## Confidentialité (en pratique)
@@ -85,6 +86,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 - **Menus contextuels** pour le texte, les formes, les images et la zone de page vide.
 - **Découpe avancée** : définition de **groupes de pages** (overlay dédié).
 - **Outils PDF** (via Python / pypdf) : **fusion**, **division** (plage ou groupes).
+- **Conversion HTML → PDF** (100 % local, Electron `printToPDF`) : menu **Fichier > Convertir > HTML vers PDF** ou entrée équivalente dans la barre **Fichier** (F10). Le PDF `{nom}.pdf` est créé **dans le même dossier** que le fichier HTML et **s’ouvre aussitôt** dans l’application. Si un PDF du même nom existe déjà, il est **remplacé sans dialogue** (infobulle explicative). Avertissements possibles : ressources images manquantes, ressources distantes ignorées (mode local uniquement).
 - **Enregistrement** : export PDF en intégrant annotations et calques (route `/apply-annotations` côté service Python).
 - **File d’attente de jobs** avec suivi, journal de session, persistance de session.
 - **Correcteur orthographique** intégré (suggestions, dictionnaire utilisateur).
@@ -101,7 +103,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Multilingue** | Quatre langues d’interface (`fr`, `en`, `es`, `pt`) dans `renderer-i18n-data.js`. |
 | **Orthographe** | `nspell` + dictionnaires `dictionary-*` ; analyse côté processus principal Electron. |
 | **Tests automatisés** | Unitaires Python, tests Node (`node:test` + c8), vérifications statiques, Playwright E2E, smoke orthographe. |
-| **Architecture Electron + Python** | UI et IPC dans Node/Electron ; opérations PDF dans `pdf_service.py` (pypdf, reportlab pour l’export annoté). |
+| **Architecture Electron + Python** | UI et IPC dans Node/Electron ; opérations PDF dans `pdf_service.py` (pypdf, reportlab pour l’export annoté) ; **conversion HTML → PDF** dans `src/main/lib/html-to-pdf.js` (sans Python). |
 
 ---
 
@@ -113,6 +115,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Pont sécurisé** | `preload.js`, API exposée au renderer sous `window.maniPdfApi` |
 | **Renderer** | HTML/CSS/JS vanilla ; **pdf.js** via `pdfjs-dist` et `pdfjs-bridge.mjs` |
 | **Service PDF** | Python 3, **pypdf**, **reportlab** (`app/python/requirements.txt`), serveur `http.server` sur **127.0.0.1:8765** |
+| **Conversion HTML → PDF** | Electron **printToPDF** (`html-to-pdf.js`), IPC `convert:html-to-pdf`, module UI `renderer-html-convert.js` |
 | **Orthographe** | **nspell** + `dictionary-fr`, `dictionary-en`, `dictionary-es`, `dictionary-pt-br` |
 | **Qualité** | ESLint 10, Prettier 3, c8, Playwright |
 | **Empaquetage** | electron-builder (cibles configurées : Windows NSIS, Linux AppImage, macOS dmg) |
@@ -124,7 +127,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 Arborescence utile (extraits) :
 
 ```text
-07-Manip_PDF/
+EditraDoc/
 ├── .github/workflows/     # CI (tests) + release Windows (installateur .exe)
 ├── docs/                    # Documentation projet (dont 05-Dev.md)
 ├── public/                  # Ressources statiques (ex. logo)
@@ -132,14 +135,14 @@ Arborescence utile (extraits) :
 ├── package.json             # Scripts racine déléguant à app/
 └── app/
     ├── public/              # Assets packagés (logos, images) référencés par le renderer
-    ├── e2e/                 # Tests Playwright
-    ├── node-tests/          # Tests Node (main / lib)
+    ├── e2e/                 # Tests Playwright (+ fixtures HTML dans e2e/fixtures/html/)
+    ├── node-tests/          # Tests Node (main / lib, path-guard, html-to-pdf)
     ├── python/              # Service HTTP, pdf_ops, tests unittest
-    ├── scripts/             # verify-05-dev-assets, bundle-python-embed-win, spellcheck-smoke, …
+    ├── scripts/             # verify-05-dev-assets, bundle-python-embed-win, run-html-to-pdf-convert, …
     ├── src/
-    │   ├── main/            # Processus Electron (IPC, jobs, spellcheck)
+    │   ├── main/            # Processus Electron (IPC, jobs, spellcheck, html-to-pdf)
     │   ├── lib/             # Ex. session-log-store
-    │   └── renderer/        # UI, viewer, i18n, annotations
+    │   └── renderer/        # UI, viewer, i18n, annotations, conversion HTML
     ├── package.json         # Scripts npm applicatifs
     ├── playwright.config.js
     └── eslint.config.mjs
@@ -172,7 +175,8 @@ Commandes définies dans `app/package.json` :
 | `npm run test:audit` | `npm audit --audit-level=high` |
 | `npm test` | Unittest Python (`python/tests`) |
 | `npm run test:spell` | Smoke orthographe (`spellcheck-smoke.mjs`) |
-| `npm run e2e` | Playwright |
+| `npm run test:html-convert` | Conversion HTML → PDF hors UI (`run-html-to-pdf-convert.cjs`, fixture par défaut dans `e2e/fixtures/html/`) |
+| `npm run e2e` | Playwright (dont `app.html-convert*.spec.js` : conversion + ouverture automatique du PDF) |
 | `npm run test:all` | Chaîne complète (qualité + tests + audit + e2e) |
 
 À la racine du dépôt, `npm run test` et `npm run e2e` relaient vers `app/` via `npm --prefix app`.
@@ -185,7 +189,8 @@ Commandes définies dans `app/package.json` :
 - **Pas de dépendance réseau imposée pour le cœur métier** : le flux nominal des opérations PDF ne repose pas sur un API distant documenté dans ce dépôt. **Exception** : si l’utilisateur active une action qui ouvre une **URL externe** (ex. lien dans « À propos »), le système utilise `shell.openExternal` avec **http/https uniquement** (`main.js`).
 - **Code auditable** : dépôt source consultable ; pas de garantie de sécurité absolue.
 - **HTML** : le contenu éditable des zones texte passe par `sanitizeTextHtml` (`renderer-text-html.js`) - réduction du risque XSS, avec limite explicitée dans les commentaires du code (ce n’est pas équivalent à un sanitizer maximaliste type DOMPurify).
-- **Validation** : contrôles côté processus principal sur les charges utiles des jobs (`validateJobPayload`) ; validation des chemins PDF côté Python pour `/validate`.
+- **Validation** : contrôles côté processus principal sur les charges utiles des jobs (`validateJobPayload`) ; validation des chemins PDF côté Python pour `/validate` ; validation des chemins HTML/PDF co-localisés pour la conversion (`path-guard.js`).
+- **Conversion HTML** : chargement en fenêtre Electron isolée (`sandbox`), blocage des requêtes hors `file://`, timeout de chargement 15 s ; pas d’exécution de scripts distants dans le document source.
 
 ---
 
@@ -195,6 +200,7 @@ Commandes définies dans `app/package.json` :
 - Travailler sur des documents **sensibles** (RH, juridique, médical, etc.) lorsque la politique impose de **ne pas** les envoyer sur des services tiers.
 - Utiliser l’outil **hors connexion** pour la lecture et les opérations locales (une fois l’application et les dépendances installées).
 - Remplir et modifier un formulaire administratif contenant des données personnelles sans passer par un service en ligne.
+- **Transformer une page ou un rapport HTML** (export local, documentation interne) en PDF partageable, sans quitter l’application.
 
 ---
 
