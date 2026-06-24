@@ -33,6 +33,9 @@ jobs:
       - name: Build NSIS installer (embedded Python)
         run: npm run dist:win
 
+      - name: Regression export image (Python embeddé + build packagé)
+        run: npm run test:embedded-python && npm run test:packaged-export
+
       - name: Upload installer as workflow artifact
         uses: actions/upload-artifact@v6
         with:

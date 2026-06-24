@@ -1276,7 +1276,8 @@ function renderAnnotations() {
       };
     } else if (a.type === "image") {
       const img = document.createElement("img");
-      img.src = a.src;
+      const displaySrc = imageAnnotationDisplaySrc(a);
+      if (displaySrc) img.src = displaySrc;
       node.appendChild(img);
     } else if (SHAPE_TYPES.has(a.type)) {
       mergeShapeStyleFields(a);
@@ -2280,6 +2281,43 @@ function buildSuggestedSaveAsName(tab) {
   }
 }
 
+/** Chemin suggéré complet (dossier du PDF ouvert + nom _modifie.pdf) pour le dialogue Enregistrer sous. */
+function buildSuggestedSaveAsPath(tab) {
+  const suggested = buildSuggestedSaveAsName(tab);
+  const src = String(tab?.path || "").trim();
+  if (!src) return suggested;
+  const sep = src.includes("\\") ? "\\" : "/";
+  const idx = src.lastIndexOf(sep);
+  if (idx <= 0) return suggested;
+  return `${src.slice(0, idx + 1)}${suggested}`;
+}
+
+/** Lit un fichier image (Blob/File) en base64 brute pour l'export Python. */
+async function readImageFileAsBase64(file) {
+  if (!file) throw new Error("fichier vide");
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const t = String(r.result || "");
+      const i = t.indexOf("base64,");
+      if (i === -1) reject(new Error("filereader"));
+      else resolve(t.slice(i + 7));
+    };
+    r.onerror = () => reject(r.error || new Error("filereader"));
+    r.readAsDataURL(file);
+  });
+}
+
+/** URL data: pour afficher une image restaurée depuis session (src_base64 sans blob:). */
+function imageAnnotationDisplaySrc(a) {
+  if (a?.src) return a.src;
+  if (a?.src_base64) {
+    const mime = String(a.mimeType || "image/png").trim() || "image/png";
+    return `data:${mime};base64,${a.src_base64}`;
+  }
+  return "";
+}
+
 /**
  * Encode une image (blob:, data:, http(s):) en base64 brute pour l'export Python.
  * fetch(blob:) peut échouer selon l'environnement : repli XHR + FileReader.
@@ -2359,8 +2397,12 @@ async function exportActivePdfToPath(outputPath) {
     for (const pageKey of Object.keys(annotationsByPage)) {
       const arr = annotationsByPage[pageKey] || [];
       for (const a of arr) {
-        if (a.type === "image" && a.src) {
+        if (a.type !== "image") continue;
+        if (a.src_base64) continue;
+        if (a.src) {
           a.src_base64 = await imageSrcToBase64(a.src);
+        } else {
+          throw new Error("image sans source");
         }
       }
     }
@@ -2383,10 +2425,16 @@ async function savePdfAs() {
     setStatus(t("stSaveAsNoPdf"));
     return;
   }
-  const suggested = buildSuggestedSaveAsName(tab);
+  const suggested = buildSuggestedSaveAsPath(tab);
   const r = await window.maniPdfApi.savePdfAsDialog(suggested);
   if (!r?.ok) {
     if (!r?.cancelled) setStatus(r?.error || t("stSaveAsCancelled"));
+    return;
+  }
+
+  const health = await window.maniPdfApi.pythonHealth();
+  if (!health?.ok) {
+    setStatus(t("stPythonUnavailable"));
     return;
   }
 
@@ -2395,7 +2443,7 @@ async function savePdfAs() {
   if (exportResult?.ok) {
     setStatus(t("stExported"));
     try {
-      tab.isDirty = false;
+      tab.dirty = false;
     } catch {
       /* ignore */
     }
@@ -2528,11 +2576,29 @@ blankAddImageBtn?.addEventListener?.("click", () => {
   imageInput?.click?.();
 });
 imageInput?.addEventListener?.("change", (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  const src = URL.createObjectURL(file);
-  addAnnotation("image", { src, fileName: file.name || null });
+  const file = event.target.files?.[0];
   imageInput.value = "";
+  if (!file) return;
+  void (async () => {
+    try {
+      const src = URL.createObjectURL(file);
+      const mimeType = String(file.type || "image/png").trim() || "image/png";
+      let src_base64;
+      try {
+        src_base64 = await readImageFileAsBase64(file);
+      } catch {
+        src_base64 = undefined;
+      }
+      addAnnotation("image", {
+        src,
+        fileName: file.name || null,
+        mimeType,
+        ...(src_base64 ? { src_base64 } : {})
+      });
+    } catch {
+      setStatus(t("stExportImageEncodeFailed"));
+    }
+  })();
 });
 deleteSelectedBtn?.addEventListener?.("click", deleteSelected);
 undoBtn?.addEventListener?.("click", undo);

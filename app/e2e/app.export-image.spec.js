@@ -4,32 +4,16 @@ const path = require("path");
 const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
 const { waitForPdfPagesRendered } = require("./helpers");
+const {
+  countBufferOccurrences,
+  assertPdfHasEmbeddedImageXObjects
+} = require("./export-image-assertions");
 
 const repoRoot = path.resolve(process.cwd(), "..");
 const pdfFixture = path.join(repoRoot, "tests", "formulaire_test.pdf");
 const raptorFixture = path.join(repoRoot, "tests", "raptor.png");
 const outPdf = path.join(repoRoot, "tests", "test_raptor.pdf");
 const fallbackPng = path.join(process.cwd(), "public", "miniature_no_bg.png");
-
-function countBufferOccurrences(buf, needle) {
-  let n = 0;
-  let i = 0;
-  while (true) {
-    const j = buf.indexOf(needle, i);
-    if (j === -1) break;
-    n += 1;
-    i = j + needle.length;
-  }
-  return n;
-}
-
-/** Détecte les XObject image (ReportLab n’embarque pas forcément le chunk binaire « IHDR »). */
-function assertPdfHasEmbeddedImageXObjects(pdfPath, minCount = 1) {
-  const buf = fs.readFileSync(pdfPath);
-  const marker = Buffer.from("/Subtype /Image");
-  const n = countBufferOccurrences(buf, marker);
-  expect(n, "au moins une ressource /Subtype /Image").toBeGreaterThanOrEqual(minCount);
-}
 
 test.beforeAll(() => {
   if (!fs.existsSync(pdfFixture)) {
@@ -125,4 +109,59 @@ test("export PDF : image raptor.png embarquée puis fichier supprimé", async ()
   await e2eCi.closeElectronApp(app);
   fs.unlinkSync(outPdf);
   expect(fs.existsSync(outPdf)).toBe(false);
+});
+
+test("export PDF : image puis écrasement du fichier source (même chemin)", async () => {
+  const workPdf = path.join(repoRoot, "tests", "test_export_overwrite.pdf");
+  if (fs.existsSync(workPdf)) fs.unlinkSync(workPdf);
+  fs.copyFileSync(pdfFixture, workPdf);
+  const beforeSize = fs.statSync(workPdf).size;
+
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
+      ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
+      MANI_PDF_E2E: "1",
+      MANI_PDF_E2E_PDF_PATH: workPdf
+    })
+  });
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForFunction(
+    () => !!window.maniPdfApi && window.__maniE2E?.exportActivePdfToPathForTest,
+    null,
+    { timeout: 90000, polling: 250 }
+  );
+
+  await expect
+    .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
+      timeout: 60000,
+      message: "Le service Python (port 8765) doit être disponible pour l’export PDF."
+    })
+    .toMatchObject({ ok: true });
+
+  await app.evaluate(({ BrowserWindow }, p) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win?.webContents?.send?.("pdf:open-from-menu", p);
+  }, workPdf);
+
+  await expect(page.locator("#tabs .tab")).toHaveCount(1, { timeout: 30000 });
+  await waitForPdfPagesRendered(page);
+
+  await page.locator("#addImageBtn").click();
+  await page.locator("#imageInput").setInputFiles(raptorFixture);
+  await expect(page.locator("#annotationLayer .annotation.image")).toHaveCount(1, {
+    timeout: 15000
+  });
+
+  const exportResult = await page.evaluate((p) => window.__maniE2E.exportActivePdfToPathForTest(p), workPdf);
+  expect(exportResult?.ok).toBe(true);
+  expect(fs.existsSync(workPdf)).toBe(true);
+  expect(fs.statSync(workPdf).size).toBeGreaterThan(beforeSize);
+  assertPdfHasEmbeddedImageXObjects(workPdf);
+
+  await e2eCi.closeElectronApp(app);
+  if (fs.existsSync(workPdf)) fs.unlinkSync(workPdf);
 });

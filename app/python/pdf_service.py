@@ -6,6 +6,11 @@ import logging
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+# Python embeddable (installateur Windows) n'ajoute pas le dossier du script à sys.path.
+_SERVICE_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SERVICE_DIR not in sys.path:
+    sys.path.insert(0, _SERVICE_DIR)
+
 # Service local uniquement (127.0.0.1) — pas d'exposition réseau ; les entrées JSON
 # sont traitées par pdf_ops après validation des chemins dans les handlers.
 

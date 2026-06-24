@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import tempfile
 from html import unescape
 from html.parser import HTMLParser
 from typing import Iterable
@@ -175,6 +176,24 @@ def _html_to_paragraph_markup(html: str) -> str:
     if not frag.strip():
         return escape(_html_to_plain(raw))
     return frag
+
+
+def _atomic_write_pdf(writer, output_path: str) -> None:
+    """Écrit le PDF via un fichier temporaire puis remplace la cible (écrasement sûr)."""
+    out_abs = os.path.abspath(output_path)
+    out_dir = os.path.dirname(out_abs) or "."
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=out_dir)
+    os.close(fd)
+    try:
+        with open(tmp_path, "wb") as f:
+            writer.write(f)
+        os.replace(tmp_path, out_abs)
+    except Exception:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: dict, annotations_by_page: dict) -> str:
@@ -516,8 +535,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
             page.merge_page(overlay.pages[0])
         writer.add_page(page)
 
-    with open(output_path, "wb") as f:
-        writer.write(f)
+    _atomic_write_pdf(writer, output_path)
     return output_path
 
 def merge_pdfs(inputs: Iterable[str], output_path: str) -> str:

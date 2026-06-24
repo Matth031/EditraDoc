@@ -54,7 +54,7 @@ function getPythonLaunchConfig() {
   const pyDir = path.join(appRoot, "python");
   const scriptPath = path.join(pyDir, "pdf_service.py");
   const cwd = pyDir;
-  const env = { ...process.env, PYTHONUNBUFFERED: "1" };
+  const env = { ...process.env, PYTHONUNBUFFERED: "1", PYTHONPATH: pyDir };
   if (app.isPackaged && process.platform === "win32") {
     const embedded = path.join(process.resourcesPath, "python-runtime", "python.exe");
     if (fs.existsSync(embedded)) {
@@ -501,6 +501,11 @@ function startPythonService() {
       /* ignore */
     }
   });
+  pythonProcess.on("exit", (code, signal) => {
+    if (code !== 0 && code !== null) {
+      console.error("[mani-pdf python] process exited", { code, signal });
+    }
+  });
 }
 
 function stopPythonService() {
@@ -791,7 +796,15 @@ ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
           res.on("data", (chunk) => (data += chunk));
           res.on("end", () => {
             try {
-              resolve(JSON.parse(data || "{}"));
+              const parsed = JSON.parse(data || "{}");
+              if (res.statusCode && res.statusCode >= 400) {
+                resolve({
+                  ok: false,
+                  error: parsed.error || `Export PDF echoue (HTTP ${res.statusCode}).`
+                });
+                return;
+              }
+              resolve(parsed);
             } catch {
               resolve({ ok: false, error: "Reponse export invalide." });
             }
