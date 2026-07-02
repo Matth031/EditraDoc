@@ -2,10 +2,35 @@ const fs = require("fs");
 const { execFileSync } = require("child_process");
 const { expect } = require("@playwright/test");
 
+function runPythonInline(script, scriptArgs = []) {
+  const candidates =
+    process.platform === "win32"
+      ? [
+          { cmd: "py", args: ["-3", "-c", script, ...scriptArgs] },
+          { cmd: "python", args: ["-c", script, ...scriptArgs] },
+          { cmd: "python3", args: ["-c", script, ...scriptArgs] }
+        ]
+      : [
+          { cmd: "python", args: ["-c", script, ...scriptArgs] },
+          { cmd: "python3", args: ["-c", script, ...scriptArgs] }
+        ];
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      return execFileSync(candidate.cmd, candidate.args, { encoding: "utf8" });
+    } catch (error) {
+      lastError = error;
+      if (error?.code === "ENOENT" || error?.status === 127) continue;
+      throw error;
+    }
+  }
+  throw lastError || new Error("Python introuvable (python / python3 / py -3).");
+}
+
 function extractPdfTextFirstPage(pdfPath) {
   const script =
     "import sys; from pypdf import PdfReader; r=PdfReader(sys.argv[1]); print((r.pages[0].extract_text() or '').replace(chr(10),' '))";
-  return execFileSync("py", ["-3", "-c", script, pdfPath], { encoding: "utf8" }).trim();
+  return runPythonInline(script, [pdfPath]).trim();
 }
 
 function countBufferOccurrences(buf, needle) {
