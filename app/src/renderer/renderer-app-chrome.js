@@ -467,7 +467,13 @@
     d0.toolbarSaveAsBtn?.addEventListener?.("click", (e) => {
       e.preventDefault();
       closeAllFlyoutMenus();
-      d0.savePdfAs().catch(() => {});
+      d0.savePdfAs().catch((error) => {
+        try {
+          d0.logText?.("save", { step: "toolbar_exception", error: String(error?.message || error) });
+        } catch {
+          /* ignore */
+        }
+      });
     });
     d0.toolbarQuitBtn?.addEventListener?.("click", (e) => {
       e.preventDefault();

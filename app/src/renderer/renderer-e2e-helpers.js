@@ -95,7 +95,10 @@
             selectedAnnotationId: state.selectedAnnotationId,
             editingAnnotationId: state.editingAnnotationId,
             clipboard: state.clipboard,
-            annotationsOnCurrentPageCount: annos.length
+            annotationsOnCurrentPageCount: annos.length,
+            textOnCurrentPage: annos
+              .filter((a) => a && a.type === "text")
+              .map((a) => String(a.text || ""))
           };
         } catch {
           return { error: true };
@@ -190,11 +193,11 @@
             h: 100,
             rotation: 0,
             opacity: 100,
-            textColor: "#111111",
-            bgColor: null,
-            padding: 6,
-            fontFamily: "Arial",
-            fontSize: 14,
+            textColor: opts.textColor != null ? String(opts.textColor) : "#111111",
+            bgColor: opts.bgColor != null ? opts.bgColor : null,
+            padding: Math.max(0, Math.min(64, Number(opts.padding) || 6)),
+            fontFamily: opts.fontFamily != null ? String(opts.fontFamily) : "Arial",
+            fontSize: Math.max(8, Math.min(96, Number(opts.fontSize) || 14)),
             text: plain,
             ...(html ? { textHtml: html } : {})
           };
@@ -300,7 +303,10 @@
               text: a.text,
               textHtml: a.textHtml ?? null,
               textColor: a.textColor,
-              bgColor: a.bgColor ?? null
+              bgColor: a.bgColor ?? null,
+              fontFamily: a.fontFamily,
+              fontSize: a.fontSize,
+              padding: a.padding
             };
           }
           if (SHAPE_TYPES.has(a.type)) {
@@ -328,6 +334,36 @@
           } else {
             clickManiColorValidateButtonForInputId(inputId);
           }
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.setTextStyleForTest = (annotationId, style = {}) => {
+        try {
+          const tab = getActiveTab();
+          if (!tab || !annotationId) return false;
+          const loc = findAnnotationLocation(tab, annotationId);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          captureSnapshot(tab);
+          const item = loc.item;
+          if (style.fontFamily != null) item.fontFamily = String(style.fontFamily);
+          if (style.fontSize != null) {
+            item.fontSize = Math.max(8, Math.min(96, Number(style.fontSize) || 14));
+          }
+          if (style.textColor != null) item.textColor = String(style.textColor);
+          if (style.padding != null) {
+            item.padding = Math.max(0, Math.min(64, Number(style.padding) || 0));
+          }
+          if (Object.prototype.hasOwnProperty.call(style, "bgColor")) {
+            item.bgColor = style.bgColor ? String(style.bgColor) : null;
+          }
+          const captureLastTextStyleFromItem = /** @type {(it: object) => void} */ (
+            d.captureLastTextStyleFromItem
+          );
+          captureLastTextStyleFromItem?.(item);
+          renderAnnotations();
+          session.scheduleAutoSave();
           return true;
         } catch {
           return false;

@@ -11,6 +11,85 @@ from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
 
+_EXPORT_DEBUG = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
+
+
+def _page_rotation_deg(page) -> int:
+    try:
+        return int(page.get("/Rotate", 0) or 0) % 360
+    except Exception:
+        return 0
+
+
+def _display_dims(page_w: float, page_h: float, rotation: int) -> tuple[float, float]:
+    rot = int(rotation or 0) % 360
+    if rot in (90, 270):
+        return page_h, page_w
+    return page_w, page_h
+
+
+def _map_annotation_coords(
+    raw_x: float,
+    raw_y: float,
+    raw_w: float,
+    raw_h: float,
+    sx: float,
+    sy: float,
+    rotation: int,
+    page_w: float,
+    page_h: float,
+) -> tuple[float, float, float, float]:
+    """Convertit coords canvas (top-left, y vers le bas) -> repère PDF user (bottom-left)."""
+    xd = raw_x * sx
+    yd = raw_y * sy
+    wd = raw_w * sx
+    hd = raw_h * sy
+    rot = int(rotation or 0) % 360
+
+    if rot == 90:
+        x = yd
+        y = page_h - (xd + wd)
+        return x, y, hd, wd
+    if rot == 270:
+        x = page_w - (yd + hd)
+        y = xd
+        return x, y, hd, wd
+    if rot == 180:
+        x = page_w - (xd + wd)
+        y = yd
+        return x, y, wd, hd
+
+    x = xd
+    y = page_h - (yd + hd)
+    return x, y, wd, hd
+
+
+def _pdf_user_vectors(a) -> tuple[float, float, float, float, float, float, float, float]:
+    ex = a.get("pdf_ex") or [1.0, 0.0]
+    ey = a.get("pdf_ey") or [0.0, -1.0]
+    ox = float(a.get("x") or 0)
+    oy = float(a.get("y") or 0)
+    cw = max(1.0, float(a.get("canvas_w") or a.get("w") or 1))
+    ch = max(1.0, float(a.get("canvas_h") or a.get("h") or 1))
+    return float(ex[0]), float(ex[1]), float(ey[0]), float(ey[1]), ox, oy, cw, ch
+
+
+def _enter_canvas_space(c, a, rot_a: float = 0.0) -> tuple[float, float]:
+    """Repère local ReportLab : origine bas-gauche, x→droite, y→haut."""
+    exx, exy, eyx, eyy, ox, oy, cw, ch = _pdf_user_vectors(a)
+    # pdf = (bas-gauche visuel) + cx·ex/cw − cy·ey/ch  →  y local vers le haut
+    c.transform(exx / cw, exy / cw, -eyx / ch, -eyy / ch, ox + eyx, oy + eyy)
+    if rot_a:
+        c.translate(0, ch)
+        c.rotate(-rot_a)
+        c.translate(0, -ch)
+    return cw, ch
+
+
+def _merge_overlay_page(page, overlay_page, rotation: int, page_w: float, page_h: float) -> None:
+    # Fusion directe : l'overlay est dessiné dans le repère user de la page (mediabox).
+    page.merge_page(overlay_page)
+
 
 def _require_pypdf():
     try:
@@ -157,6 +236,33 @@ class _AnnoHtmlToReportLab(HTMLParser):
             return
         if data:
             self.out.append(escape(data))
+
+
+def _rl_font_name(font_family: str) -> str:
+    """Mappe les polices UI vers les polices PDF intégrées ReportLab."""
+    key = str(font_family or "").strip().lower()
+    mapping = {
+        "arial": "Helvetica",
+        "helvetica": "Helvetica",
+        "sans-serif": "Helvetica",
+        "times new roman": "Times-Roman",
+        "times": "Times-Roman",
+        "serif": "Times-Roman",
+        "georgia": "Times-Roman",
+        "courier new": "Courier",
+        "courier": "Courier",
+        "monospace": "Courier",
+    }
+    return mapping.get(key, "Helvetica")
+
+
+def _text_has_markup(raw_html: str | None, plain: str) -> bool:
+    raw = str(raw_html or "").strip()
+    if not raw:
+        return False
+    if raw != plain and "<" in raw:
+        return True
+    return bool(re.search(r"<\s*(b|strong|i|em|u|font|span|br)\b", raw, re.I))
 
 
 def _html_to_paragraph_markup(html: str) -> str:
@@ -314,34 +420,60 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
     for idx, page in enumerate(reader.pages, start=1):
         page_w = float(page.mediabox.width)
         page_h = float(page.mediabox.height)
+        page_rot = _page_rotation_deg(page)
 
         canvas_px = canvases_px_by_page.get(str(idx)) or canvases_px_by_page.get(idx) or {}
         cw = float(canvas_px.get("w") or 0)
         ch = float(canvas_px.get("h") or 0)
+        meta_rot = int(canvas_px.get("rotation", 0) or 0) % 360
+        rot = meta_rot if meta_rot in (0, 90, 180, 270) else page_rot
+
+        disp_w, disp_h = _display_dims(page_w, page_h, rot)
         if cw <= 0 or ch <= 0:
-            # fallback: ratio 1
-            sx = sy = 1.0
+            page_sx = page_sy = 1.0
         else:
-            sx = page_w / cw
-            sy = page_h / ch
+            page_sx = disp_w / cw
+            page_sy = disp_h / ch
 
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=(page_w, page_h))
 
         annos = annotations_by_page.get(str(idx)) or annotations_by_page.get(idx) or []
+        if annos and _EXPORT_DEBUG:
+            logger.info(
+                "export page=%s rot=%s disp=%sx%s canvas=%sx%s scale=%.4f,%.4f annos=%s",
+                idx,
+                rot,
+                int(disp_w),
+                int(disp_h),
+                int(cw),
+                int(ch),
+                page_sx,
+                page_sy,
+                len(annos),
+            )
         for a in annos:
             try:
                 raw_type = a.get("type")
                 a_kind = str(raw_type or "").strip().lower()
-                x = float(a.get("x") or 0) * sx
-                y_top = float(a.get("y") or 0) * sy
-                w = float(a.get("w") or 0) * sx
-                h = float(a.get("h") or 0) * sy
-                rot = _num(a.get("rotation"), 0.0)
+                raw_x = float(a.get("x") or 0)
+                raw_y = float(a.get("y") or 0)
+                raw_w = float(a.get("w") or 0)
+                raw_h = float(a.get("h") or 0)
+                coords_pdf_user = str(a.get("coords_space") or "") == "pdf_user"
+                if coords_pdf_user:
+                    x, y, w, h = raw_x, raw_y, raw_w, raw_h
+                    draw_sx = draw_sy = 1.0
+                else:
+                    x, y, w, h = _map_annotation_coords(
+                        raw_x, raw_y, raw_w, raw_h, page_sx, page_sy, rot, page_w, page_h
+                    )
+                    draw_sx, draw_sy = page_sx, page_sy
+                rot_a = _num(a.get("rotation"), 0.0)
                 opacity = _num(a.get("opacity"), 100.0) / 100.0
-
-                # DOM top-left -> PDF bottom-left
-                y = page_h - (y_top + h)
+                use_canvas_space = bool(
+                    coords_pdf_user and a.get("pdf_ex") is not None and a.get("pdf_ey") is not None
+                )
 
                 c.saveState()
                 try:
@@ -350,73 +482,111 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                 except Exception:
                     pass
 
-                # Rotation : WYSIWYG avec le renderer.
-                # Renderer (DOM) : repère y vers le bas + `transform-origin: 0 0` sur `.annotation`
-                # => rotation positive = sens horaire autour du coin haut-gauche.
-                # PDF (reportlab) : repère y vers le haut + rotation positive = sens anti-horaire.
-                # On pivote donc autour du coin haut-gauche (x, y + h) et on inverse le signe.
-                if rot:
-                    px = x
-                    py = y + h
-                    c.translate(px, py)
-                    c.rotate(-rot)
-                    c.translate(-px, -py)
+                if use_canvas_space:
+                    cw, ch = _enter_canvas_space(c, a, rot_a)
+                    w = cw
+                    h = ch
+                    draw_x = 0.0
+                    draw_y = 0.0
+                else:
+                    draw_x = x
+                    draw_y = y
+                    # Rotation annotation (WYSIWYG avec le renderer).
+                    if rot_a:
+                        px = x
+                        py = y + h
+                        c.translate(px, py)
+                        c.rotate(-rot_a)
+                        c.translate(-px, -py)
 
                 if a_kind == "text":
-                    padding = _num(a.get("padding"), 6.0) * sx
-                    font_size = max(6.0, _num(a.get("fontSize"), 14.0) * sx)
+                    if coords_pdf_user:
+                        padding = _num(a.get("padding"), 6.0)
+                        font_size = max(6.0, _num(a.get("fontSize"), 14.0))
+                    else:
+                        padding = _num(a.get("padding"), 6.0) * draw_sx
+                        font_size = max(6.0, _num(a.get("fontSize"), 14.0) * draw_sx)
                     text_color = _color(str(a.get("textColor") or "#111111")) or HexColor("#111111")
                     bg = a.get("bgColor")
                     if bg and str(bg).strip() and str(bg).lower() not in ("transparent", "none"):
                         bgc = _color(str(bg))
                         if bgc is not None:
                             c.setFillColor(bgc)
-                            c.rect(x, y, w, h, stroke=0, fill=1)
+                            if use_canvas_space:
+                                c.rect(0, 0, w, h, stroke=0, fill=1)
+                            else:
+                                c.rect(x, y, w, h, stroke=0, fill=1)
                     raw_html = a.get("textHtml")
-                    if raw_html and str(raw_html).strip() and "<" in str(raw_html):
+                    plain = str(a.get("text") or "").strip()
+                    if not plain:
+                        plain = _html_to_plain(str(raw_html or "")).strip()
+                    font_name = _rl_font_name(str(a.get("fontFamily") or "Arial"))
+                    has_markup = _text_has_markup(raw_html, plain)
+                    frag = ""
+                    if has_markup and raw_html and str(raw_html).strip():
                         frag = _html_to_paragraph_markup(str(raw_html))
-                    else:
-                        frag = escape(unescape(str(a.get("text") or "")))
                     if not frag.strip():
-                        frag = escape(_html_to_plain(str(a.get("text") or raw_html or "")))
+                        frag = escape(unescape(plain))
+                    if not frag.strip():
+                        frag = escape(plain or " ")
                     style = ParagraphStyle(
                         name=f"anno_{idx}_{id(a)}",
-                        fontName="Helvetica",
+                        fontName=font_name,
                         fontSize=font_size,
-                        leading=font_size * 1.25,
+                        leading=font_size * 1.35,
                         textColor=text_color,
                     )
                     try:
                         para = Paragraph(frag, style)
                     except Exception:
-                        frag = escape(_html_to_plain(str(a.get("text") or raw_html or "")))
+                        frag = escape(plain or " ")
                         para = Paragraph(frag, style)
                     fw = max(1.0, w - 2 * padding)
                     fh = max(1.0, h - 2 * padding)
-                    frame = Frame(
-                        x + padding,
-                        y + padding,
-                        fw,
-                        fh,
-                        leftPadding=0,
-                        rightPadding=0,
-                        topPadding=0,
-                        bottomPadding=0,
-                        showBoundary=0,
-                    )
+                    if use_canvas_space:
+                        frame = Frame(
+                            padding,
+                            padding,
+                            fw,
+                            fh,
+                            leftPadding=0,
+                            rightPadding=0,
+                            topPadding=0,
+                            bottomPadding=0,
+                            showBoundary=0,
+                        )
+                    else:
+                        frame = Frame(
+                            x + padding,
+                            y + padding,
+                            fw,
+                            fh,
+                            leftPadding=0,
+                            rightPadding=0,
+                            topPadding=0,
+                            bottomPadding=0,
+                            showBoundary=0,
+                        )
                     try:
                         frame.addFromList([para], c)
                     except Exception:
-                        plain = _html_to_plain(str(a.get("text") or raw_html or "")).replace("\n", " ")
+                        if _EXPORT_DEBUG:
+                            logger.info("export text fallback drawString page=%s", idx)
                         c.setFillColor(text_color)
-                        c.setFont("Helvetica", font_size)
-                        c.drawString(x + padding, y + h - padding - font_size, plain[:2000])
+                        c.setFont(font_name, font_size)
+                        if use_canvas_space:
+                            c.drawString(padding, h - padding - font_size, plain[:2000])
+                        else:
+                            c.drawString(x + padding, y + h - padding - font_size, plain[:2000])
                 elif a_kind == "image":
                     b64 = a.get("src_base64")
                     if b64:
                         raw = base64.b64decode(b64)
                         img = ImageReader(BytesIO(raw))
-                        c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
+                        if use_canvas_space:
+                            c.drawImage(img, 0, 0, width=w, height=h, preserveAspectRatio=True, mask="auto")
+                        else:
+                            c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
                 else:
                     # Formes : WYSIWYG — remplissage + contour optionnels (comme dans le renderer).
                     defs = DEFAULT_SHAPE_STYLES.get(a_kind, DEFAULT_SHAPE_STYLES["rect"])
@@ -432,7 +602,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                         a.get("strokeWidth") if a.get("strokeWidth") is not None else defs["strokeWidth"],
                         defs["strokeWidth"],
                     )
-                    stroke_w_pt = max(0.0, stroke_w_px) * (sx + sy) / 2.0
+                    stroke_w_pt = max(0.0, stroke_w_px) * ((draw_sx + draw_sy) / 2.0 if not coords_pdf_user else 1.0)
                     stroke_alpha = max(0.0, min(1.0, _num(a.get("strokeAlpha"), 1.0)))
 
                     fill_c = _color(str(fill_hex))
@@ -454,8 +624,11 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                                     c.setFillAlpha(min(1.0, eff * bd_alpha))
                                 except Exception:
                                     pass
-                                c.rect(x, y, w, h, stroke=0, fill=1)
-                    if _dbg:
+                                if use_canvas_space:
+                                    c.rect(draw_x, draw_y, w, h, stroke=0, fill=1)
+                                else:
+                                    c.rect(draw_x, draw_y, w, h, stroke=0, fill=1)
+                    if _dbg and _EXPORT_DEBUG:
                         logger.info(
                             "export shape page=%s kind=%s raw_type=%r fill=%s fa=%s stroke_w=%s do_fill=%s do_stroke=%s",
                             idx,
@@ -482,24 +655,31 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                         c.setLineWidth(max(0.25, stroke_w_pt))
 
                     if a_kind == "rect":
-                        c.rect(x, y, w, h, stroke=1 if do_stroke else 0, fill=1 if do_fill else 0)
+                        c.rect(draw_x, draw_y, w, h, stroke=1 if do_stroke else 0, fill=1 if do_fill else 0)
                     elif a_kind == "ellipse":
-                        c.ellipse(x, y, x + w, y + h, stroke=1 if do_stroke else 0, fill=1 if do_fill else 0)
+                        c.ellipse(
+                            draw_x,
+                            draw_y,
+                            draw_x + w,
+                            draw_y + h,
+                            stroke=1 if do_stroke else 0,
+                            fill=1 if do_fill else 0,
+                        )
                     elif a_kind == "line":
                         if do_stroke and stroke_c is not None:
-                            sw = max(0.25, stroke_w_pt if stroke_w_pt > 0 else 1.5 * (sx + sy) / 2.0)
+                            sw = max(0.25, stroke_w_pt if stroke_w_pt > 0 else 1.5 * (draw_sx + draw_sy) / 2.0)
                             c.setLineWidth(sw)
                             c.setStrokeColor(stroke_c)
                             try:
                                 c.setStrokeAlpha(min(1.0, eff * stroke_alpha))
                             except Exception:
                                 pass
-                            cy = y + h - sw / 2.0
-                            c.line(x, cy, x + w, cy)
+                            cy = draw_y + h - sw / 2.0
+                            c.line(draw_x, cy, draw_x + w, cy)
                     else:
                         pct = SHAPE_PCT.get(a_kind)
                         if pct:
-                            path = _poly_path(c, x, y, w, h, pct)
+                            path = _poly_path(c, draw_x, draw_y, w, h, pct)
                             if path is not None and (do_fill or do_stroke):
                                 c.drawPath(
                                     path,
@@ -507,7 +687,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                                     fill=1 if do_fill else 0,
                                 )
                         elif do_stroke or do_fill:
-                            c.rect(x, y, w, h, stroke=1 if do_stroke else 0, fill=1 if do_fill else 0)
+                            c.rect(draw_x, draw_y, w, h, stroke=1 if do_stroke else 0, fill=1 if do_fill else 0)
 
                 c.restoreState()
             except Exception as exc:
@@ -528,11 +708,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
         buf.seek(0)
 
         overlay = PdfReader(buf)
-        try:
-            page.merge_page(overlay.pages[0])
-        except Exception:
-            # fallback older pypdf
-            page.merge_page(overlay.pages[0])
+        _merge_overlay_page(page, overlay.pages[0], rot, page_w, page_h)
         writer.add_page(page)
 
     _atomic_write_pdf(writer, output_path)

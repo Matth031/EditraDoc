@@ -131,6 +131,14 @@ test("load PDF, remove tab, add and edit text", async () => {
 
   const textNode = await addTextAnnotation(page);
 
+  const editor = page.locator(
+    "#annotationLayer .annotation.text.editing .text-editor[contenteditable='true']"
+  );
+  await expect(editor).toHaveCount(1);
+  await editor.fill("Bonjour");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#annotationLayer .annotation.text.editing")).toHaveCount(0);
+
   // Non-régression: drag + scroll => l'élément reste sous le curseur
   // (simulate: click-drag, scroll viewer, continue drag)
   const box = await textNode.boundingBox();
@@ -148,17 +156,6 @@ test("load PDF, remove tab, add and edit text", async () => {
   await page.mouse.move(startMx + 30, startMy + 30);
   await page.mouse.up();
 
-  // Entrer en édition: double-click (fallback mousedown existe, mais dblclick est mieux).
-  await textNode.dblclick({ position: { x: 20, y: 20 } });
-
-  const editor = page.locator(
-    "#annotationLayer .annotation.text.editing .text-editor[contenteditable='true']"
-  );
-  await expect(editor).toHaveCount(1);
-  await editor.click();
-  await editor.fill("Bonjour");
-
-  // Sidebar "Ajouts": libellé type aligné sur i18n FR `annTextWin` (« Fenetre texte », sans accent)
   await expect(page.locator("#changesList .change-item")).toHaveCount(1);
   await expect(page.locator("#changesList .change-item .change-type").first()).toContainText(
     "Fenetre texte"
@@ -167,7 +164,8 @@ test("load PDF, remove tab, add and edit text", async () => {
     "Bonjour"
   );
 
-  // Correcteur orthographique: activé et dépend de la langue UI (au moins via attributs DOM).
+  // Correcteur orthographique: ré-ouvrir l'édition pour vérifier lang/spellcheck
+  await textNode.dblclick({ position: { x: 20, y: 20 } });
   await expect(editor).toHaveCount(1);
   await expect(editor).toHaveAttribute("lang", /^(fr-FR|fr)$/);
   const sc = await editor.evaluate((el) => Boolean(el.spellcheck));

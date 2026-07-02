@@ -29,6 +29,7 @@
    * @property {(n: number, min: number, max: number) => number} clamp
    * @property {() => void} enforceSafeZoneForActiveTab
    * @property {() => void} renderAnnotations
+   * @property {() => boolean} [shouldPauseScrollPageSync]
    * @property {() => void} scheduleSidebarUpdate
    */
 
@@ -39,6 +40,8 @@
   let activePdfRenderToken = 0;
   /** @type {unknown[]} */
   let activePdfRenderTasks = [];
+  let scrollPageSyncTimer = null;
+  let suppressScrollPageSync = false;
 
   const pdfRenderCache = {
     path: /** @type {string | null} */ (null),
@@ -99,6 +102,75 @@
     viewer.scrollTop = Math.max(
       0,
       Math.min(nextTop, Math.max(0, nextScrollH - viewer.clientHeight))
+    );
+  }
+
+  function resolveDominantVisiblePage() {
+    const d = requireDeps();
+    const { viewer, pagesContainer } = d;
+    if (!viewer || !pagesContainer) return null;
+
+    const viewRect = viewer.getBoundingClientRect();
+    const viewHeight = viewRect.height;
+    if (viewHeight <= 0) return null;
+
+    let bestPage = null;
+    let bestRatio = 0;
+    pagesContainer.querySelectorAll(".pdf-page").forEach((pageNode) => {
+      const rect = pageNode.getBoundingClientRect();
+      const visibleTop = Math.max(rect.top, viewRect.top);
+      const visibleBottom = Math.min(rect.bottom, viewRect.bottom);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const ratio = visibleHeight / viewHeight;
+      const pageNumber = Number(pageNode.dataset.page) || 1;
+      if (ratio > bestRatio) {
+        bestRatio = ratio;
+        bestPage = pageNumber;
+      }
+    });
+
+    if (bestRatio > 0.5 && bestPage !== null) return bestPage;
+    return null;
+  }
+
+  function syncActivePageFromScroll() {
+    if (suppressScrollPageSync) return;
+    const d = requireDeps();
+    if (d.shouldPauseScrollPageSync?.()) return;
+    const tab = d.getActiveTab();
+    if (!tab) return;
+    const page = resolveDominantVisiblePage();
+    if (page == null || page === tab.currentPage) return;
+    setActivePage(page);
+  }
+
+  /** Pause la synchro scroll → page (ex. scrollIntoView programmé). */
+  function runWithScrollSyncPaused(fn) {
+    suppressScrollPageSync = true;
+    try {
+      fn();
+    } finally {
+      setTimeout(() => {
+        suppressScrollPageSync = false;
+      }, 220);
+    }
+  }
+
+  function wireScrollPageSync() {
+    const d = requireDeps();
+    const viewer = d.viewer;
+    if (!viewer || viewer.dataset.scrollPageSync === "1") return;
+    viewer.dataset.scrollPageSync = "1";
+    viewer.addEventListener(
+      "scroll",
+      () => {
+        if (scrollPageSyncTimer) clearTimeout(scrollPageSyncTimer);
+        scrollPageSyncTimer = setTimeout(() => {
+          scrollPageSyncTimer = null;
+          syncActivePageFromScroll();
+        }, 80);
+      },
+      { passive: true }
     );
   }
 
@@ -167,17 +239,34 @@
   }
 
   async function loadPdfDocument(pdfPath) {
-    if (pdfRenderCache.path === pdfPath && pdfRenderCache.doc) return pdfRenderCache.doc;
+    const key = String(pdfPath || "");
+    if (pdfRenderCache.path === key && pdfRenderCache.doc) return pdfRenderCache.doc;
     const pdfjs = await getPdfJs();
-    const read = await window.maniPdfApi.readPdfBytes(pdfPath);
+    const read = await window.maniPdfApi.readPdfBytes(key);
     if (!read.ok) throw new Error(read.error || "Lecture PDF impossible.");
     const data = base64ToUint8Array(read.base64);
     const loadingTask = pdfjs.getDocument({ data, disableFontFace: true });
     const doc = await loadingTask.promise;
-    pdfRenderCache.path = pdfPath;
+    pdfRenderCache.path = key;
     pdfRenderCache.base64 = read.base64;
     pdfRenderCache.doc = doc;
     return doc;
+  }
+
+  /** Invalide le cache pdf.js pour forcer une relecture disque après export / écrasement. */
+  function invalidatePdfRenderCache(paths) {
+    const norm = (p) => String(p || "").trim().replace(/\//g, "\\").toLowerCase();
+    const targets = new Set((paths || []).map(norm).filter(Boolean));
+    if (!targets.size || !pdfRenderCache.path) return;
+    if (!targets.has(norm(pdfRenderCache.path))) return;
+    try {
+      pdfRenderCache.doc?.destroy?.();
+    } catch {
+      /* ignore */
+    }
+    pdfRenderCache.path = null;
+    pdfRenderCache.base64 = null;
+    pdfRenderCache.doc = null;
   }
 
   function ensureOverlaysOn(pageNode) {
@@ -277,6 +366,7 @@
       const pageNode = document.createElement("div");
       pageNode.className = "pdf-page";
       pageNode.dataset.page = String(pageNumber);
+      pageNode.dataset.rotation = String(page.rotate || 0);
 
       const canvas = document.createElement("canvas");
       canvas.className = "pdf-canvas";
@@ -303,6 +393,7 @@
     setActivePage(tab.currentPage || 1);
     applyZoomAnchorIfAny();
     scheduleSidebarUpdate();
+    syncActivePageFromScroll();
     if (token !== activePdfRenderToken) return;
     try {
       setStatus(t("stPdfLoadedHint"));
@@ -471,16 +562,46 @@
     );
   }
 
+  async function convertCanvasRectToPdfUser(pdfPath, pageNumber, rect, canvasW, canvasH) {
+    const doc = await loadPdfDocument(pdfPath);
+    const page = await doc.getPage(pageNumber);
+    const baseVp = page.getViewport({ scale: 1 });
+    const scale = canvasW > 0 && baseVp.width > 0 ? canvasW / baseVp.width : 1;
+    const viewport = page.getViewport({ scale: Number.isFinite(scale) && scale > 0 ? scale : 1 });
+
+    const x1 = Number(rect?.x) || 0;
+    const y1 = Number(rect?.y) || 0;
+    const x2 = x1 + (Number(rect?.w) || 0);
+    const y2 = y1 + (Number(rect?.h) || 0);
+
+    const origin = viewport.convertToPdfPoint(x1, y1);
+    const topRight = viewport.convertToPdfPoint(x2, y1);
+    const bottomLeft = viewport.convertToPdfPoint(x1, y2);
+
+    return {
+      x: origin[0],
+      y: origin[1],
+      canvas_w: Number(rect?.w) || 0,
+      canvas_h: Number(rect?.h) || 0,
+      pdf_ex: [topRight[0] - origin[0], topRight[1] - origin[1]],
+      pdf_ey: [bottomLeft[0] - origin[0], bottomLeft[1] - origin[1]]
+    };
+  }
+
   window.__editifyPdfViewer = {
     bind,
     wireResize,
     wireWheel,
     wireZoomButtons,
+    wireScrollPageSync,
     setupDragAndDrop,
     updateViewer,
     setActivePage,
     setZoomScale,
     updateZoomUI,
-    zoomByWheelDelta
+    zoomByWheelDelta,
+    runWithScrollSyncPaused,
+    invalidatePdfRenderCache,
+    convertCanvasRectToPdfUser
   };
 })();

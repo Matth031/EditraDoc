@@ -1,5 +1,12 @@
 const fs = require("fs");
+const { execFileSync } = require("child_process");
 const { expect } = require("@playwright/test");
+
+function extractPdfTextFirstPage(pdfPath) {
+  const script =
+    "import sys; from pypdf import PdfReader; r=PdfReader(sys.argv[1]); print((r.pages[0].extract_text() or '').replace(chr(10),' '))";
+  return execFileSync("py", ["-3", "-c", script, pdfPath], { encoding: "utf8" }).trim();
+}
 
 function countBufferOccurrences(buf, needle) {
   let n = 0;
@@ -21,7 +28,31 @@ function assertPdfHasEmbeddedImageXObjects(pdfPath, minCount = 1) {
   expect(n, "au moins une ressource /Subtype /Image").toBeGreaterThanOrEqual(minCount);
 }
 
+function assertPdfContainsText(pdfPath, text) {
+  const needle = String(text || "");
+  const buf = fs.readFileSync(pdfPath);
+  if (buf.includes(Buffer.from(needle))) return;
+  const extracted = extractPdfTextFirstPage(pdfPath);
+  expect(extracted).toContain(needle);
+}
+
+function assertPdfUsesBaseFont(pdfPath, fontName) {
+  const raw = fs.readFileSync(pdfPath).toString("latin1");
+  const escaped = String(fontName || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  expect(raw).toMatch(new RegExp(`/BaseFont\\s*/${escaped}(?:\\s|$)`));
+}
+
+function assertPdfHasFontSizeTf(pdfPath, sizePt) {
+  const raw = fs.readFileSync(pdfPath).toString("latin1");
+  const n = Number(sizePt);
+  expect(raw).toMatch(new RegExp(`\\b${n}(?:\\.\\d+)?\\s+Tf\\b`));
+}
+
 module.exports = {
   countBufferOccurrences,
-  assertPdfHasEmbeddedImageXObjects
+  assertPdfHasEmbeddedImageXObjects,
+  assertPdfContainsText,
+  assertPdfUsesBaseFont,
+  assertPdfHasFontSizeTf,
+  extractPdfTextFirstPage
 };

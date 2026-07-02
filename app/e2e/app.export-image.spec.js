@@ -165,3 +165,65 @@ test("export PDF : image puis écrasement du fichier source (même chemin)", asy
   await e2eCi.closeElectronApp(app);
   if (fs.existsSync(workPdf)) fs.unlinkSync(workPdf);
 });
+
+test("export PDF : texte en cours d’édition (sans blur) est inclus dans le fichier", async () => {
+  const outTextPdf = path.join(repoRoot, "tests", "test_export_text_editing.pdf");
+  if (fs.existsSync(outTextPdf)) fs.unlinkSync(outTextPdf);
+
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: e2eCi.electronLaunchArgs(),
+    timeout: e2eCi.electronLaunchTimeoutMs(),
+    env: e2eCi.mergeProcessEnv({
+      ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
+      MANI_PDF_E2E: "1",
+      MANI_PDF_E2E_PDF_PATH: pdfFixture
+    })
+  });
+  const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForFunction(
+    () => !!window.maniPdfApi && window.__maniE2E?.exportActivePdfToPathForTest,
+    null,
+    { timeout: 90000, polling: 250 }
+  );
+
+  await expect
+    .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
+      timeout: 60000,
+      message: "Le service Python (port 8765) doit être disponible pour l’export PDF."
+    })
+    .toMatchObject({ ok: true });
+
+  await app.evaluate(({ BrowserWindow }, p) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win?.webContents?.send?.("pdf:open-from-menu", p);
+  }, pdfFixture);
+
+  await expect(page.locator("#tabs .tab")).toHaveCount(1, { timeout: 30000 });
+  await waitForPdfPagesRendered(page);
+
+  await page.locator("#addTextBtn").click();
+  const editor = page.locator("#annotationLayer .annotation.text .text-editor");
+  await expect(editor).toBeVisible({ timeout: 10000 });
+  await editor.click();
+  await editor.pressSequentially("TEST!", { delay: 15 });
+  await expect
+    .poll(async () => {
+      const ui = await page.evaluate(() => window.__maniE2E.getUiState());
+      return (ui.textOnCurrentPage || []).some((s) => String(s).includes("TEST"));
+    }, { timeout: 5000 })
+    .toBe(true);
+  // Pas de blur : export direct pendant l’édition immédiate.
+  const exportResult = await page.evaluate(
+    (p) => window.__maniE2E.exportActivePdfToPathForTest(p),
+    outTextPdf
+  );
+  expect(exportResult?.ok).toBe(true);
+  expect(fs.existsSync(outTextPdf)).toBe(true);
+  const buf = fs.readFileSync(outTextPdf);
+  expect(buf.includes(Buffer.from("TEST"))).toBe(true);
+
+  await e2eCi.closeElectronApp(app);
+  if (fs.existsSync(outTextPdf)) fs.unlinkSync(outTextPdf);
+});

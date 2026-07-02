@@ -54,14 +54,24 @@ function getPythonLaunchConfig() {
   const pyDir = path.join(appRoot, "python");
   const scriptPath = path.join(pyDir, "pdf_service.py");
   const cwd = pyDir;
-  const env = { ...process.env, PYTHONUNBUFFERED: "1", PYTHONPATH: pyDir };
+  const env = {
+    ...process.env,
+    PYTHONUNBUFFERED: "1",
+    PYTHONPATH: pyDir,
+    PYTHONUTF8: "1",
+    MANI_PDF_EXPORT_DEBUG: process.env.MANI_PDF_EXPORT_DEBUG || "0"
+  };
   if (app.isPackaged && process.platform === "win32") {
     const embedded = path.join(process.resourcesPath, "python-runtime", "python.exe");
     if (fs.existsSync(embedded)) {
       return { command: embedded, args: [scriptPath], cwd, env };
     }
   }
-  const command = process.platform === "win32" ? "python" : "python3";
+  if (process.platform === "win32") {
+    // Évite un `python` du PATH sans pypdf (ex. venv tiers) : préférer le lanceur Windows.
+    return { command: "py", args: ["-3", scriptPath], cwd, env };
+  }
+  const command = "python3";
   return { command, args: [scriptPath], cwd, env };
 }
 const sessionStatePath = path.join(app.getPath("userData"), "session-state.json");
@@ -487,10 +497,22 @@ function stopBackgroundTimers() {
 
 function startPythonService() {
   const { command, args, cwd, env } = getPythonLaunchConfig();
+  try {
+    console.log("[EditraDoc:python] demarrage", { command, args, cwd });
+  } catch {
+    /* ignore */
+  }
   pythonProcess = spawn(command, args, {
     stdio: ["ignore", "pipe", "pipe"],
     cwd,
     env
+  });
+  pythonProcess.on("error", (err) => {
+    try {
+      console.error("[EditraDoc:python] erreur spawn", err?.message || String(err));
+    } catch {
+      /* ignore */
+    }
   });
   pythonProcess.stdout.on("data", () => {});
   pythonProcess.stderr.on("data", (chunk) => {
@@ -577,14 +599,23 @@ function postToPython(route, payload) {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body)
         },
-        timeout: 20000
+        timeout: 60000
       },
       (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           try {
-            resolve(JSON.parse(data || "{}"));
+            const parsed = JSON.parse(data || "{}");
+            if (res.statusCode && res.statusCode >= 400) {
+              resolve({
+                ok: false,
+                error: parsed.error || `Requete Python echouee (HTTP ${res.statusCode}).`,
+                httpStatus: res.statusCode
+              });
+              return;
+            }
+            resolve(parsed);
           } catch {
             resolve({ ok: false, error: "Reponse Python invalide." });
           }
@@ -599,6 +630,83 @@ function postToPython(route, payload) {
     req.write(body);
     req.end();
   });
+}
+
+async function exportPdfWithAnnotationsMain(payload) {
+  const input_path = String(payload?.input_path || "").trim();
+  const output_path = String(payload?.output_path || "").trim();
+  const audit = (message, data) => {
+    try {
+      console.log(`[EditraDoc:export] ${message}`, data || "");
+    } catch {
+      /* ignore */
+    }
+    log("export", message, data ?? null);
+  };
+  audit("start", { input_path, output_path });
+
+  if (!input_path) {
+    audit("fail", { reason: "missing_input_path" });
+    return { ok: false, error: "Chemin source manquant." };
+  }
+  if (!fs.existsSync(input_path)) {
+    audit("fail", { reason: "input_not_found", input_path });
+    return { ok: false, error: "Le fichier PDF source est introuvable." };
+  }
+  if (!output_path) {
+    audit("fail", { reason: "missing_output_path" });
+    return { ok: false, error: "Chemin de sortie manquant." };
+  }
+
+  try {
+    const outDir = path.dirname(path.resolve(output_path));
+    fs.mkdirSync(outDir, { recursive: true });
+  } catch (error) {
+    const msg = error?.message || String(error);
+    audit("fail", { reason: "mkdir", error: msg });
+    return { ok: false, error: `Impossible de creer le dossier de sortie: ${msg}` };
+  }
+
+  const annotationCount = Object.values(payload?.annotations_by_page || {}).reduce(
+    (n, arr) => n + (Array.isArray(arr) ? arr.length : 0),
+    0
+  );
+  audit("python_request", {
+    input_path,
+    output_path,
+    annotationCount,
+    pageKeys: Object.keys(payload?.canvases_px_by_page || {}).slice(0, 20)
+  });
+
+  const result = await postToPython("/apply-annotations", payload);
+  if (!result?.ok) {
+    audit("fail", {
+      reason: "python_error",
+      error: result?.error,
+      httpStatus: result?.httpStatus
+    });
+    return result;
+  }
+
+  if (!fs.existsSync(output_path)) {
+    audit("fail", { reason: "output_missing", output_path });
+    return { ok: false, error: "Le fichier exporte n'a pas ete cree sur le disque." };
+  }
+
+  try {
+    const stat = fs.statSync(output_path);
+    if (!stat.size) {
+      audit("fail", { reason: "output_empty", output_path });
+      return { ok: false, error: "Le fichier exporte est vide." };
+    }
+    audit("success", { output_path, size: stat.size });
+  } catch (error) {
+    const msg = error?.message || String(error);
+    audit("fail", { reason: "output_stat", error: msg });
+    return { ok: false, error: `Verification du fichier exporte impossible: ${msg}` };
+  }
+
+  return { ok: true, output_path: result.output_path || output_path };
 }
 
 function getPythonHealth() {
@@ -766,61 +874,38 @@ ipcMain.handle("dialog:savePdfAs", async (_, suggestedName) => {
     typeof suggestedName === "string" && suggestedName.trim()
       ? suggestedName.trim()
       : "document_modifie.pdf";
+  log("save", "dialog_open", { suggestedName: name });
+  try {
+    console.log("[EditraDoc:save] dialog_open", { suggestedName: name });
+  } catch {
+    /* ignore */
+  }
   const result = await dialog.showSaveDialog(mainWindow, {
     title: "Enregistrer sous",
     defaultPath: name,
     filters: [{ name: "PDF", extensions: ["pdf"] }]
   });
-  if (result.canceled || !result.filePath) return { ok: false, cancelled: true };
+  if (result.canceled || !result.filePath) {
+    log("save", "dialog_cancelled", {});
+    return { ok: false, cancelled: true };
+  }
+  log("save", "dialog_ok", { path: result.filePath });
+  log("save", "dialog_ok", { path: result.filePath });
+  try {
+    console.log("[EditraDoc:save] dialog_ok", { path: result.filePath });
+  } catch {
+    /* ignore */
+  }
   return { ok: true, path: result.filePath };
 });
 
 ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
   try {
-    const body = JSON.stringify(payload || {});
-    return await new Promise((resolve) => {
-      const req = http.request(
-        {
-          hostname: "127.0.0.1",
-          port: 8765,
-          path: "/apply-annotations",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body)
-          },
-          timeout: 60000
-        },
-        (res) => {
-          let data = "";
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => {
-            try {
-              const parsed = JSON.parse(data || "{}");
-              if (res.statusCode && res.statusCode >= 400) {
-                resolve({
-                  ok: false,
-                  error: parsed.error || `Export PDF echoue (HTTP ${res.statusCode}).`
-                });
-                return;
-              }
-              resolve(parsed);
-            } catch {
-              resolve({ ok: false, error: "Reponse export invalide." });
-            }
-          });
-        }
-      );
-      req.on("error", (err) => resolve({ ok: false, error: err.message }));
-      req.on("timeout", () => {
-        req.destroy();
-        resolve({ ok: false, error: "Timeout export PDF." });
-      });
-      req.write(body);
-      req.end();
-    });
+    return await exportPdfWithAnnotationsMain(payload);
   } catch (error) {
-    return { ok: false, error: error?.message || String(error) };
+    const msg = error?.message || String(error);
+    log("export", "fail", { reason: "exception", error: msg });
+    return { ok: false, error: msg };
   }
 });
 
@@ -877,6 +962,13 @@ ipcMain.handle("job:retry", async (_, id) => {
 });
 ipcMain.handle("sensitive:list", async () => ({ ok: true, actions: sensitiveActions }));
 ipcMain.handle("log:renderer", async (_, payload) => {
+  if (payload?.message === "save") {
+    try {
+      console.log(`[EditraDoc:save] ${payload?.data?.step || "event"}`, payload?.data ?? null);
+    } catch {
+      /* ignore */
+    }
+  }
   log("renderer", payload?.message || "event", payload?.data ?? null);
   return { ok: true };
 });

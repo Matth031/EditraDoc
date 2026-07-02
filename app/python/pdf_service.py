@@ -105,12 +105,25 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if self.path == "/apply-annotations":
+                input_path = str(payload.get("input_path", "") or "")
+                output_path = str(payload.get("output_path", "") or "")
+                ann = payload.get("annotations_by_page", {}) or {}
+                ann_count = sum(len(v or []) for v in ann.values() if isinstance(v, list))
+                if LOG_VERBOSE:
+                    logging.info(
+                        "apply-annotations input=%s output=%s annotations=%s",
+                        input_path,
+                        output_path,
+                        ann_count,
+                    )
                 output = apply_annotations(
-                    payload.get("input_path", ""),
-                    payload.get("output_path", ""),
+                    input_path,
+                    output_path,
                     payload.get("canvases_px_by_page", {}) or {},
-                    payload.get("annotations_by_page", {}) or {},
+                    ann,
                 )
+                if LOG_VERBOSE:
+                    logging.info("apply-annotations ok output=%s", output)
                 self._json_response(200, {"ok": True, "output_path": output})
                 return
 
@@ -124,12 +137,29 @@ class Handler(BaseHTTPRequestHandler):
         if LOG_VERBOSE:
             logging.info("GET %s", self.path)
         if self.path == "/health":
+            pypdf_ok = False
+            reportlab_ok = False
             try:
                 import pypdf  # type: ignore  # noqa: F401
 
-                self._json_response(200, {"ok": True, "pypdf": True})
+                pypdf_ok = True
             except Exception:
-                self._json_response(200, {"ok": True, "pypdf": False})
+                pass
+            try:
+                import reportlab  # type: ignore  # noqa: F401
+
+                reportlab_ok = True
+            except Exception:
+                pass
+            self._json_response(
+                200,
+                {
+                    "ok": True,
+                    "pypdf": pypdf_ok,
+                    "reportlab": reportlab_ok,
+                    "export_ready": pypdf_ok and reportlab_ok,
+                },
+            )
             return
         self._json_response(404, {"ok": False, "error": "Route inconnue"})
 

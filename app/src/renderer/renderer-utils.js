@@ -60,11 +60,25 @@
     return parts[parts.length - 1] || "document";
   }
 
+  /** Compare deux chemins Windows/Unix (casse ignorée sous Windows). */
+  function normalizeFsPath(filePath) {
+    if (!filePath || typeof filePath !== "string") return "";
+    return filePath.trim().replace(/\//g, "\\").toLowerCase();
+  }
+
+  function pathsEqual(a, b) {
+    const na = normalizeFsPath(a);
+    const nb = normalizeFsPath(b);
+    return Boolean(na && nb && na === nb);
+  }
+
   window.__editifyUtils = {
     logText,
     newAnnotationId,
     deepClone,
     cloneForClipboard,
-    baseNameFromPath
+    baseNameFromPath,
+    normalizeFsPath,
+    pathsEqual
   };
 })();

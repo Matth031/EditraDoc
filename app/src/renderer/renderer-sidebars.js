@@ -218,6 +218,9 @@
       };
       d.thumbsList.appendChild(item);
     });
+
+    const activeThumb = d.thumbsList.querySelector(".thumb-item.active");
+    activeThumb?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
 
   window.__editifySidebars = {

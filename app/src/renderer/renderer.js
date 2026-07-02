@@ -259,6 +259,40 @@ let lastTextMouseDownId = null;
 const lastAutoGrowHeightById = new Map();
 let measureTextNode = null;
 
+/** Style par défaut des prochaines zones texte (dernière fenêtre texte affichée / modifiée). */
+const DEFAULT_TEXT_STYLE = Object.freeze({
+  textColor: "#111111",
+  bgColor: null,
+  padding: 6,
+  fontFamily: "Arial",
+  fontSize: 14
+});
+let lastTextStyle = { ...DEFAULT_TEXT_STYLE };
+
+function captureLastTextStyleFromItem(item) {
+  if (!item || item.type !== "text") return;
+  lastTextStyle = {
+    textColor: item.textColor || DEFAULT_TEXT_STYLE.textColor,
+    bgColor: item.bgColor ?? null,
+    padding: Math.max(0, Math.min(64, Number(item.padding) || DEFAULT_TEXT_STYLE.padding)),
+    fontFamily: item.fontFamily || DEFAULT_TEXT_STYLE.fontFamily,
+    fontSize: Math.max(8, Math.min(96, Number(item.fontSize) || DEFAULT_TEXT_STYLE.fontSize))
+  };
+}
+
+function getNewTextAnnotationDefaults() {
+  return { ...lastTextStyle };
+}
+
+function focusTextAnnotationEditor(annotationId) {
+  requestAnimationFrame(() => {
+    const editNode = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${annotationId}"]`);
+    const ed = getAnnotationTextEditor(editNode);
+    if (ed) ed.focus();
+    else editNode?.focus?.();
+  });
+}
+
 // Sidebars : `scheduleSidebarUpdate` / `renderThumbnails` / `renderChanges` - `renderer-sidebars.js` + `bind()` fin de fichier.
 
 function annotationTypeLabel(a) {
@@ -834,11 +868,30 @@ function applySpellcheckLanguageBestEffort() {
 }
 
 function getSafeZoneSize() {
+  const canvas = pdfLayerRef.pdfCanvas;
+  if (canvas?.width > 0 && canvas?.height > 0) {
+    return { width: canvas.width, height: canvas.height };
+  }
   const rect = pdfLayerRef.annotationLayer?.getBoundingClientRect?.();
   if (!rect) return { width: 0, height: 0 };
   return {
     width: Math.max(0, Math.floor(rect.width)),
     height: Math.max(0, Math.floor(rect.height))
+  };
+}
+
+/** Lit la géométrie DOM d'une annotation (repère canvas interne) — diagnostic export. */
+function readAnnotationGeometryFromDom(node, canvas) {
+  if (!node || !canvas) return null;
+  const canvasRect = canvas.getBoundingClientRect();
+  const nodeRect = node.getBoundingClientRect();
+  const sx = canvas.width / Math.max(1, canvasRect.width);
+  const sy = canvas.height / Math.max(1, canvasRect.height);
+  return {
+    x: (nodeRect.left - canvasRect.left) * sx,
+    y: (nodeRect.top - canvasRect.top) * sy,
+    w: nodeRect.width * sx,
+    h: nodeRect.height * sy
   };
 }
 
@@ -884,9 +937,15 @@ function fitAnnotationToSafeZone(item, zone) {
 function scaleAnnotationsForZoneChange(tab, zone) {
   if (!tab) return false;
   const pageKey = String(tab.currentPage || 1);
+  return scaleAnnotationsForPage(tab, zone, pageKey);
+}
+
+function scaleAnnotationsForPage(tab, zone, pageKey) {
+  if (!tab || !zone?.width || !zone?.height) return false;
+  const key = String(pageKey || 1);
   if (!tab.viewportByPage) tab.viewportByPage = {};
-  const prev = tab.viewportByPage[pageKey];
-  tab.viewportByPage[pageKey] = { width: zone.width, height: zone.height };
+  const prev = tab.viewportByPage[key];
+  tab.viewportByPage[key] = { width: zone.width, height: zone.height };
 
   if (!prev || prev.width <= 0 || prev.height <= 0) return false;
   if (prev.width === zone.width && prev.height === zone.height) return false;
@@ -895,7 +954,7 @@ function scaleAnnotationsForZoneChange(tab, zone) {
   const sy = zone.height / prev.height;
   if (!Number.isFinite(sx) || !Number.isFinite(sy)) return false;
 
-  const annotations = currentPageAnnotations(tab);
+  const annotations = tab.annotationsByPage?.[key] || [];
   if (!annotations.length) return false;
 
   annotations.forEach((item) => {
@@ -913,6 +972,19 @@ function scaleAnnotationsForZoneChange(tab, zone) {
     fitAnnotationToSafeZone(item, zone);
   });
   return true;
+}
+
+/** Réaligne les coords stockées sur les dimensions canvas réelles avant export (toutes pages). */
+function resyncAllPagesForExport(tab, canvases) {
+  if (!tab?.annotationsByPage) return;
+  for (const pageKey of Object.keys(tab.annotationsByPage)) {
+    const c = canvases?.[pageKey];
+    if (!c?.w || !c?.h) continue;
+    const zone = { width: c.w, height: c.h };
+    if (scaleAnnotationsForPage(tab, zone, pageKey)) {
+      logSave("coords_rescaled", { pageKey, zone });
+    }
+  }
 }
 
 function enforceSafeZoneForActiveTab() {
@@ -1117,10 +1189,16 @@ async function promptOpenPdf() {
   await addPdfTab(selected.path, name);
 }
 
+function annotationsOnPage(tab, pageKey) {
+  if (!tab) return [];
+  const key = String(pageKey || 1);
+  if (!tab.annotationsByPage[key]) tab.annotationsByPage[key] = [];
+  return tab.annotationsByPage[key];
+}
+
 function currentPageAnnotations(tab) {
   const page = String(tab.currentPage || 1);
-  if (!tab.annotationsByPage[page]) tab.annotationsByPage[page] = [];
-  return tab.annotationsByPage[page];
+  return annotationsOnPage(tab, page);
 }
 
 function captureSnapshot(tab) {
@@ -1649,7 +1727,10 @@ function startResize(event, id, mode = "br") {
 }
 
 function computeInsertPositionForNewAnnotation(tab, annotation, zone) {
-  const p = state.lastPointer && Number(state.lastPointer.page) === Number(tab.currentPage || 1) ? state.lastPointer : null;
+  const p =
+    state.lastPointer && Number(state.lastPointer.page) === Number(tab.currentPage || 1)
+      ? state.lastPointer
+      : null;
   const cx = p ? p.x : zone.width / 2;
   const cy = p ? p.y : zone.height / 2;
   // Positionner top-left proche du curseur, sans sortir de la page.
@@ -1661,8 +1742,10 @@ function addAnnotation(type, extra = {}) {
   const tab = getActiveTab();
   if (!tab) return;
   captureSnapshot(tab);
-  const annotations = currentPageAnnotations(tab);
+  const pageKey = String(tab.currentPage || 1);
+  const annotations = annotationsOnPage(tab, pageKey);
   const id = newAnnotationId();
+  const textDefaults = type === "text" ? getNewTextAnnotationDefaults() : null;
   const annotation = {
     id,
     type,
@@ -1672,24 +1755,38 @@ function addAnnotation(type, extra = {}) {
     h: type === "text" ? 48 : 120,
     rotation: 0,
     opacity: 100,
-    textColor: "#111111",
-    bgColor: null,
-    padding: 6,
-    fontFamily: "Arial",
-    fontSize: 14,
-    text: type === "text" ? "" : undefined,
+    ...(type === "text"
+      ? { ...textDefaults, text: "" }
+      : {
+          textColor: "#111111",
+          bgColor: null,
+          padding: 6,
+          fontFamily: "Arial",
+          fontSize: 14
+        }),
     ...extra
   };
   if (SHAPE_TYPES.has(type)) {
     mergeShapeStyleFields(annotation);
   }
   const zone = getSafeZoneSize();
+  if (!tab.viewportByPage) tab.viewportByPage = {};
+  if (!tab.viewportByPage[pageKey]?.width || !tab.viewportByPage[pageKey]?.height) {
+    tab.viewportByPage[pageKey] = { width: zone.width, height: zone.height };
+  }
   computeInsertPositionForNewAnnotation(tab, annotation, zone);
   fitAnnotationToSafeZone(annotation, zone);
   annotations.push(annotation);
   state.selectedAnnotationId = id;
+  if (type === "text") {
+    state.editingAnnotationId = id;
+    captureLastTextStyleFromItem(annotation);
+  }
   syncPropertyInputs();
   renderAnnotations();
+  if (type === "text") {
+    focusTextAnnotationEditor(id);
+  }
   session.scheduleAutoSave();
 }
 
@@ -1811,6 +1908,7 @@ function syncPropertyInputs() {
     propPadding.value = String(Math.round(item.padding ?? 6));
     propFontFamily.value = item.fontFamily || "Arial";
     propFontSize.value = String(Math.round(item.fontSize ?? 14));
+    captureLastTextStyleFromItem(item);
   }
   if (isShape && propShapeFill && propShapeFillOpacity && propShapeStroke && propShapeStrokeWidth) {
     mergeShapeStyleFields(item);
@@ -1868,11 +1966,13 @@ pdfv.bind({
   clamp,
   enforceSafeZoneForActiveTab,
   renderAnnotations,
+  shouldPauseScrollPageSync: () => Boolean(interactionMode || state.editingAnnotationId),
   scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate
 });
 pdfv.wireResize();
 pdfv.wireWheel();
 pdfv.wireZoomButtons();
+pdfv.wireScrollPageSync();
 session.bind({
   state,
   setStatus,
@@ -2006,6 +2106,7 @@ function applySelectedProperties() {
     item.padding = Math.max(0, Math.min(64, Number(propPadding.value) || 0));
     item.fontFamily = propFontFamily.value || "Arial";
     item.fontSize = Math.max(8, Math.min(96, Number(propFontSize.value) || 14));
+    captureLastTextStyleFromItem(item);
   } else if (SHAPE_TYPES.has(item.type) && propShapeFill && propShapeFillOpacity && propShapeStroke && propShapeStrokeWidth) {
     const prevFill = item.fillColor;
     const prevStroke = item.strokeColor;
@@ -2268,7 +2369,9 @@ function pageShift(delta) {
   tab.currentPage = clamp(next, 1, max);
   pdfv.setActivePage(tab.currentPage);
   const active = pagesContainer?.querySelector?.(`.pdf-page[data-page="${tab.currentPage}"]`);
-  active?.scrollIntoView?.({ block: "start", inline: "nearest" });
+  pdfv.runWithScrollSyncPaused(() => {
+    active?.scrollIntoView?.({ block: "start", inline: "nearest" });
+  });
 }
 
 function buildSuggestedSaveAsName(tab) {
@@ -2306,6 +2409,142 @@ async function readImageFileAsBase64(file) {
     r.onerror = () => reject(r.error || new Error("filereader"));
     r.readAsDataURL(file);
   });
+}
+
+function logSave(step, payload = {}) {
+  const data = { step, ...payload };
+  try {
+    if (typeof console !== "undefined" && console.info) {
+      console.info("[editify:save]", data);
+    }
+    window.maniPdfApi?.log?.("save", data);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function waitForPythonService(maxWaitMs = 5000) {
+  const started = Date.now();
+  let attempt = 0;
+  while (Date.now() - started < maxWaitMs) {
+    attempt += 1;
+    try {
+      const health = await window.maniPdfApi.pythonHealth();
+      if (health?.ok) {
+        if (health.export_ready === false) {
+          logSave("python_missing_deps", { attempt, health });
+          return {
+            ok: false,
+            error:
+              "Modules Python manquants (pypdf/reportlab). Lancez: npm run setup:python dans le dossier app/"
+          };
+        }
+        logSave("python_ready", { attempt, elapsedMs: Date.now() - started, health });
+        return { ok: true };
+      }
+      logSave("python_wait", { attempt, health });
+    } catch (error) {
+      logSave("python_wait_error", { attempt, error: String(error?.message || error) });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return { ok: false, error: "Service Python indisponible (timeout)." };
+}
+
+function countAnnotationsByPage(annotationsByPage) {
+  try {
+    return Object.keys(annotationsByPage || {}).reduce((total, key) => {
+      const arr = annotationsByPage[key];
+      return total + (Array.isArray(arr) ? arr.length : 0);
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
+function flushAllTextAnnotationsForExport(tab) {
+  if (!tab) return;
+  commitActiveTextEditIfNeeded(null);
+
+  try {
+    pdfLayerRef.annotationLayer?.querySelectorAll?.(".annotation.text").forEach((node) => {
+      const id = node.dataset?.id;
+      if (!id) return;
+      const item = findAnnotationLocation(tab, id)?.item;
+      if (item?.type !== "text") return;
+      const ed = getAnnotationTextEditor(node);
+      if (ed) {
+        syncTextFromEditor(item, ed);
+        return;
+      }
+      const plain = String(node.textContent || "").trim();
+      if (plain) {
+        item.text = plain;
+        if (!item.textHtml || !String(item.textHtml).trim()) {
+          item.textHtml = plain;
+        }
+      }
+    });
+  } catch (error) {
+    logSave("text_flush_dom_warn", { error: String(error?.message || error) });
+  }
+
+  try {
+    Object.keys(tab.annotationsByPage || {}).forEach((pageKey) => {
+      (tab.annotationsByPage[pageKey] || []).forEach((a) => {
+        if (a?.type !== "text") return;
+        const plain = plainTextForAnnotationItem(a);
+        if (plain) a.text = plain;
+        if (!a.textHtml && a.text) a.textHtml = String(a.text);
+      });
+    });
+  } catch (error) {
+    logSave("text_flush_model_warn", { error: String(error?.message || error) });
+  }
+}
+
+function logExportGeometryAudit(tab, canvases) {
+  let verbose = false;
+  try {
+    verbose =
+      typeof process !== "undefined" && process?.env?.MANI_PDF_EXPORT_VERBOSE === "1";
+  } catch {
+    verbose = false;
+  }
+  if (!verbose) return;
+  const pageKey = String(tab?.currentPage || 1);
+  logSave("geom_summary", {
+    pageKey,
+    canvasPx: canvases?.[pageKey] || null,
+    annos: (tab?.annotationsByPage?.[pageKey] || []).map((a) => ({
+      id: a.id,
+      type: a.type,
+      x: Math.round(a.x),
+      y: Math.round(a.y),
+      text: a.type === "text" ? String(a.text || "").slice(0, 40) : undefined
+    }))
+  });
+}
+
+function summarizeExportPayload(annotationsByPage) {
+  const summary = [];
+  Object.keys(annotationsByPage || {}).forEach((pageKey) => {
+    (annotationsByPage[pageKey] || []).forEach((a) => {
+      summary.push({
+        pageKey,
+        id: a.id,
+        type: a.type,
+        x: a.x,
+        y: a.y,
+        w: a.w,
+        h: a.h,
+        textLen: a.type === "text" ? String(a.text || "").length : undefined,
+        textPreview: a.type === "text" ? String(a.text || "").slice(0, 60) : undefined,
+        hasImageB64: a.type === "image" ? Boolean(a.src_base64) : undefined
+      });
+    });
+  });
+  return summary;
 }
 
 /** URL data: pour afficher une image restaurée depuis session (src_base64 sans blob:). */
@@ -2358,9 +2597,96 @@ async function imageSrcToBase64(src) {
   });
 }
 
+async function encodeImageForExport(a, pageKey) {
+  if (a.type !== "image") return;
+  if (a.src_base64) return;
+  if (!a.src) return;
+  const timeoutMs = 12000;
+  try {
+    a.src_base64 = await Promise.race([
+      imageSrcToBase64(a.src),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("image_encode_timeout")), timeoutMs);
+      })
+    ]);
+  } catch (error) {
+    if (!a.src_base64) {
+      logSave("image_encode_error", {
+        pageKey,
+        id: a.id,
+        error: String(error?.message || error)
+      });
+      throw error;
+    }
+  }
+}
+
+async function convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases) {
+  const pdfPath = tab?.path;
+  if (!pdfPath || !pdfv.convertCanvasRectToPdfUser) return;
+
+  for (const pageKey of Object.keys(annotationsByPage || {})) {
+    const meta = canvases?.[pageKey];
+    if (!meta?.w || !meta?.h) continue;
+    const pageNum = Number(pageKey) || 1;
+    const arr = annotationsByPage[pageKey] || [];
+    for (const a of arr) {
+      try {
+        const pdfRect = await pdfv.convertCanvasRectToPdfUser(
+          pdfPath,
+          pageNum,
+          { x: a.x, y: a.y, w: a.w, h: a.h },
+          meta.w,
+          meta.h
+        );
+        a.x = pdfRect.x;
+        a.y = pdfRect.y;
+        a.canvas_w = pdfRect.canvas_w;
+        a.canvas_h = pdfRect.canvas_h;
+        a.pdf_ex = pdfRect.pdf_ex;
+        a.pdf_ey = pdfRect.pdf_ey;
+        a.coords_space = "pdf_user";
+        // fontSize / padding / strokeWidth restent en px canvas : la matrice pdf_ex/pdf_ey les convertit.
+      } catch (error) {
+        logSave("pdf_coords_warn", {
+          pageKey,
+          id: a.id,
+          error: String(error?.message || error)
+        });
+      }
+    }
+  }
+}
+
 async function exportActivePdfToPath(outputPath) {
   const tab = getActiveTab();
-  if (!tab) return { ok: false, error: "no_active_pdf" };
+  if (!tab) {
+    logSave("export_abort", { reason: "no_active_pdf" });
+    return { ok: false, error: "no_active_pdf" };
+  }
+  if (!tab.path) {
+    logSave("export_abort", { reason: "no_input_path", tabId: tab.id });
+    return { ok: false, error: "Chemin du PDF source manquant." };
+  }
+  if (!outputPath) {
+    logSave("export_abort", { reason: "no_output_path" });
+    return { ok: false, error: "Chemin de sortie manquant." };
+  }
+
+  logSave("export_start", {
+    inputPath: tab.path,
+    outputPath,
+    annotationCount: countAnnotationsByPage(tab.annotationsByPage)
+  });
+
+  const pythonReady = await waitForPythonService();
+  if (!pythonReady?.ok) {
+    logSave("export_abort", { reason: "python_unavailable", error: pythonReady?.error });
+    return { ok: false, error: pythonReady?.error || "Service Python indisponible." };
+  }
+
+  // Synchroniser tout le texte (édition en cours + modèle) avant export.
+  flushAllTextAnnotationsForExport(tab);
 
   const canvases = {};
   try {
@@ -2368,9 +2694,18 @@ async function exportActivePdfToPath(outputPath) {
       const page = Number(node.dataset.page) || 1;
       const c = node.querySelector("canvas.pdf-canvas");
       if (!c) return;
-      canvases[String(page)] = { w: c.width || 0, h: c.height || 0 };
+      canvases[String(page)] = {
+        w: c.width || 0,
+        h: c.height || 0,
+        rotation: Number(node.dataset.rotation) || 0
+      };
     });
-  } catch {}
+  } catch (error) {
+    logSave("canvases_warn", { error: String(error?.message || error) });
+  }
+
+  resyncAllPagesForExport(tab, canvases);
+  logExportGeometryAudit(tab, canvases);
 
   const annotationsByPage = {};
   try {
@@ -2378,37 +2713,44 @@ async function exportActivePdfToPath(outputPath) {
       const arr = tab.annotationsByPage[k] || [];
       annotationsByPage[k] = arr.map((a) => {
         const c = { ...a };
+        delete c._spellErrors;
         if (SHAPE_TYPES.has(c.type)) mergeShapeStyleFields(c);
-        if (c.type === "text" && c.textHtml) {
-          try {
-            const d = document.createElement("div");
-            d.innerHTML = sanitizeTextHtml(c.textHtml);
-            c.text = d.textContent || "";
-          } catch {
-            c.text = stripTagsForPlain(String(c.textHtml || ""));
-          }
+        if (c.type === "text") {
+          c.text = plainTextForAnnotationItem(c);
+          if (!c.textHtml && c.text) c.textHtml = String(c.text);
         }
         return c;
       });
     });
-  } catch {}
+  } catch (error) {
+    logSave("annotations_map_error", { error: String(error?.message || error) });
+    return { ok: false, error: "Impossible de preparer les annotations pour l'export." };
+  }
+
+  try {
+    await convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases);
+  } catch (error) {
+    logSave("pdf_coords_error", { error: String(error?.message || error) });
+  }
 
   try {
     for (const pageKey of Object.keys(annotationsByPage)) {
       const arr = annotationsByPage[pageKey] || [];
       for (const a of arr) {
-        if (a.type !== "image") continue;
-        if (a.src_base64) continue;
-        if (a.src) {
-          a.src_base64 = await imageSrcToBase64(a.src);
-        } else {
-          throw new Error("image sans source");
-        }
+        await encodeImageForExport(a, pageKey);
       }
     }
-  } catch {
+  } catch (error) {
+    logSave("export_abort", { reason: "image_encode_failed", error: String(error?.message || error) });
     return { ok: false, error: "image_encode_failed" };
   }
+
+  logSave("export_ipc", {
+    inputPath: tab.path,
+    outputPath,
+    pages: Object.keys(canvases).length,
+    annotationCount: countAnnotationsByPage(annotationsByPage)
+  });
 
   const exportResult = await window.maniPdfApi.exportPdfWithAnnotations({
     input_path: tab.path,
@@ -2416,41 +2758,62 @@ async function exportActivePdfToPath(outputPath) {
     canvases_px_by_page: canvases,
     annotations_by_page: annotationsByPage
   });
+
+  logSave("export_result", {
+    ok: Boolean(exportResult?.ok),
+    error: exportResult?.error || null,
+    outputPath
+  });
+
   return exportResult;
 }
 
 async function savePdfAs() {
-  const tab = getActiveTab();
-  if (!tab) {
-    setStatus(t("stSaveAsNoPdf"));
-    return;
-  }
-  const suggested = buildSuggestedSaveAsPath(tab);
-  const r = await window.maniPdfApi.savePdfAsDialog(suggested);
-  if (!r?.ok) {
-    if (!r?.cancelled) setStatus(r?.error || t("stSaveAsCancelled"));
-    return;
-  }
-
-  const health = await window.maniPdfApi.pythonHealth();
-  if (!health?.ok) {
-    setStatus(t("stPythonUnavailable"));
-    return;
-  }
-
-  setStatus(t("stExporting"));
-  const exportResult = await exportActivePdfToPath(r.path);
-  if (exportResult?.ok) {
-    setStatus(t("stExported"));
-    try {
-      tab.dirty = false;
-    } catch {
-      /* ignore */
+  logSave("save_start", {});
+  try {
+    const tab = getActiveTab();
+    if (!tab) {
+      logSave("save_abort", { reason: "no_active_pdf" });
+      setStatus(t("stSaveAsNoPdf"));
+      return;
     }
-  } else if (exportResult?.error === "image_encode_failed") {
-    setStatus(t("stExportImageEncodeFailed"));
-  } else {
-    setStatus(exportResult?.error || t("stExportFailed"));
+
+    const suggested = buildSuggestedSaveAsName(tab);
+    logSave("dialog_request", { suggested, inputPath: tab.path });
+    const r = await window.maniPdfApi.savePdfAsDialog(suggested);
+    if (!r?.ok) {
+      if (!r?.cancelled) {
+        logSave("dialog_error", { error: r?.error || "cancelled" });
+        setStatus(r?.error || t("stSaveAsCancelled"));
+      } else {
+        logSave("dialog_cancelled", {});
+      }
+      return;
+    }
+
+    logSave("dialog_ok", { outputPath: r.path });
+    setStatus(t("stExporting"));
+    const exportResult = await exportActivePdfToPath(r.path);
+    if (exportResult?.ok) {
+      logSave("save_success", { outputPath: r.path });
+      setStatus(t("stExported"));
+      try {
+        tab.dirty = false;
+      } catch {
+        /* ignore */
+      }
+    } else if (exportResult?.error === "image_encode_failed") {
+      logSave("save_fail", { reason: "image_encode_failed" });
+      setStatus(t("stExportImageEncodeFailed"));
+    } else {
+      const err = exportResult?.error || t("stExportFailed");
+      logSave("save_fail", { reason: "export_failed", error: err });
+      setStatus(err);
+    }
+  } catch (error) {
+    const err = String(error?.message || error);
+    logSave("save_exception", { error: err });
+    setStatus(`Enregistrement impossible: ${err}`);
   }
 }
 
@@ -2560,11 +2923,15 @@ i18nApply.bind({
 
 prevBtn?.addEventListener?.("click", () => pageShift(-1));
 nextBtn?.addEventListener?.("click", () => pageShift(1));
-addTextBtn?.addEventListener?.("click", () => addAnnotation("text"));
+addTextBtn?.addEventListener?.("click", () => {
+  commitActiveTextEditIfNeeded(null);
+  addAnnotation("text");
+});
 addShapeBtn?.addEventListener?.("click", openShapePicker);
 addImageBtn?.addEventListener?.("click", () => imageInput?.click?.());
 blankAddTextBtn?.addEventListener?.("click", () => {
   chrome.hideBlankCanvasCtxMenu();
+  commitActiveTextEditIfNeeded(null);
   addAnnotation("text");
 });
 blankAddShapeBtn?.addEventListener?.("click", () => {
@@ -2577,28 +2944,10 @@ blankAddImageBtn?.addEventListener?.("click", () => {
 });
 imageInput?.addEventListener?.("change", (event) => {
   const file = event.target.files?.[0];
-  imageInput.value = "";
   if (!file) return;
-  void (async () => {
-    try {
-      const src = URL.createObjectURL(file);
-      const mimeType = String(file.type || "image/png").trim() || "image/png";
-      let src_base64;
-      try {
-        src_base64 = await readImageFileAsBase64(file);
-      } catch {
-        src_base64 = undefined;
-      }
-      addAnnotation("image", {
-        src,
-        fileName: file.name || null,
-        mimeType,
-        ...(src_base64 ? { src_base64 } : {})
-      });
-    } catch {
-      setStatus(t("stExportImageEncodeFailed"));
-    }
-  })();
+  const src = URL.createObjectURL(file);
+  addAnnotation("image", { src, fileName: file.name || null });
+  imageInput.value = "";
 });
 deleteSelectedBtn?.addEventListener?.("click", deleteSelected);
 undoBtn?.addEventListener?.("click", undo);
@@ -2669,7 +3018,11 @@ window.maniPdfApi?.onSetLanguage?.((lang) => {
   } catch {}
 });
 
-window.maniPdfApi?.onSaveAsRequested?.(() => savePdfAs().catch(() => {}));
+window.maniPdfApi?.onSaveAsRequested?.(() => {
+  savePdfAs().catch((error) => {
+    logSave("save_menu_exception", { error: String(error?.message || error) });
+  });
+});
 window.maniPdfApi?.onAutosaveRequested?.(() => {
   session.saveSession().catch(() => {});
 });
@@ -2878,7 +3231,9 @@ document.addEventListener(
 
   if ((event.ctrlKey || event.metaKey) && key === "s") {
     event.preventDefault();
-    savePdfAs().catch(() => {});
+    savePdfAs().catch((error) => {
+      logSave("save_shortcut_exception", { error: String(error?.message || error) });
+    });
     return;
   }
 
@@ -3015,6 +3370,7 @@ try {
     pasteClipboardIntoActivePage,
     clickManiColorValidateButtonForInputId,
     setLanguage,
+    captureLastTextStyleFromItem,
     exportActivePdfToPath
   });
 } catch {}

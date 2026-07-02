@@ -1,6 +1,6 @@
 # 🚀 EditraDoc
 
-## Installation (Windows — 30 secondes)
+## Installation (Windows - 30 secondes)
 
 👉 Télécharger l’application (dernière release publiée) :  
 https://github.com/Matth031/EditraDoc/releases/latest/download/EditraDoc-Setup.exe
@@ -87,7 +87,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 - **Découpe avancée** : définition de **groupes de pages** (overlay dédié).
 - **Outils PDF** (via Python / pypdf) : **fusion**, **division** (plage ou groupes).
 - **Conversion HTML → PDF** (100 % local, Electron `printToPDF`) : menu **Fichier > Convertir > HTML vers PDF** ou entrée équivalente dans la barre **Fichier** (F10). Le PDF `{nom}.pdf` est créé **dans le même dossier** que le fichier HTML et **s’ouvre aussitôt** dans l’application. Si un PDF du même nom existe déjà, il est **remplacé sans dialogue** (infobulle explicative). Avertissements possibles : ressources images manquantes, ressources distantes ignorées (mode local uniquement).
-- **Enregistrement** : export PDF en intégrant annotations et calques (route `/apply-annotations` côté service Python).
+- **Enregistrement** : export PDF en intégrant annotations et calques (route `/apply-annotations` côté service Python ; images encodées à l'insertion ; écriture atomique pour l'écrasement du fichier source).
 - **File d’attente de jobs** avec suivi, journal de session, persistance de session.
 - **Correcteur orthographique** intégré (suggestions, dictionnaire utilisateur).
 - **Internationalisation** : français, anglais, espagnol, portugais (interface).
@@ -102,7 +102,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Code source ouvert dans le dépôt** | Projet versionné de façon à permettre relecture et audit ; **aucun fichier `LICENSE` n’est fourni à la racine** - voir la section Licence. |
 | **Multilingue** | Quatre langues d’interface (`fr`, `en`, `es`, `pt`) dans `renderer-i18n-data.js`. |
 | **Orthographe** | `nspell` + dictionnaires `dictionary-*` ; analyse côté processus principal Electron. |
-| **Tests automatisés** | Unitaires Python, tests Node (`node:test` + c8), vérifications statiques, Playwright E2E, smoke orthographe. |
+| **Tests automatisés** | Unitaires Python, tests Node (`node:test` + c8), vérifications statiques, Playwright E2E, smoke orthographe, régression export image (dev + build packagé Windows). |
 | **Architecture Electron + Python** | UI et IPC dans Node/Electron ; opérations PDF dans `pdf_service.py` (pypdf, reportlab pour l’export annoté) ; **conversion HTML → PDF** dans `src/main/lib/html-to-pdf.js` (sans Python). |
 
 ---
@@ -114,7 +114,7 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Shell applicatif** | Electron 41 (`app/package.json`, `main`: `src/main/main.js`) |
 | **Pont sécurisé** | `preload.js`, API exposée au renderer sous `window.maniPdfApi` |
 | **Renderer** | HTML/CSS/JS vanilla ; **pdf.js** via `pdfjs-dist` et `pdfjs-bridge.mjs` |
-| **Service PDF** | Python 3, **pypdf**, **reportlab** (`app/python/requirements.txt`), serveur `http.server` sur **127.0.0.1:8765** |
+| **Service PDF** | Python 3, **pypdf**, **reportlab** (`app/python/requirements.txt`), serveur `http.server` sur **127.0.0.1:8765** ; sous Windows packagé, runtime **python-runtime** embarqué (`bundle-python/win`) |
 | **Conversion HTML → PDF** | Electron **printToPDF** (`html-to-pdf.js`), IPC `convert:html-to-pdf`, module UI `renderer-html-convert.js` |
 | **Orthographe** | **nspell** + `dictionary-fr`, `dictionary-en`, `dictionary-es`, `dictionary-pt-br` |
 | **Qualité** | ESLint 10, Prettier 3, c8, Playwright |
@@ -176,7 +176,10 @@ Commandes définies dans `app/package.json` :
 | `npm test` | Unittest Python (`python/tests`) |
 | `npm run test:spell` | Smoke orthographe (`spellcheck-smoke.mjs`) |
 | `npm run test:html-convert` | Conversion HTML → PDF hors UI (`run-html-to-pdf-convert.cjs`, fixture par défaut dans `e2e/fixtures/html/`) |
-| `npm run e2e` | Playwright (dont `app.html-convert*.spec.js` : conversion + ouverture automatique du PDF) |
+| `npm run test:embedded-python` | Smoke Python embeddable Windows (`run-embedded-python-smoke.cjs`, skip hors Windows) |
+| `npm run test:export-regression` | Unittest Python + E2E export PDF avec image (`e2e/app.export-image.spec.js`) |
+| `npm run test:packaged-export` | E2E export image sur `dist/win-unpacked/EditraDoc.exe` (nécessite `npm run build` ou `dist:win`) |
+| `npm run e2e` | Playwright (dont `app.html-convert*.spec.js`, `app.export-image*.spec.js`) |
 | `npm run test:all` | Chaîne complète (qualité + tests + audit + e2e) |
 
 À la racine du dépôt, `npm run test` et `npm run e2e` relaient vers `app/` via `npm --prefix app`.
@@ -228,7 +231,7 @@ Une fois le **`.exe`** obtenu (racine du dépôt après build, ou téléchargeme
 
 > **Note :** `EditraDoc-Setup.exe` à la racine est **généré localement** par la build ; il n’est en général **pas** versionné dans Git (fichier volumineux, entrée dans `.gitignore`). S’il est absent, soit lancer une build (`npm run dist:win` dans `app/`), soit télécharger l’installateur depuis **Releases** / **Actions** comme ci-dessus.
 
-Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un **tag de version** (ex. **`v1.0.1`**), l’installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l’artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**).
+Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un **tag de version** (ex. **`v1.0.1`**), l'installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l'artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**). Après la build, le workflow exécute les tests de régression export image (`test:embedded-python`, `test:packaged-export`).
 
 ---
 
@@ -278,7 +281,7 @@ npm run dist:win
 
 L’installeur NSIS est généré dans **`app/dist/`**, puis **copié à la racine du dépôt** sous le nom fixe **`EditraDoc-Setup.exe`** (script `app/scripts/copy-installer-to-root.mjs`). Équivalent depuis la racine du dépôt : `npm run dist:win`.
 
-Les autres plateformes (`npm run dist` : AppImage, dmg, etc.) s’appuient pour l’instant sur un **Python système** sur la machine cible ; seul le flux **Windows** embarque le runtime Python via `bundle-python-win`.
+Les autres plateformes (`npm run dist` : AppImage, dmg, etc.) s'appuient pour l'instant sur un **Python système** sur la machine cible ; seul le flux **Windows** embarque le runtime Python via `bundle-python-win`. Le service `pdf_service.py` ajoute son dossier à `sys.path` au démarrage (compatibilité Python embeddable).
 
 ### Récapitulatif des commandes (référence)
 
