@@ -183,7 +183,14 @@
       if (pageInfo) pageInfo.textContent = t("noPdf");
       return;
     }
-    renderPdfDocument(tab.path).catch(() => {
+    renderPdfDocument(tab.path).catch((error) => {
+      try {
+        globalThis.__editifyReportError?.("pdf:render", error?.message || String(error), {
+          path: tab.path
+        });
+      } catch {
+        /* ignore */
+      }
       setStatus(t("stPdfRenderError"));
     });
     if (pageInfo) pageInfo.textContent = `${t("pageWord")} ${tab.currentPage || 1}`;

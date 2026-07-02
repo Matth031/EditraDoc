@@ -33,6 +33,27 @@ Pour installer EditraDoc en confiance :
 - **Convertir un fichier HTML local en PDF** (même dossier que le source, ouverture automatique dans l’interface)
 - Fusionner et diviser (outils PDF intégrés)
 
+## Ergonomie clavier (annotations)
+
+Lorsqu’une zone de **texte**, une **forme** ou une **image** est sélectionnée en **mode paramétrage** (contour bleu, poignées de redimensionnement, sans saisie active) :
+
+| Touche | Action |
+|--------|--------|
+| **Flèche** | Déplace l’élément de **1 px** (appui bref) ou de **10 px** par répétition si la touche reste enfoncée |
+| **Maj + Flèche** | Agrandit la zone de **1 px** (appui bref) ou de **5 px** par répétition si la touche reste enfoncée, dans le sens de la flèche |
+
+Sans annotation sélectionnée, **←** et **→** changent de page PDF.
+
+### Saisie de texte
+
+| Touche | Action |
+|--------|--------|
+| **Entrée** | Valide le texte et reste sur la zone en mode paramétrage (plus de curseur de saisie) |
+| **Maj + Entrée** | Insère un saut de ligne |
+| **Échap** | Quitte la saisie sans conserver la sélection |
+
+La largeur du cadre texte s’ajuste automatiquement pendant la frappe ; le retour à la ligne vertical n’intervient qu’au bord droit du document ou après un redimensionnement manuel / **Maj + Flèche**.
+
 ## Confidentialité (en pratique)
 
 - Les fichiers sont traités sur la machine.
@@ -81,7 +102,7 @@ EditraDoc adopte une approche **local-first** : le traitement des opérations PD
 Fonctionnalités alignées sur le code actuel du dépôt :
 
 - **Visualisation** multi-onglets, miniatures, navigation par page, zoom (ajustement largeur / page).
-- **Annotations** : zones de texte enrichi (édition dans le document), formes, images ; annulation / rétablissement (undo / redo).
+- **Annotations** : zones de texte enrichi (édition dans le document), formes, images ; annulation / rétablissement (undo / redo). Voir la section **Ergonomie clavier** pour les raccourcis (Entrée, flèches, Maj+flèches).
 - **Propriétés** : couleurs, polices, marges pour le texte ; remplissage, contour, opacité pour les formes.
 - **Menus contextuels** pour le texte, les formes, les images et la zone de page vide.
 - **Découpe avancée** : définition de **groupes de pages** (overlay dédié).

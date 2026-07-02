@@ -58,6 +58,7 @@
     splitBtn: "ttSplit",
     toolbarAboutMenuItem: "ttAboutMenu",
     toolbarSessionLogMenuItem: "ttSessionLog",
+    toolbarLogFileMenuItem: "ttLogFileSettings",
     toolbarAboutBtn: "ttAboutBtn",
     toolbarCloseBtn: "ttCloseApp",
     addTextBtn: "ttAddText",
@@ -175,8 +176,17 @@
       toolbarQuitBtn,
       toolbarAboutMenuItem,
       toolbarSessionLogMenuItem,
+      toolbarLogFileMenuItem,
       sessionLogTitleEl,
       sessionLogHint,
+      logFileSettingsTitleEl,
+      logFileSettingsHint,
+      logFileCurrentPathLabel,
+      logFileDefaultPathLabel,
+      logFileBrowseBtn,
+      logFileResetBtn,
+      logFileCloseBtn,
+      sessionLogCloseBtn,
       thumbsTitle,
       changesTitle,
       prevBtn,
@@ -224,8 +234,23 @@
     if (toolbarQuitBtn) toolbarQuitBtn.textContent = t("quit");
     if (toolbarAboutMenuItem) toolbarAboutMenuItem.textContent = t("about");
     if (toolbarSessionLogMenuItem) toolbarSessionLogMenuItem.textContent = t("menuSessionLog");
+    if (toolbarLogFileMenuItem) toolbarLogFileMenuItem.textContent = t("menuLogFile");
     if (sessionLogTitleEl) sessionLogTitleEl.textContent = t("sessionLogTitle");
     if (sessionLogHint) sessionLogHint.textContent = t("sessionLogHint");
+    if (logFileSettingsTitleEl) logFileSettingsTitleEl.textContent = t("logFileSettingsTitle");
+    if (logFileSettingsHint) logFileSettingsHint.textContent = t("logFileSettingsHint");
+    if (logFileCurrentPathLabel) logFileCurrentPathLabel.textContent = t("logFileCurrentPath");
+    if (logFileDefaultPathLabel) logFileDefaultPathLabel.textContent = t("logFileDefaultPath");
+    if (logFileBrowseBtn) logFileBrowseBtn.textContent = t("logFileBrowse");
+    if (logFileResetBtn) logFileResetBtn.textContent = t("logFileReset");
+    logFileCloseBtn?.setAttribute("aria-label", t("closeAria"));
+    sessionLogCloseBtn?.setAttribute("aria-label", t("closeAria"));
+    try {
+      const logFileSettingsModal = document.getElementById("logFileSettingsModal");
+      logFileSettingsModal?.setAttribute("aria-label", t("logFileSettingsTitle"));
+    } catch {
+      /* ignore */
+    }
     if (thumbsTitle) thumbsTitle.textContent = t("thumbs");
     if (changesTitle) changesTitle.textContent = t("changes");
     if (prevBtn) prevBtn.textContent = t("prevPage");
@@ -385,6 +410,11 @@
     }
     try {
       pdfv.updateZoomUI();
+    } catch {
+      /* ignore */
+    }
+    try {
+      globalThis.__editifyLogFileSettingsUi?.applyLanguage?.();
     } catch {
       /* ignore */
     }

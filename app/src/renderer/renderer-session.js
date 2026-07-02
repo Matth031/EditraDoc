@@ -62,8 +62,12 @@
         tabs: tabsPayload,
         activeTabId: d.state.activeTabId
       });
-    } catch {
-      /* ignore */
+    } catch (error) {
+      try {
+        globalThis.__editifyReportError?.("session:save", String(error?.message || error));
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -106,8 +110,12 @@
       d.syncPropertyInputs();
       d.scheduleSidebarUpdate();
       if (r.recovered) d.setStatus(d.t("stSessionRecovered"));
-    } catch {
-      /* ignore */
+    } catch (error) {
+      try {
+        globalThis.__editifyReportError?.("session:load", String(error?.message || error));
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -115,7 +123,13 @@
     if (autosaveDebounce) clearTimeout(autosaveDebounce);
     autosaveDebounce = setTimeout(() => {
       autosaveDebounce = null;
-      saveSession().catch(() => {});
+      saveSession().catch((error) => {
+        try {
+          globalThis.__editifyReportError?.("session:autosave", String(error?.message || error));
+        } catch {
+          /* ignore */
+        }
+      });
     }, 600);
   }
 

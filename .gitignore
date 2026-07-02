@@ -8,6 +8,8 @@ app/playwright-report/
 .cursor/
 _bmad-output/
 *.log
+logs.txt
+logs.txt.1
 *.tmp
 __pycache__/
 *.pyc

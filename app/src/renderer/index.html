@@ -53,6 +53,9 @@
             <button type="button" id="toolbarSessionLogMenuItem" role="menuitem" data-tooltip="Historique des jobs et actions de la session.">
               📋 Journal de session
             </button>
+            <button type="button" id="toolbarLogFileMenuItem" role="menuitem" data-tooltip="">
+              📁 Fichier journal d'erreurs…
+            </button>
             <button type="button" id="toolbarAboutMenuItem" role="menuitem" data-tooltip="Informations sur EditraDoc.">❔ À propos</button>
           </div>
         </div>
@@ -111,6 +114,36 @@
         </div>
         <p id="sessionLogHint" class="session-log-hint muted"></p>
         <div id="sessionLogBody" class="session-log-body" tabindex="0"></div>
+      </div>
+    </div>
+    <div
+      id="logFileSettingsModal"
+      class="session-log-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logFileSettingsTitleEl"
+      aria-hidden="true"
+    >
+      <div class="log-file-settings-backdrop" data-log-file-settings-dismiss tabindex="-1"></div>
+      <div class="session-log-panel log-file-settings-panel">
+        <div class="session-log-header">
+          <strong id="logFileSettingsTitleEl">Fichier journal d'erreurs</strong>
+          <button type="button" id="logFileCloseBtn" class="session-log-close" aria-label="Fermer">✕</button>
+        </div>
+        <p id="logFileSettingsHint" class="session-log-hint muted"></p>
+        <p id="logFileEnvOverride" class="log-file-env-override hidden" role="status"></p>
+        <label class="log-file-field" for="logFilePathDisplay">
+          <span id="logFileCurrentPathLabel">Chemin actuel</span>
+          <input id="logFilePathDisplay" class="log-file-path-input" type="text" readonly />
+        </label>
+        <p class="log-file-default-row muted">
+          <span id="logFileDefaultPathLabel">Chemin par défaut :</span>
+          <code id="logFileDefaultPathDisplay" class="log-file-default-path"></code>
+        </p>
+        <div class="log-file-actions">
+          <button type="button" id="logFileBrowseBtn" class="log-file-btn">Parcourir…</button>
+          <button type="button" id="logFileResetBtn" class="log-file-btn log-file-btn-secondary">Réinitialiser (défaut)</button>
+        </div>
       </div>
     </div>
     <header>
@@ -407,6 +440,7 @@
     </div>
 
     <script type="module" src="./pdfjs-bridge.mjs"></script>
+    <script src="./renderer-error-log.js"></script>
     <script src="./floating-panel-drag.js"></script>
     <script src="./mani-color-picker.js"></script>
     <script src="./renderer-i18n-data.js"></script>
@@ -417,6 +451,7 @@
     <script src="../lib/session-log-store.js"></script>
     <script src="./renderer-session-log.js"></script>
     <script src="./renderer-session-log-ui.js"></script>
+    <script src="./renderer-log-settings-ui.js"></script>
     <script src="./renderer-sidebars.js"></script>
     <script src="./renderer-text-ctx-menu.js"></script>
     <script src="./renderer-shape-image-ctx-menu.js"></script>

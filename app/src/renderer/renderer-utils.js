@@ -5,22 +5,36 @@
 (function () {
   "use strict";
 
-  /** Logs diagnostics (console + IPC si dispo). Ne doit jamais lever. */
+  /** Logs diagnostics (console + fichier logs.txt via IPC). Ne doit jamais lever. */
   function logText(tag, payload) {
     try {
       if (typeof console !== "undefined" && typeof console.info === "function") {
         console.info(`[editify:${tag}]`, payload);
       }
+      const data = payload && typeof payload === "object" ? payload : { v: payload };
+      const hasErrorField = data && (data.error != null || data.reason != null);
+      const level = hasErrorField || /error|fail|exception/i.test(String(tag)) ? "error" : "info";
       try {
-        globalThis.maniPdfApi?.log?.(
-          tag,
-          payload && typeof payload === "object" ? payload : { v: payload }
-        );
+        globalThis.maniPdfApi?.logEvent?.({
+          level,
+          scope: `renderer:${tag}`,
+          message: String(tag),
+          data
+        });
       } catch {
         /* ignore */
       }
-    } catch {
-      /* ignore */
+      try {
+        globalThis.maniPdfApi?.log?.(tag, data);
+      } catch {
+        /* ignore */
+      }
+    } catch (error) {
+      try {
+        globalThis.__editifyReportError?.("renderer:logText", String(error), { tag });
+      } catch {
+        /* ignore */
+      }
     }
   }
 

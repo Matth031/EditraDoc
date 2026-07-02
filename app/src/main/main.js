@@ -3,21 +3,17 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
-const { log } = require("./logger");
+const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
+const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const spellcheckService = require("./spellcheck-service");
+const MENU_I18N = require("../lib/menu-i18n-data");
 
-// Ensure logs go to project root by default.
-// (Logger also has its own default, but this makes it explicit.)
-try {
-  process.env.MANI_PDF_LOG_PATH =
-    process.env.MANI_PDF_LOG_PATH || path.join(app.getAppPath(), "..", "mani-pdf.log");
-} catch {
-  // ignore
-}
+// Journal d'erreurs : logs.txt à la racine d'installation (voir logger.js).
 
 let mainWindow = null;
+let uiLanguage = "fr";
 let autosaveInterval = null;
 let jobQueueIntervalId = null;
 let pythonProcess = null;
@@ -254,6 +250,17 @@ function broadcastFullscreenState() {
   }
 }
 
+function logIpcFailure(channel, error, context = {}) {
+  const message =
+    error && typeof error === "object" && error.message
+      ? error.message
+      : String(error || "Erreur inconnue");
+  logError(`ipc:${channel}`, message, {
+    ...context,
+    stack: error && error.stack ? error.stack : undefined
+  });
+}
+
 function createWindow() {
   const startMaximized = !process.env.MANI_PDF_E2E;
   try {
@@ -304,6 +311,32 @@ function createWindow() {
   mainWindow.on("leave-full-screen", () => broadcastFullscreenState());
   mainWindow.webContents.once("did-finish-load", () => broadcastFullscreenState());
 
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+    logError("renderer:load", errorDescription || "Échec chargement page", {
+      errorCode,
+      url: validatedURL
+    });
+  });
+
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    logError("renderer:process", "Processus renderer terminé", details || {});
+  });
+
+  mainWindow.webContents.on("unresponsive", () => {
+    logWarn("renderer", "Fenêtre non réactive");
+  });
+
+  mainWindow.webContents.on("responsive", () => {
+    logInfo("renderer", "Fenêtre de nouveau réactive");
+  });
+
+  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    if (level < 2) return;
+    const payload = { line, sourceId };
+    if (level >= 3) logError("renderer:console", message, payload);
+    else logWarn("renderer:console", message, payload);
+  });
+
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 }
 
@@ -316,7 +349,13 @@ function normalizeSpellcheckLanguage(lang) {
   return null;
 }
 
+function getMenuStrings(lang) {
+  const key = String(lang || "fr").toLowerCase();
+  return MENU_I18N[key] || MENU_I18N.fr;
+}
+
 function createMenu() {
+  const m = getMenuStrings(uiLanguage);
   const recentSubmenu =
     recentPdfs.length > 0
       ? [
@@ -430,10 +469,20 @@ function createMenu() {
           ]
         },
         {
-          label: "Journal de session",
+          label: m.menuSessionLog,
           click: () => {
             try {
               mainWindow?.webContents?.send?.("app:session-log");
+            } catch {
+              /* ignore */
+            }
+          }
+        },
+        {
+          label: m.menuLogFile,
+          click: () => {
+            try {
+              mainWindow?.webContents?.send?.("app:log-file-settings");
             } catch {
               /* ignore */
             }
@@ -508,24 +557,21 @@ function startPythonService() {
     env
   });
   pythonProcess.on("error", (err) => {
-    try {
-      console.error("[EditraDoc:python] erreur spawn", err?.message || String(err));
-    } catch {
-      /* ignore */
-    }
+    logError("python:spawn", err?.message || String(err), { command, args, cwd });
   });
   pythonProcess.stdout.on("data", () => {});
   pythonProcess.stderr.on("data", (chunk) => {
     try {
       const s = chunk?.toString?.() || String(chunk);
-      if (s.trim()) console.error("[mani-pdf python]", s.trimEnd());
-    } catch {
-      /* ignore */
+      if (!s.trim()) return;
+      logWarn("python:stderr", s.trimEnd());
+    } catch (error) {
+      logError("python:stderr", "Lecture stderr impossible", { error: String(error) });
     }
   });
   pythonProcess.on("exit", (code, signal) => {
     if (code !== 0 && code !== null) {
-      console.error("[mani-pdf python] process exited", { code, signal });
+      logError("python:exit", "Service Python arrêté avec erreur", { code, signal });
     }
   });
 }
@@ -608,23 +654,30 @@ function postToPython(route, payload) {
           try {
             const parsed = JSON.parse(data || "{}");
             if (res.statusCode && res.statusCode >= 400) {
-              resolve({
+              const result = {
                 ok: false,
                 error: parsed.error || `Requete Python echouee (HTTP ${res.statusCode}).`,
                 httpStatus: res.statusCode
-              });
+              };
+              logError("python:http", result.error, { route, httpStatus: res.statusCode });
+              resolve(result);
               return;
             }
             resolve(parsed);
-          } catch {
+          } catch (error) {
+            logError("python:parse", "Reponse Python invalide", { route, error: String(error) });
             resolve({ ok: false, error: "Reponse Python invalide." });
           }
         });
       }
     );
-    req.on("error", (err) => resolve({ ok: false, error: err.message }));
+    req.on("error", (err) => {
+      logError("python:request", err.message, { route });
+      resolve({ ok: false, error: err.message });
+    });
     req.on("timeout", () => {
       req.destroy();
+      logError("python:timeout", "Timeout service Python", { route });
       resolve({ ok: false, error: "Timeout service Python." });
     });
     req.write(body);
@@ -769,6 +822,7 @@ async function processJobQueue() {
     next.status = "failed";
     next.progress = 100;
     next.error = error.message;
+    logError("job:queue", error.message, { jobId: next.id, type: next.type });
   } finally {
     activeJobId = null;
     persistJobs();
@@ -778,19 +832,25 @@ async function processJobQueue() {
 ipcMain.handle("pdf:open", async (_, pdfPath) => {
   try {
     if (!pdfPath || !fs.existsSync(pdfPath)) {
-      return { ok: false, error: "Le fichier PDF n'existe pas." };
+      const error = "Le fichier PDF n'existe pas.";
+      logWarn("pdf:open", error, { pdfPath });
+      return { ok: false, error };
     }
     const stat = fs.statSync(pdfPath);
     if (stat.size === 0) {
-      return { ok: false, error: "Le fichier PDF est vide ou corrompu." };
+      const error = "Le fichier PDF est vide ou corrompu.";
+      logWarn("pdf:open", error, { pdfPath });
+      return { ok: false, error };
     }
     const validation = await validateWithPython(pdfPath);
     if (!validation.ok) {
+      logWarn("pdf:open", validation.error || "Validation PDF échouée", { pdfPath });
       return validation;
     }
     addRecentPdf(pdfPath);
     return { ok: true, path: pdfPath };
   } catch (error) {
+    logIpcFailure("pdf:open", error, { pdfPath });
     return { ok: false, error: `Impossible d'ouvrir le PDF: ${error.message}` };
   }
 });
@@ -798,12 +858,15 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
 ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   try {
     if (!pdfPath || !fs.existsSync(pdfPath)) {
-      return { ok: false, error: "Le fichier PDF n'existe pas." };
+      const error = "Le fichier PDF n'existe pas.";
+      logWarn("pdf:read-bytes", error, { pdfPath });
+      return { ok: false, error };
     }
     const buf = fs.readFileSync(pdfPath);
     // Renvoi base64 pour éviter les soucis de sérialisation Buffer via IPC.
     return { ok: true, base64: buf.toString("base64") };
   } catch (error) {
+    logIpcFailure("pdf:read-bytes", error, { pdfPath });
     return { ok: false, error: `Lecture PDF impossible: ${error.message}` };
   }
 });
@@ -832,8 +895,13 @@ ipcMain.handle("convert:html-to-pdf", async (_, payload) => {
   try {
     const inputPath = payload && typeof payload === "object" ? payload.inputPath : null;
     const outputPath = payload && typeof payload === "object" ? payload.outputPath : undefined;
-    return await convertHtmlToPdf(inputPath, outputPath);
-  } catch {
+    const result = await convertHtmlToPdf(inputPath, outputPath);
+    if (!result?.ok) {
+      logWarn("convert:html-to-pdf", result?.error || "Conversion échouée", { inputPath });
+    }
+    return result;
+  } catch (error) {
+    logIpcFailure("convert:html-to-pdf", error);
     return { ok: false, error: "Échec de la conversion HTML vers PDF." };
   }
 });
@@ -843,6 +911,7 @@ ipcMain.handle("session:save", async (_, payload) => {
     fs.writeFileSync(sessionStatePath, JSON.stringify(payload, null, 2), "utf8");
     return { ok: true };
   } catch (error) {
+    logIpcFailure("session:save", error);
     return { ok: false, error: `Echec sauvegarde session: ${error.message}` };
   }
 });
@@ -861,8 +930,10 @@ ipcMain.handle("session:load", async () => {
         JSON.stringify({ tabs: [], activeTabId: null }, null, 2),
         "utf8"
       );
+      logWarn("session:load", "Session corrompue récupérée", { backupPath });
       return { ok: true, data: { tabs: [], activeTabId: null }, recovered: true };
-    } catch {
+    } catch (recoveryError) {
+      logIpcFailure("session:load", recoveryError, { original: error.message });
       return { ok: false, error: `Echec chargement session: ${error.message}` };
     }
   }
@@ -901,11 +972,20 @@ ipcMain.handle("dialog:savePdfAs", async (_, suggestedName) => {
 
 ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
   try {
-    return await exportPdfWithAnnotationsMain(payload);
+    const result = await exportPdfWithAnnotationsMain(payload);
+    if (!result?.ok) {
+      logError("export", result.error || "Export PDF échoué", {
+        input_path: payload?.input_path,
+        output_path: payload?.output_path
+      });
+    }
+    return result;
   } catch (error) {
-    const msg = error?.message || String(error);
-    log("export", "fail", { reason: "exception", error: msg });
-    return { ok: false, error: msg };
+    logIpcFailure("pdf:export-with-annotations", error, {
+      input_path: payload?.input_path,
+      output_path: payload?.output_path
+    });
+    return { ok: false, error: error?.message || String(error) };
   }
 });
 
@@ -914,6 +994,7 @@ ipcMain.handle("job:create", async (_, input) => {
   const payload = input?.payload || {};
   const validationError = validateJobPayload(jobType, payload);
   if (validationError) {
+    logWarn("job:create", validationError, { jobType });
     return { ok: false, error: validationError };
   }
   const id = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -960,16 +1041,97 @@ ipcMain.handle("job:retry", async (_, id) => {
   persistJobs();
   return { ok: true };
 });
+ipcMain.handle("app:notify-ui-language", async (_, lang) => {
+  const key = String(lang || "fr").toLowerCase();
+  uiLanguage = MENU_I18N[key] ? key : "fr";
+  try {
+    createMenu();
+  } catch {
+    /* ignore */
+  }
+  return { ok: true, language: uiLanguage };
+});
+
+ipcMain.handle("settings:get-log-file", async () => appSettings.getLogFileSettingsInfo(getLogFilePath));
+
+ipcMain.handle("settings:set-log-file", async (_, payload) => {
+  const nextPath = payload?.path;
+  if (nextPath == null || nextPath === "") {
+    appSettings.setCustomLogFilePath(null);
+    reloadLogConfiguration();
+    const effective = getLogFilePath();
+    logInfo("settings", "Chemin du journal réinitialisé", { path: effective });
+    return { ok: true, path: effective };
+  }
+  const saved = appSettings.setCustomLogFilePath(String(nextPath));
+  if (!saved.ok) {
+    logWarn("settings", saved.error || "Chemin journal invalide", { path: nextPath });
+    return saved;
+  }
+  reloadLogConfiguration();
+  const effective = getLogFilePath();
+  logInfo("settings", "Chemin du journal mis à jour", { path: effective });
+  return { ok: true, path: effective };
+});
+
+ipcMain.handle("dialog:chooseLogFile", async (_, payload) => {
+  if (!mainWindow) return { ok: false, error: "Fenetre principale indisponible." };
+  const currentPath =
+    typeof payload?.currentPath === "string" && payload.currentPath.trim()
+      ? payload.currentPath.trim()
+      : getLogFilePath();
+  const dialogTitle =
+    typeof payload?.title === "string" && payload.title.trim()
+      ? payload.title.trim()
+      : getMenuStrings(uiLanguage).logFileDialogTitle;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: dialogTitle,
+    defaultPath: currentPath,
+    filters: [{ name: "Journal texte", extensions: ["txt", "log"] }]
+  });
+  if (result.canceled || !result.filePath) {
+    return { ok: false, cancelled: true };
+  }
+  return { ok: true, path: result.filePath };
+});
+
 ipcMain.handle("sensitive:list", async () => ({ ok: true, actions: sensitiveActions }));
+
+function handleLogEventPayload(payload) {
+  const level = String(payload?.level || "info").toLowerCase();
+  const scope = String(payload?.scope || "renderer");
+  const message = String(payload?.message || "event");
+  const data = payload?.data ?? null;
+  if (level === "error") logError(scope, message, data);
+  else if (level === "warn") logWarn(scope, message, data);
+  else if (level === "debug") logDebug(scope, message, data);
+  else logInfo(scope, message, data);
+}
+
+ipcMain.handle("log:event", async (_, payload) => {
+  handleLogEventPayload(payload);
+  return { ok: true };
+});
+
 ipcMain.handle("log:renderer", async (_, payload) => {
   if (payload?.message === "save") {
-    try {
-      console.log(`[EditraDoc:save] ${payload?.data?.step || "event"}`, payload?.data ?? null);
-    } catch {
-      /* ignore */
+    const step = payload?.data?.step || "event";
+    const data = payload?.data ?? null;
+    if (/abort|fail|error|exception/i.test(step)) {
+      logError("renderer:save", step, data);
+    } else if (/warn/i.test(step)) {
+      logWarn("renderer:save", step, data);
+    } else {
+      logInfo("renderer:save", step, data);
     }
+    return { ok: true };
   }
-  log("renderer", payload?.message || "event", payload?.data ?? null);
+  handleLogEventPayload({
+    level: payload?.level || "info",
+    scope: payload?.scope || "renderer",
+    message: payload?.message || "event",
+    data: payload?.data ?? null
+  });
   return { ok: true };
 });
 
@@ -997,6 +1159,7 @@ ipcMain.handle("shell:openExternal", async (_, url) => {
     await shell.openExternal(u);
     return { ok: true };
   } catch (error) {
+    logIpcFailure("shell:openExternal", error, { url });
     return { ok: false, error: error?.message || String(error) };
   }
 });
@@ -1094,6 +1257,7 @@ ipcMain.handle("spellcheck:is-custom-word", async (_, payload) => {
 });
 
 app.whenReady().then(() => {
+  logStartupBanner();
   loadSensitiveLog();
   loadJobs();
   loadRecentPdfs();
@@ -1118,7 +1282,7 @@ app.on("window-all-closed", () => {
 });
 
 process.on("uncaughtException", (err) => {
-  log("fatal", "uncaughtException", { message: err.message, stack: err.stack });
+  logError("fatal", "uncaughtException", { message: err.message, stack: err.stack });
 });
 
 process.on("unhandledRejection", (reason) => {
@@ -1126,5 +1290,13 @@ process.on("unhandledRejection", (reason) => {
     reason instanceof Error
       ? { message: reason.message, stack: reason.stack }
       : { reason: typeof reason === "string" ? reason : JSON.stringify(reason) };
-  log("fatal", "unhandledRejection", r);
+  logError("fatal", "unhandledRejection", r);
+});
+
+app.on("render-process-gone", (_event, _webContents, details) => {
+  logError("app:render-process-gone", "Processus renderer terminé", details || {});
+});
+
+app.on("child-process-gone", (_event, details) => {
+  logError("app:child-process-gone", "Processus enfant terminé", details || {});
 });

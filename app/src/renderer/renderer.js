@@ -75,6 +75,9 @@ if (!window.__editifySessionLog) {
 if (!window.__editifySessionLogUi) {
   throw new Error("[editify] Charger renderer-session-log-ui.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyLogFileSettingsUi) {
+  throw new Error("[editify] Charger renderer-log-settings-ui.js avant renderer.js (voir index.html).");
+}
 if (!window.__editifyI18nApply) {
   throw new Error("[editify] Charger renderer-i18n-apply.js avant renderer.js (voir index.html).");
 }
@@ -84,6 +87,7 @@ if (!window.__editifyE2eHelpers) {
 const pdfv = window.__editifyPdfViewer;
 const sessionLog = window.__editifySessionLog;
 const sessionLogUi = window.__editifySessionLogUi;
+const logFileSettingsUi = window.__editifyLogFileSettingsUi;
 const i18nApply = window.__editifyI18nApply;
 const SHAPE_TYPE_KEYS = i18nApply.SHAPE_TYPE_KEYS;
 const e2eHelpers = window.__editifyE2eHelpers;
@@ -192,11 +196,23 @@ const toolbarOptionsBtn = document.getElementById("toolbarOptionsBtn");
 const toolbarOptionsMenu = document.getElementById("toolbarOptionsMenu");
 const toolbarAboutMenuItem = document.getElementById("toolbarAboutMenuItem");
 const toolbarSessionLogMenuItem = document.getElementById("toolbarSessionLogMenuItem");
+const toolbarLogFileMenuItem = document.getElementById("toolbarLogFileMenuItem");
 const sessionLogModal = document.getElementById("sessionLogModal");
 const sessionLogBody = document.getElementById("sessionLogBody");
 const sessionLogCloseBtn = document.getElementById("sessionLogCloseBtn");
 const sessionLogTitleEl = document.getElementById("sessionLogTitleEl");
 const sessionLogHint = document.getElementById("sessionLogHint");
+const logFileSettingsModal = document.getElementById("logFileSettingsModal");
+const logFileSettingsTitleEl = document.getElementById("logFileSettingsTitleEl");
+const logFileSettingsHint = document.getElementById("logFileSettingsHint");
+const logFilePathDisplay = document.getElementById("logFilePathDisplay");
+const logFileDefaultPathDisplay = document.getElementById("logFileDefaultPathDisplay");
+const logFileEnvOverride = document.getElementById("logFileEnvOverride");
+const logFileBrowseBtn = document.getElementById("logFileBrowseBtn");
+const logFileResetBtn = document.getElementById("logFileResetBtn");
+const logFileCloseBtn = document.getElementById("logFileCloseBtn");
+const logFileCurrentPathLabel = document.getElementById("logFileCurrentPathLabel");
+const logFileDefaultPathLabel = document.getElementById("logFileDefaultPathLabel");
 const welcomeOpenPdfBtn = document.getElementById("welcomeOpenPdfBtn");
 const toolbarOpenPdfBtn = document.getElementById("toolbarOpenPdfBtn");
 const toolbarSaveAsBtn = document.getElementById("toolbarSaveAsBtn");
@@ -256,7 +272,6 @@ let lastTextClickAt = 0;
 let lastTextClickId = null;
 let lastTextMouseDownAt = 0;
 let lastTextMouseDownId = null;
-const lastAutoGrowHeightById = new Map();
 let measureTextNode = null;
 
 /** Style par défaut des prochaines zones texte (dernière fenêtre texte affichée / modifiée). */
@@ -351,6 +366,7 @@ function commitActiveTextEditIfNeeded(targetAnnotationId) {
     try {
       captureSnapshot(tab);
       syncTextFromEditor(item, ed);
+      finalizeTextAnnotationLayout(item);
     } catch {}
     session.scheduleAutoSave();
   }
@@ -485,6 +501,62 @@ function ensureMeasureTextNode() {
   return node;
 }
 
+function applyMeasureTextNodeStyles(m, item, opts = {}) {
+  const { width = 20, whiteSpace = "pre-wrap" } = opts;
+  const padding = item.padding ?? 6;
+  const fontSize = item.fontSize ?? 14;
+  m.style.padding = `${padding}px`;
+  m.style.fontFamily = item.fontFamily || "Arial";
+  m.style.fontSize = `${fontSize}px`;
+  m.style.lineHeight = "1.35";
+  m.style.whiteSpace = whiteSpace;
+  const noSoftWrap = whiteSpace === "nowrap" || whiteSpace === "pre";
+  m.style.wordBreak = noSoftWrap ? "normal" : "break-word";
+  m.style.overflowWrap = noSoftWrap ? "normal" : "break-word";
+  if (width === "auto") {
+    m.style.width = "auto";
+  } else {
+    m.style.width = `${Math.max(20, Math.floor(width))}px`;
+  }
+}
+
+/** Largeur initiale d'une zone texte : environ deux lettres (référence « Mm »). */
+function getDefaultTextBoxWidth(item) {
+  if (!item || item.type !== "text") return 20;
+  const m = ensureMeasureTextNode();
+  applyMeasureTextNodeStyles(m, item, { width: "auto", whiteSpace: "nowrap" });
+  m.textContent = "Mm";
+  return Math.max(20, Math.ceil(m.scrollWidth || 0));
+}
+
+function measureLineWidthNoWrap(item, lineText) {
+  const m = ensureMeasureTextNode();
+  applyMeasureTextNodeStyles(m, item, { width: "auto", whiteSpace: "nowrap" });
+  m.textContent = lineText === "" ? "\u00a0" : lineText;
+  return Math.ceil(m.scrollWidth || 0);
+}
+
+/** Largeur nécessaire pour afficher le texte sur une seule ligne (par ligne la plus longue). */
+function getRequiredTextWidth(item) {
+  if (!item || item.type !== "text") return 20;
+  const defaultW = getDefaultTextBoxWidth(item);
+  const text = plainTextForAnnotationItem(item);
+  if (!text) return defaultW;
+  const lines = text.split(/\r?\n/);
+  let maxW = defaultW;
+  for (const line of lines) {
+    maxW = Math.max(maxW, measureLineWidthNoWrap(item, line));
+  }
+  return maxW;
+}
+
+function getInitialTextAnnotationSize(textStyle = {}) {
+  const item = { type: "text", ...DEFAULT_TEXT_STYLE, ...textStyle };
+  const w = getDefaultTextBoxWidth(item);
+  const h = getRequiredTextHeightForWidth(item, w);
+  return { w, h };
+}
+
 function getRequiredTextHeight(item) {
   if (!item || item.type !== "text") return 20;
   const padding = item.padding ?? 6;
@@ -497,17 +569,13 @@ function getRequiredTextHeight(item) {
   const m = ensureMeasureTextNode();
   // Largeur du cadre = limites gauche/droite imposées par l'utilisateur
   const w = Math.max(20, Math.floor(item.w || 20));
-  m.style.width = `${w}px`;
-  m.style.padding = `${padding}px`;
-  m.style.fontFamily = item.fontFamily || "Arial";
-  m.style.fontSize = `${fontSize}px`;
-  m.style.lineHeight = "1.35";
+  applyMeasureTextNodeStyles(m, item, { width: w, whiteSpace: "pre-wrap" });
   m.textContent = text;
   const needed = Math.ceil(m.scrollHeight || 0);
   return Math.max(20, minLine, needed);
 }
 
-function getRequiredTextHeightForWidth(item, width) {
+function getRequiredTextHeightForWidth(item, width, layoutWhiteSpace = "pre-wrap") {
   if (!item || item.type !== "text") return 20;
   const padding = item.padding ?? 6;
   const fontSize = item.fontSize ?? 14;
@@ -517,11 +585,9 @@ function getRequiredTextHeightForWidth(item, width) {
 
   const m = ensureMeasureTextNode();
   const w = Math.max(20, Math.floor(width || 20));
-  m.style.width = `${w}px`;
-  m.style.padding = `${padding}px`;
-  m.style.fontFamily = item.fontFamily || "Arial";
-  m.style.fontSize = `${fontSize}px`;
-  m.style.lineHeight = "1.35";
+  const whiteSpace =
+    layoutWhiteSpace === "pre" || layoutWhiteSpace === "nowrap" ? "pre" : "pre-wrap";
+  applyMeasureTextNodeStyles(m, item, { width: w, whiteSpace });
   m.textContent = text;
   const needed = Math.ceil(m.scrollHeight || 0);
   return Math.max(20, minLine, needed);
@@ -547,36 +613,278 @@ function getMinWidthToFitHeight(item, height, maxWidth) {
   return lo;
 }
 
+function getTextWrapState(item, zone) {
+  if (item?.textWrapManual) return "manual";
+  const maxW = Math.max(20, zone.width - (item?.x || 0));
+  if (getRequiredTextWidth(item) > maxW + 1) return "edge";
+  return "auto";
+}
+
+function finalizeTextAnnotationLayout(item) {
+  if (!item || item.type !== "text") return;
+  const zone = getSafeZoneSize();
+  const maxW = Math.max(20, zone.width - (item.x || 0));
+  const maxH = Math.max(20, zone.height - (item.y || 0));
+  const minW = getDefaultTextBoxWidth(item);
+  if (item.textWrapManual) {
+    item.w = Math.max(minW, Math.floor(item.w || minW));
+    item.h = clamp(getRequiredTextHeightForWidth(item, item.w, "pre-wrap"), 20, maxH);
+    return;
+  }
+  const rawRequiredW = getRequiredTextWidth(item);
+  if (rawRequiredW > maxW + 1) {
+    item.w = maxW;
+    item.h = clamp(getRequiredTextHeightForWidth(item, maxW, "pre-wrap"), 20, maxH);
+  } else {
+    item.w = Math.max(minW, rawRequiredW);
+    item.h = clamp(getRequiredTextHeightForWidth(item, item.w, "pre"), 20, maxH);
+  }
+}
+
+function leaveTextEditModeToSizing(tab, item, ed, options = {}) {
+  if (!tab || !item || item.type !== "text") return;
+  const { captureUndo = true } = options;
+  if (ed) syncTextFromEditor(item, ed);
+  if (captureUndo) captureSnapshot(tab);
+  finalizeTextAnnotationLayout(item);
+  state.editingAnnotationId = null;
+  state.selectedAnnotationId = item.id;
+  session.scheduleAutoSave();
+  renderAnnotations();
+}
+
+function getAnnotationKeyboardMinSize(item) {
+  if (item?.type === "text") return { minW: 20, minH: 20 };
+  if (item?.type === "image" || SHAPE_TYPES.has(item?.type)) return { minW: 1, minH: 1 };
+  return { minW: 20, minH: 20 };
+}
+
+function moveSelectedAnnotationByArrow(item, key, step, zone) {
+  const dx =
+    key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
+  const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
+  const w = Math.max(getAnnotationKeyboardMinSize(item).minW, item.w || 20);
+  const h = Math.max(getAnnotationKeyboardMinSize(item).minH, item.h || 20);
+  item.x = clamp((item.x || 0) + dx, 0, Math.max(0, zone.width - w));
+  item.y = clamp((item.y || 0) + dy, 0, Math.max(0, zone.height - h));
+}
+
+function growSelectedAnnotationByArrow(item, key, step, zone) {
+  const { minW, minH } = getAnnotationKeyboardMinSize(item);
+  let x = item.x || 0;
+  let y = item.y || 0;
+  let w = Math.max(minW, item.w || minW);
+  let h = Math.max(minH, item.h || minH);
+
+  if (key === "ArrowRight") w += step;
+  else if (key === "ArrowLeft") {
+    x -= step;
+    w += step;
+  } else if (key === "ArrowDown") h += step;
+  else if (key === "ArrowUp") {
+    y -= step;
+    h += step;
+  }
+
+  if (w < minW) {
+    if (key === "ArrowLeft") x -= minW - w;
+    w = minW;
+  }
+  if (h < minH) {
+    if (key === "ArrowUp") y -= minH - h;
+    h = minH;
+  }
+
+  x = clamp(x, 0, Math.max(0, zone.width - w));
+  y = clamp(y, 0, Math.max(0, zone.height - h));
+  w = clamp(w, minW, Math.max(minW, zone.width - x));
+  h = clamp(h, minH, Math.max(minH, zone.height - y));
+
+  item.x = x;
+  item.y = y;
+  item.w = w;
+  item.h = h;
+
+  if (item.type === "text") {
+    item.textWrapManual = true;
+    finalizeTextAnnotationLayout(item);
+  }
+}
+
+function tryHandleSelectedAnnotationArrowKey(event) {
+  const key = event.key;
+  if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown") {
+    return false;
+  }
+  if (state.editingAnnotationId) return false;
+  const tab = getActiveTab();
+  const item = getSelectedAnnotationFromActivePage(tab);
+  if (!tab || !item) return false;
+  if (item.type !== "text" && item.type !== "image" && !SHAPE_TYPES.has(item.type)) {
+    return false;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const step = event.repeat ? (event.shiftKey ? 5 : 10) : 1;
+  const zone = getSafeZoneSize();
+  captureSnapshot(tab);
+  if (event.shiftKey) growSelectedAnnotationByArrow(item, key, step, zone);
+  else moveSelectedAnnotationByArrow(item, key, step, zone);
+  syncPropertyInputs();
+  renderAnnotations();
+  session.scheduleAutoSave();
+  return true;
+}
+
+function applyTextEditorLayoutStyles(ed, wrapState) {
+  if (!ed) return;
+  ed.classList.toggle("wrap-lines", wrapState === "manual" || wrapState === "edge");
+  if (wrapState === "auto") {
+    ed.style.whiteSpace = "pre";
+    ed.style.wordBreak = "normal";
+    ed.style.overflowWrap = "normal";
+  } else {
+    ed.style.whiteSpace = "pre-wrap";
+    ed.style.wordBreak = "break-word";
+    ed.style.overflowWrap = "break-word";
+  }
+}
+
+function applyEditingTextAutoGrow(tab, item, node) {
+  const zone = getSafeZoneSize();
+  const maxW = Math.max(20, zone.width - (item.x || 0));
+  const maxH = Math.max(20, zone.height - (item.y || 0));
+  const ed = getAnnotationTextEditor(node);
+  const wrapState = getTextWrapState(item, zone);
+  const minW = getDefaultTextBoxWidth(item);
+  let nextW = item.w || minW;
+  let nextH = item.h || 20;
+
+  if (wrapState === "manual") {
+    nextW = Math.max(minW, Math.floor(item.w || minW));
+    nextH = clamp(
+      getRequiredTextHeightForWidth(item, nextW, "pre-wrap"),
+      20,
+      maxH
+    );
+  } else if (wrapState === "edge") {
+    nextW = maxW;
+    nextH = clamp(
+      getRequiredTextHeightForWidth(item, nextW, "pre-wrap"),
+      20,
+      maxH
+    );
+  } else {
+    const rawRequiredW = getRequiredTextWidth(item);
+    nextW = Math.max(minW, Math.min(rawRequiredW, maxW));
+    nextH = clamp(getRequiredTextHeightForWidth(item, nextW, "pre"), 20, maxH);
+  }
+
+  applyTextEditorLayoutStyles(ed, wrapState);
+  item.w = nextW;
+  item.h = nextH;
+  applyTextAnnotationBoxSize(node, item.w, item.h);
+  if (ed) {
+    ed.style.height = "auto";
+    ed.style.minHeight = "1.2em";
+    ed.style.height = `${Math.ceil(ed.scrollHeight)}px`;
+  }
+}
+
+function wireTextEditorInteraction(tab, item, node, ed) {
+  ed.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Enter") return;
+      if (event.shiftKey) {
+        event.preventDefault();
+        try {
+          document.execCommand("insertLineBreak");
+        } catch {
+          /* ignore */
+        }
+        syncTextFromEditor(item, ed);
+        applyEditingTextAutoGrow(tab, item, node);
+        session.scheduleAutoSave();
+        return;
+      }
+      event.preventDefault();
+      leaveTextEditModeToSizing(tab, item, ed);
+    },
+    { capture: true }
+  );
+  ed.addEventListener(
+    "input",
+    () => {
+      syncTextFromEditor(item, ed);
+      applyEditingTextAutoGrow(tab, item, node);
+      session.scheduleAutoSave();
+    },
+    { capture: true }
+  );
+  ed.addEventListener(
+    "blur",
+    () => {
+      try {
+        if (state.editingAnnotationId !== item.id) return;
+        captureSnapshot(tab);
+        syncTextFromEditor(item, ed);
+        finalizeTextAnnotationLayout(item);
+        session.scheduleAutoSave();
+      } catch {}
+    },
+    { capture: true }
+  );
+  ed.addEventListener(
+    "mousedown",
+    (event) => {
+      event.stopPropagation();
+    },
+    { capture: true }
+  );
+}
+
+function applyTextAnnotationBoxSize(node, w, h) {
+  if (!node) return;
+  node.style.width = `${Math.max(20, Math.floor(w || 20))}px`;
+  node.style.height = `${Math.max(20, Math.floor(h || 20))}px`;
+}
+
 function scheduleAutoGrowText(tab, item, node, source = "render") {
   if (!tab || !item || item.type !== "text" || !node) return;
-  requestAnimationFrame(() => {
+  const run = () => {
     try {
-      const ed = getAnnotationTextEditor(node);
-      if (ed) {
-        ed.style.height = "auto";
-        ed.style.minHeight = "1.2em";
-        ed.style.height = `${Math.ceil(ed.scrollHeight)}px`;
+      const isEditing = source === "input" || state.editingAnnotationId === item.id;
+      if (isEditing) {
+        applyEditingTextAutoGrow(tab, item, node);
+        if (source === "input") session.scheduleAutoSave();
+        return;
       }
-
-      const required = getRequiredTextHeight(item);
-      // IMPORTANT: ne rien faire si ça tient déjà (pas de changement à la sélection).
-      if (required <= (item.h || 0) + 1) return;
-
-      const last = lastAutoGrowHeightById.get(item.id) || 0;
-      if (required <= last + 1) return;
 
       const zone = getSafeZoneSize();
       const maxH = Math.max(20, zone.height - (item.y || 0));
+      const required = getRequiredTextHeight(item);
+      if (required <= (item.h || 0) + 1) return;
       const nextH = clamp(required, 20, maxH);
-      if (nextH > (item.h || 0)) {
-        item.h = nextH;
-        lastAutoGrowHeightById.set(item.id, nextH);
-
-        renderAnnotations();
-        session.scheduleAutoSave();
+      if (nextH <= (item.h || 0) + 1) return;
+      item.h = nextH;
+      applyTextAnnotationBoxSize(node, item.w, item.h);
+      session.scheduleAutoSave();
+    } catch (error) {
+      try {
+        globalThis.__editifyReportError?.("text:autoGrow", String(error), { id: item?.id, source });
+      } catch {
+        /* ignore */
       }
-    } catch {}
-  });
+    }
+  };
+  if (source === "input") {
+    run();
+    return;
+  }
+  requestAnimationFrame(run);
 }
 
 
@@ -823,6 +1131,11 @@ function setLanguage(lang) {
   }
   i18nApply.applyLanguage();
   applySpellcheckLanguageBestEffort();
+  try {
+    window.maniPdfApi?.notifyUiLanguage?.(next);
+  } catch {
+    /* ignore */
+  }
   try {
     renderThumbnails();
     renderChanges();
@@ -1260,6 +1573,17 @@ function renderAnnotations() {
         } else {
           node.textContent = a.text ? a.text : "";
         }
+        {
+          const zone = getSafeZoneSize();
+          const wrapState = getTextWrapState(a, zone);
+          if (wrapState === "auto") {
+            node.classList.remove("wrap-display");
+            node.style.whiteSpace = "pre";
+          } else {
+            node.classList.add("wrap-display");
+            node.style.whiteSpace = "pre-wrap";
+          }
+        }
         applySpellHighlightsToTextDisplayNode(node, a);
       } else {
         node.innerHTML = "";
@@ -1277,33 +1601,11 @@ function renderAnnotations() {
         } else {
           ed.textContent = a.text || "";
         }
-        ed.addEventListener(
-          "input",
-          () => {
-            syncTextFromEditor(a, ed);
-            session.scheduleAutoSave();
-            scheduleAutoGrowText(tab, a, node, "input");
-          },
-          { capture: true }
-        );
-        ed.addEventListener(
-          "blur",
-          () => {
-            try {
-              captureSnapshot(tab);
-              syncTextFromEditor(a, ed);
-              session.scheduleAutoSave();
-            } catch {}
-          },
-          { capture: true }
-        );
-        ed.addEventListener(
-          "mousedown",
-          (event) => {
-            event.stopPropagation();
-          },
-          { capture: true }
-        );
+        {
+          const zone = getSafeZoneSize();
+          applyTextEditorLayoutStyles(ed, getTextWrapState(a, zone));
+        }
+        wireTextEditorInteraction(tab, a, node, ed);
         node.appendChild(ed);
         requestAnimationFrame(() => {
           try {
@@ -1706,6 +2008,13 @@ function startResize(event, id, mode = "br") {
     interactionMode = null;
     suppressClickUntil = Date.now() + 180;
     activePointerCleanup = null;
+    if (item.type === "text") {
+      item.textWrapManual = true;
+      if (state.editingAnnotationId === item.id) {
+        const editNode = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${item.id}"]`);
+        if (editNode) applyEditingTextAutoGrow(tab, item, editNode);
+      }
+    }
     if (SHAPE_TYPES.has(item.type)) {
       try {
         logText("shapeResizeEnd", {
@@ -1746,17 +2055,18 @@ function addAnnotation(type, extra = {}) {
   const annotations = annotationsOnPage(tab, pageKey);
   const id = newAnnotationId();
   const textDefaults = type === "text" ? getNewTextAnnotationDefaults() : null;
+  const textInitialSize = type === "text" ? getInitialTextAnnotationSize(textDefaults) : null;
   const annotation = {
     id,
     type,
     x: 80,
     y: 80,
-    w: type === "text" ? 160 : 180,
-    h: type === "text" ? 48 : 120,
+    w: type === "text" ? textInitialSize.w : 180,
+    h: type === "text" ? textInitialSize.h : 120,
     rotation: 0,
     opacity: 100,
     ...(type === "text"
-      ? { ...textDefaults, text: "" }
+      ? { ...textDefaults, text: "", textWrapManual: false }
       : {
           textColor: "#111111",
           bgColor: null,
@@ -2413,13 +2723,21 @@ async function readImageFileAsBase64(file) {
 
 function logSave(step, payload = {}) {
   const data = { step, ...payload };
+  const isError = /abort|fail|error|exception/i.test(String(step || ""));
+  const isWarn = /warn/i.test(String(step || ""));
+  const level = isError ? "error" : isWarn ? "warn" : "info";
   try {
     if (typeof console !== "undefined" && console.info) {
       console.info("[editify:save]", data);
     }
+    window.maniPdfApi?.logEvent?.({ level, scope: "save", message: String(step), data });
     window.maniPdfApi?.log?.("save", data);
-  } catch {
-    /* ignore */
+  } catch (error) {
+    try {
+      globalThis.__editifyReportError?.("save:log", String(error), { step });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -2475,6 +2793,7 @@ function flushAllTextAnnotationsForExport(tab) {
       const ed = getAnnotationTextEditor(node);
       if (ed) {
         syncTextFromEditor(item, ed);
+        finalizeTextAnnotationLayout(item);
         return;
       }
       const plain = String(node.textContent || "").trim();
@@ -2861,6 +3180,22 @@ sessionLogUi.bind({
   toolbarSessionLogMenuItem
 });
 
+logFileSettingsUi.bind({
+  logFileSettingsModal,
+  logFileSettingsTitleEl,
+  logFileSettingsHint,
+  logFilePathDisplay,
+  logFileDefaultPathDisplay,
+  logFileEnvOverride,
+  logFileBrowseBtn,
+  logFileResetBtn,
+  logFileCloseBtn,
+  toolbarLogFileMenuItem,
+  t,
+  setStatus,
+  chrome
+});
+
 i18nApply.bind({
   t,
   getActiveTab,
@@ -2893,8 +3228,17 @@ i18nApply.bind({
   toolbarQuitBtn,
   toolbarAboutMenuItem,
   toolbarSessionLogMenuItem,
+  toolbarLogFileMenuItem,
   sessionLogTitleEl,
   sessionLogHint,
+  logFileSettingsTitleEl,
+  logFileSettingsHint,
+  logFileCurrentPathLabel,
+  logFileDefaultPathLabel,
+  logFileBrowseBtn,
+  logFileResetBtn,
+  logFileCloseBtn,
+  sessionLogCloseBtn,
   thumbsTitle,
   changesTitle,
   prevBtn,
@@ -3072,6 +3416,7 @@ document.addEventListener("mousedown", (event) => {
       if (item && item.type === "text" && ed) {
         captureSnapshot(tab);
         syncTextFromEditor(item, ed);
+        finalizeTextAnnotationLayout(item);
       }
     } catch {}
     session.scheduleAutoSave();
@@ -3150,6 +3495,7 @@ document.addEventListener(
         if (item && item.type === "text" && edEsc) {
           captureSnapshot(tab);
           syncTextFromEditor(item, edEsc);
+          finalizeTextAnnotationLayout(item);
           session.scheduleAutoSave();
         }
       } catch {}
@@ -3243,6 +3589,15 @@ document.addEventListener(
     return;
   }
 
+  if (
+    event.key === "ArrowLeft" ||
+    event.key === "ArrowRight" ||
+    event.key === "ArrowUp" ||
+    event.key === "ArrowDown"
+  ) {
+    if (tryHandleSelectedAnnotationArrowKey(event)) return;
+  }
+
   if (event.key === "ArrowLeft") {
     event.preventDefault();
     pageShift(-1);
@@ -3274,6 +3629,11 @@ try {
 }
 i18nApply.applyLanguage();
 applySpellcheckLanguageBestEffort();
+try {
+  window.maniPdfApi?.notifyUiLanguage?.(state.language);
+} catch {
+  /* ignore */
+}
 tcm.wireTextAnnotationCtxMenu();
 document.addEventListener("selectionchange", () => {
   try {
@@ -3322,6 +3682,10 @@ try {
   window.maniPdfApi?.onSessionLogRequested?.(() => {
     chrome.closeAllFlyoutMenus();
     sessionLogUi.open();
+  });
+  window.maniPdfApi?.onLogFileSettingsRequested?.(() => {
+    chrome.closeAllFlyoutMenus();
+    logFileSettingsUi.open();
   });
 } catch {
   /* ignore */
