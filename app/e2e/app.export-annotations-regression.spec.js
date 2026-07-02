@@ -18,6 +18,7 @@ const repoRoot = path.resolve(process.cwd(), "..");
 const pdfFixture = path.join(repoRoot, "tests", "formulaire_test.pdf");
 const raptorFixture = path.join(repoRoot, "tests", "raptor.png");
 const outPdf = path.join(repoRoot, "tests", "test_export_annotations_regression.pdf");
+const fallbackPng = path.join(process.cwd(), "public", "miniature_no_bg.png");
 
 async function launchWithPdf() {
   const app = await electron.launch({
@@ -55,6 +56,13 @@ async function launchWithPdf() {
 test.beforeAll(() => {
   if (!fs.existsSync(pdfFixture)) {
     throw new Error(`Fixture introuvable: ${pdfFixture}`);
+  }
+  if (!fs.existsSync(raptorFixture)) {
+    if (!fs.existsSync(fallbackPng)) {
+      throw new Error(`Impossible de créer raptor.png : ${fallbackPng} introuvable`);
+    }
+    fs.mkdirSync(path.dirname(raptorFixture), { recursive: true });
+    fs.copyFileSync(fallbackPng, raptorFixture);
   }
 });
 
