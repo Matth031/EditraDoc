@@ -1,6 +1,6 @@
 /**
  * Coque UI : barre d’outils HTML, menus Fichier/Options/Outils PDF, popover À propos, menu contextuel canvas vierge.
- * `window.__editifyAppChrome` - `bind()` depuis `renderer.js` après `savePdfAs` pour fournir `promptOpenPdf` / `savePdfAs`.
+ * `window.__editifyAppChrome` - `bind()` depuis `renderer.js` après `__editifyPdfSave.bind()` pour fournir `promptOpenPdf` / `savePdfAs`.
  */
 (function () {
   "use strict";

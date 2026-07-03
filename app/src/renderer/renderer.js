@@ -25,10 +25,11 @@
  * - `renderer-shape-image-ctx-menu.js` : menus forme + image (`window.__editifyShapeImageCtxMenu`, `sim.bind()` avant `tcm.bind()`).
  * - `renderer-split-workspace.js` : overlay Split par groupes (`window.__editifySplitWorkspace`, `sw.bind()` après `jobs.bind()` / `enqueuePdfJob`).
  * - `renderer-jobs.js` : file d'attente PDF, journal session + toasts (merge/split…) (`window.__editifyJobs`, `jobs.bind()` avant `sw.bind()`).
- * - `renderer-app-chrome.js` : barre d’outils HTML, menus, À propos, menu canvas vierge (`window.__editifyAppChrome`, `chrome.bind()` après `savePdfAs`).
+ * - `renderer-app-chrome.js` : barre d’outils HTML, menus, À propos, menu canvas vierge (`window.__editifyAppChrome`, `chrome.bind()` après `__editifyPdfSave.bind()`).
  * - `renderer-tooltips.js` : infobulles `[data-tooltip]` (`window.__editifyTooltips`, `tooltips.bind()` après `sw.bind()`).
  * - `renderer-session.js` : persistance session onglets/annotations (`window.__editifySession`, `session.bind()` après `__editifySidebars.bind()`).
  * - `renderer-pdf-viewer.js` : rendu PDF, zoom, calques page, DnD (`window.__editifyPdfViewer`, `bind()` après `__editifySidebars.bind()`, avant `session.bind()`).
+ * - `renderer-pdf-save.js` : enregistrement / export PDF avec annotations (`window.__editifyPdfSave`, `bind()` après `__editifyPdfViewer.bind()`).
  */
 if (!window.__editifyTextHtml) {
   throw new Error("[editify] Charger renderer-text-html.js avant renderer.js (voir index.html).");
@@ -69,6 +70,9 @@ if (!window.__editifySession) {
 if (!window.__editifyPdfViewer) {
   throw new Error("[editify] Charger renderer-pdf-viewer.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyPdfSave) {
+  throw new Error("[editify] Charger renderer-pdf-save.js avant renderer.js (voir index.html).");
+}
 if (!window.__editifySessionLog) {
   throw new Error("[editify] Charger renderer-session-log.js avant renderer.js (voir index.html).");
 }
@@ -85,6 +89,7 @@ if (!window.__editifyE2eHelpers) {
   throw new Error("[editify] Charger renderer-e2e-helpers.js avant renderer.js (voir index.html).");
 }
 const pdfv = window.__editifyPdfViewer;
+const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
 const sessionLogUi = window.__editifySessionLogUi;
 const logFileSettingsUi = window.__editifyLogFileSettingsUi;
@@ -1287,19 +1292,6 @@ function scaleAnnotationsForPage(tab, zone, pageKey) {
   return true;
 }
 
-/** Réaligne les coords stockées sur les dimensions canvas réelles avant export (toutes pages). */
-function resyncAllPagesForExport(tab, canvases) {
-  if (!tab?.annotationsByPage) return;
-  for (const pageKey of Object.keys(tab.annotationsByPage)) {
-    const c = canvases?.[pageKey];
-    if (!c?.w || !c?.h) continue;
-    const zone = { width: c.w, height: c.h };
-    if (scaleAnnotationsForPage(tab, zone, pageKey)) {
-      logSave("coords_rescaled", { pageKey, zone });
-    }
-  }
-}
-
 function enforceSafeZoneForActiveTab() {
   const tab = getActiveTab();
   if (!tab) return;
@@ -2283,6 +2275,25 @@ pdfv.wireResize();
 pdfv.wireWheel();
 pdfv.wireZoomButtons();
 pdfv.wireScrollPageSync();
+pdfSave.bind({
+  getActiveTab,
+  layerRef: pdfLayerRef,
+  pagesContainer,
+  commitActiveTextEditIfNeeded,
+  findAnnotationLocation,
+  getAnnotationTextEditor,
+  syncTextFromEditor,
+  plainTextForAnnotationItem,
+  scaleAnnotationsForPage,
+  SHAPE_TYPES,
+  mergeShapeStyleFields,
+  convertCanvasRectToPdfUser: pdfv.convertCanvasRectToPdfUser,
+  invalidatePdfRenderCache: pdfv.invalidatePdfRenderCache,
+  updateViewer: pdfv.updateViewer,
+  pathsEqual,
+  setStatus,
+  t
+});
 session.bind({
   state,
   setStatus,
@@ -2684,192 +2695,6 @@ function pageShift(delta) {
   });
 }
 
-function buildSuggestedSaveAsName(tab) {
-  try {
-    const name = String(tab?.name || "document.pdf");
-    const base = name.toLowerCase().endsWith(".pdf") ? name.slice(0, -4) : name;
-    return `${base}_modifie.pdf`;
-  } catch {
-    return "document_modifie.pdf";
-  }
-}
-
-/* =============================================================================
- * ENREGISTREMENT PDF (savePdfAs / exportActivePdfToPath)
- * Référence stable : 33b8dda + correctifs 226608a (chemin dialogue, images).
- * NE PAS MODIFIER lors de travaux ergonomie texte, clavier, journal, etc.
- * ============================================================================= */
-
-/** Chemin suggéré complet (dossier du PDF ouvert + nom _modifie.pdf) pour le dialogue Enregistrer sous. */
-function buildSuggestedSaveAsPath(tab) {
-  const suggested = buildSuggestedSaveAsName(tab);
-  const src = String(tab?.path || "").trim();
-  if (!src) return suggested;
-  const sep = src.includes("\\") ? "\\" : "/";
-  const idx = src.lastIndexOf(sep);
-  if (idx <= 0) return suggested;
-  return `${src.slice(0, idx + 1)}${suggested}`;
-}
-
-/** Lit un fichier image (Blob/File) en base64 brute pour l'export Python. */
-async function readImageFileAsBase64(file) {
-  if (!file) throw new Error("fichier vide");
-  return await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const t = String(r.result || "");
-      const i = t.indexOf("base64,");
-      if (i === -1) reject(new Error("filereader"));
-      else resolve(t.slice(i + 7));
-    };
-    r.onerror = () => reject(r.error || new Error("filereader"));
-    r.readAsDataURL(file);
-  });
-}
-
-function logSave(step, payload = {}) {
-  const data = { step, ...payload };
-  const isError = /abort|fail|error|exception/i.test(String(step || ""));
-  const isWarn = /warn/i.test(String(step || ""));
-  const level = isError ? "error" : isWarn ? "warn" : "info";
-  try {
-    if (typeof console !== "undefined" && console.info) {
-      console.info("[editify:save]", data);
-    }
-    window.maniPdfApi?.logEvent?.({ level, scope: "save", message: String(step), data });
-    window.maniPdfApi?.log?.("save", data);
-  } catch (error) {
-    try {
-      globalThis.__editifyReportError?.("save:log", String(error), { step });
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-async function waitForPythonService(maxWaitMs = 5000) {
-  const started = Date.now();
-  let attempt = 0;
-  while (Date.now() - started < maxWaitMs) {
-    attempt += 1;
-    try {
-      const health = await window.maniPdfApi.pythonHealth();
-      if (health?.ok) {
-        if (health.export_ready === false) {
-          logSave("python_missing_deps", { attempt, health });
-          return {
-            ok: false,
-            error:
-              "Modules Python manquants (pypdf/reportlab). Lancez: npm run setup:python dans le dossier app/"
-          };
-        }
-        logSave("python_ready", { attempt, elapsedMs: Date.now() - started, health });
-        return { ok: true };
-      }
-      logSave("python_wait", { attempt, health });
-    } catch (error) {
-      logSave("python_wait_error", { attempt, error: String(error?.message || error) });
-    }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  return { ok: false, error: "Service Python indisponible (timeout)." };
-}
-
-function countAnnotationsByPage(annotationsByPage) {
-  try {
-    return Object.keys(annotationsByPage || {}).reduce((total, key) => {
-      const arr = annotationsByPage[key];
-      return total + (Array.isArray(arr) ? arr.length : 0);
-    }, 0);
-  } catch {
-    return 0;
-  }
-}
-
-function flushAllTextAnnotationsForExport(tab) {
-  if (!tab) return;
-  commitActiveTextEditIfNeeded(null);
-
-  try {
-    pdfLayerRef.annotationLayer?.querySelectorAll?.(".annotation.text").forEach((node) => {
-      const id = node.dataset?.id;
-      if (!id) return;
-      const item = findAnnotationLocation(tab, id)?.item;
-      if (item?.type !== "text") return;
-      const ed = getAnnotationTextEditor(node);
-      if (ed) {
-        syncTextFromEditor(item, ed);
-        return;
-      }
-      const plain = String(node.textContent || "").trim();
-      if (plain) {
-        item.text = plain;
-        if (!item.textHtml || !String(item.textHtml).trim()) {
-          item.textHtml = plain;
-        }
-      }
-    });
-  } catch (error) {
-    logSave("text_flush_dom_warn", { error: String(error?.message || error) });
-  }
-
-  try {
-    Object.keys(tab.annotationsByPage || {}).forEach((pageKey) => {
-      (tab.annotationsByPage[pageKey] || []).forEach((a) => {
-        if (a?.type !== "text") return;
-        const plain = plainTextForAnnotationItem(a);
-        if (plain) a.text = plain;
-        if (!a.textHtml && a.text) a.textHtml = String(a.text);
-      });
-    });
-  } catch (error) {
-    logSave("text_flush_model_warn", { error: String(error?.message || error) });
-  }
-}
-
-function logExportGeometryAudit(tab, canvases) {
-  let verbose = false;
-  try {
-    verbose =
-      typeof process !== "undefined" && process?.env?.MANI_PDF_EXPORT_VERBOSE === "1";
-  } catch {
-    verbose = false;
-  }
-  if (!verbose) return;
-  const pageKey = String(tab?.currentPage || 1);
-  logSave("geom_summary", {
-    pageKey,
-    canvasPx: canvases?.[pageKey] || null,
-    annos: (tab?.annotationsByPage?.[pageKey] || []).map((a) => ({
-      id: a.id,
-      type: a.type,
-      x: Math.round(a.x),
-      y: Math.round(a.y),
-      text: a.type === "text" ? String(a.text || "").slice(0, 40) : undefined
-    }))
-  });
-}
-
-function summarizeExportPayload(annotationsByPage) {
-  const summary = [];
-  Object.keys(annotationsByPage || {}).forEach((pageKey) => {
-    (annotationsByPage[pageKey] || []).forEach((a) => {
-      summary.push({
-        pageKey,
-        id: a.id,
-        type: a.type,
-        x: a.x,
-        y: a.y,
-        w: a.w,
-        h: a.h,
-        textLen: a.type === "text" ? String(a.text || "").length : undefined,
-        textPreview: a.type === "text" ? String(a.text || "").slice(0, 60) : undefined,
-        hasImageB64: a.type === "image" ? Boolean(a.src_base64) : undefined
-      });
-    });
-  });
-  return summary;
-}
 
 /** URL data: pour afficher une image restaurée depuis session (src_base64 sans blob:). */
 function imageAnnotationDisplaySrc(a) {
@@ -2881,274 +2706,9 @@ function imageAnnotationDisplaySrc(a) {
   return "";
 }
 
-/**
- * Encode une image (blob:, data:, http(s):) en base64 brute pour l'export Python.
- * fetch(blob:) peut échouer selon l'environnement : repli XHR + FileReader.
- */
-async function imageSrcToBase64(src) {
-  const s = String(src || "");
-  if (!s) throw new Error("src vide");
-  if (s.startsWith("data:")) {
-    const idx = s.indexOf("base64,");
-    if (idx === -1) throw new Error("data: sans base64");
-    return s.slice(idx + 7);
-  }
-  let blob;
-  try {
-    const res = await fetch(s);
-    if (!res.ok) throw new Error(`fetch ${res.status}`);
-    blob = await res.blob();
-  } catch {
-    blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("GET", s);
-      xhr.responseType = "blob";
-      xhr.onload = () => resolve(xhr.response);
-      xhr.onerror = () => reject(new Error("xhr_blob"));
-      xhr.send();
-    });
-  }
-  return await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const t = String(r.result || "");
-      const i = t.indexOf("base64,");
-      if (i === -1) reject(new Error("filereader"));
-      else resolve(t.slice(i + 7));
-    };
-    r.onerror = () => reject(r.error || new Error("filereader"));
-    r.readAsDataURL(blob);
-  });
-}
-
-async function encodeImageForExport(a, pageKey) {
-  if (a.type !== "image") return;
-  if (a.src_base64) return;
-  if (!a.src) return;
-  const timeoutMs = 12000;
-  try {
-    a.src_base64 = await Promise.race([
-      imageSrcToBase64(a.src),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("image_encode_timeout")), timeoutMs);
-      })
-    ]);
-  } catch (error) {
-    if (!a.src_base64) {
-      logSave("image_encode_error", {
-        pageKey,
-        id: a.id,
-        error: String(error?.message || error)
-      });
-      throw error;
-    }
-  }
-}
-
-async function convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases) {
-  const pdfPath = tab?.path;
-  if (!pdfPath || !pdfv.convertCanvasRectToPdfUser) return;
-
-  for (const pageKey of Object.keys(annotationsByPage || {})) {
-    const meta = canvases?.[pageKey];
-    if (!meta?.w || !meta?.h) continue;
-    const pageNum = Number(pageKey) || 1;
-    const arr = annotationsByPage[pageKey] || [];
-    for (const a of arr) {
-      try {
-        const pdfRect = await pdfv.convertCanvasRectToPdfUser(
-          pdfPath,
-          pageNum,
-          { x: a.x, y: a.y, w: a.w, h: a.h },
-          meta.w,
-          meta.h
-        );
-        a.x = pdfRect.x;
-        a.y = pdfRect.y;
-        a.canvas_w = pdfRect.canvas_w;
-        a.canvas_h = pdfRect.canvas_h;
-        a.pdf_ex = pdfRect.pdf_ex;
-        a.pdf_ey = pdfRect.pdf_ey;
-        a.coords_space = "pdf_user";
-        // fontSize / padding / strokeWidth restent en px canvas : la matrice pdf_ex/pdf_ey les convertit.
-      } catch (error) {
-        logSave("pdf_coords_warn", {
-          pageKey,
-          id: a.id,
-          error: String(error?.message || error)
-        });
-      }
-    }
-  }
-}
-
-async function exportActivePdfToPath(outputPath) {
-  const tab = getActiveTab();
-  if (!tab) {
-    logSave("export_abort", { reason: "no_active_pdf" });
-    return { ok: false, error: "no_active_pdf" };
-  }
-  if (!tab.path) {
-    logSave("export_abort", { reason: "no_input_path", tabId: tab.id });
-    return { ok: false, error: "Chemin du PDF source manquant." };
-  }
-  if (!outputPath) {
-    logSave("export_abort", { reason: "no_output_path" });
-    return { ok: false, error: "Chemin de sortie manquant." };
-  }
-
-  logSave("export_start", {
-    inputPath: tab.path,
-    outputPath,
-    annotationCount: countAnnotationsByPage(tab.annotationsByPage)
-  });
-
-  const pythonReady = await waitForPythonService();
-  if (!pythonReady?.ok) {
-    logSave("export_abort", { reason: "python_unavailable", error: pythonReady?.error });
-    return { ok: false, error: pythonReady?.error || "Service Python indisponible." };
-  }
-
-  // Synchroniser tout le texte (édition en cours + modèle) avant export.
-  flushAllTextAnnotationsForExport(tab);
-
-  const canvases = {};
-  try {
-    pagesContainer?.querySelectorAll?.(".pdf-page").forEach((node) => {
-      const page = Number(node.dataset.page) || 1;
-      const c = node.querySelector("canvas.pdf-canvas");
-      if (!c) return;
-      canvases[String(page)] = {
-        w: c.width || 0,
-        h: c.height || 0,
-        rotation: Number(node.dataset.rotation) || 0
-      };
-    });
-  } catch (error) {
-    logSave("canvases_warn", { error: String(error?.message || error) });
-  }
-
-  resyncAllPagesForExport(tab, canvases);
-  logExportGeometryAudit(tab, canvases);
-
-  const annotationsByPage = {};
-  try {
-    Object.keys(tab.annotationsByPage || {}).forEach((k) => {
-      const arr = tab.annotationsByPage[k] || [];
-      annotationsByPage[k] = arr.map((a) => {
-        const c = { ...a };
-        delete c._spellErrors;
-        if (SHAPE_TYPES.has(c.type)) mergeShapeStyleFields(c);
-        if (c.type === "text") {
-          c.text = plainTextForAnnotationItem(c);
-          if (!c.textHtml && c.text) c.textHtml = String(c.text);
-        }
-        return c;
-      });
-    });
-  } catch (error) {
-    logSave("annotations_map_error", { error: String(error?.message || error) });
-    return { ok: false, error: "Impossible de preparer les annotations pour l'export." };
-  }
-
-  try {
-    await convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases);
-  } catch (error) {
-    logSave("pdf_coords_error", { error: String(error?.message || error) });
-  }
-
-  try {
-    for (const pageKey of Object.keys(annotationsByPage)) {
-      const arr = annotationsByPage[pageKey] || [];
-      for (const a of arr) {
-        await encodeImageForExport(a, pageKey);
-      }
-    }
-  } catch (error) {
-    logSave("export_abort", { reason: "image_encode_failed", error: String(error?.message || error) });
-    return { ok: false, error: "image_encode_failed" };
-  }
-
-  logSave("export_ipc", {
-    inputPath: tab.path,
-    outputPath,
-    pages: Object.keys(canvases).length,
-    annotationCount: countAnnotationsByPage(annotationsByPage)
-  });
-
-  const exportResult = await window.maniPdfApi.exportPdfWithAnnotations({
-    input_path: tab.path,
-    output_path: outputPath,
-    canvases_px_by_page: canvases,
-    annotations_by_page: annotationsByPage
-  });
-
-  logSave("export_result", {
-    ok: Boolean(exportResult?.ok),
-    error: exportResult?.error || null,
-    outputPath
-  });
-
-  return exportResult;
-}
-
-function applySaveExportSuccess(tab, outputPath) {
-  if (!tab) return;
-  try {
-    tab.dirty = false;
-  } catch {
-    /* ignore */
-  }
-  const out = String(outputPath || "").trim();
-  if (!out || !tab.path) return;
-  if (!pathsEqual(out, tab.path)) return;
-  pdfv.invalidatePdfRenderCache([tab.path, out]);
-  pdfv.updateViewer();
-}
-
+/** Délègue à `__editifyPdfSave` — point d'entrée UI (toolbar, Ctrl+S, menu). */
 async function savePdfAs() {
-  logSave("save_start", {});
-  try {
-    const tab = getActiveTab();
-    if (!tab) {
-      logSave("save_abort", { reason: "no_active_pdf" });
-      setStatus(t("stSaveAsNoPdf"));
-      return;
-    }
-
-    const suggested = buildSuggestedSaveAsPath(tab);
-    logSave("dialog_request", { suggested, inputPath: tab.path });
-    const r = await window.maniPdfApi.savePdfAsDialog(suggested);
-    if (!r?.ok) {
-      if (!r?.cancelled) {
-        logSave("dialog_error", { error: r?.error || "cancelled" });
-        setStatus(r?.error || t("stSaveAsCancelled"));
-      } else {
-        logSave("dialog_cancelled", {});
-      }
-      return;
-    }
-
-    logSave("dialog_ok", { outputPath: r.path });
-    setStatus(t("stExporting"));
-    const exportResult = await exportActivePdfToPath(r.path);
-    if (exportResult?.ok) {
-      logSave("save_success", { outputPath: r.path });
-      setStatus(t("stExported"));
-      applySaveExportSuccess(tab, r.path);
-    } else if (exportResult?.error === "image_encode_failed") {
-      logSave("save_fail", { reason: "image_encode_failed" });
-      setStatus(t("stExportImageEncodeFailed"));
-    } else {
-      const err = exportResult?.error || t("stExportFailed");
-      logSave("save_fail", { reason: "export_failed", error: err });
-      setStatus(err);
-    }
-  } catch (error) {
-    const err = String(error?.message || error);
-    logSave("save_exception", { error: err });
-    setStatus(`Enregistrement impossible: ${err}`);
-  }
+  return pdfSave.savePdfAs();
 }
 
 chrome.bind({
@@ -3311,7 +2871,7 @@ imageInput?.addEventListener?.("change", (event) => {
       const mimeType = String(file.type || "image/png").trim() || "image/png";
       let src_base64;
       try {
-        src_base64 = await readImageFileAsBase64(file);
+        src_base64 = await pdfSave.readImageFileAsBase64(file);
       } catch {
         src_base64 = undefined;
       }
@@ -3397,7 +2957,7 @@ window.maniPdfApi?.onSetLanguage?.((lang) => {
 
 window.maniPdfApi?.onSaveAsRequested?.(() => {
   savePdfAs().catch((error) => {
-    logSave("save_menu_exception", { error: String(error?.message || error) });
+    pdfSave.logSave("save_menu_exception", { error: String(error?.message || error) });
   });
 });
 window.maniPdfApi?.onAutosaveRequested?.(() => {
@@ -3611,7 +3171,7 @@ document.addEventListener(
   if ((event.ctrlKey || event.metaKey) && key === "s") {
     event.preventDefault();
     savePdfAs().catch((error) => {
-      logSave("save_shortcut_exception", { error: String(error?.message || error) });
+      pdfSave.logSave("save_shortcut_exception", { error: String(error?.message || error) });
     });
     return;
   }
@@ -3768,6 +3328,6 @@ try {
     clickManiColorValidateButtonForInputId,
     setLanguage,
     captureLastTextStyleFromItem,
-    exportActivePdfToPath
+    exportActivePdfToPath: pdfSave.exportActivePdfToPath
   });
 } catch {}
