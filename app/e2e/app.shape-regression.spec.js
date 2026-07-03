@@ -190,9 +190,8 @@ test.describe("Menus contextuels : clic droit sans sélection préalable", () =>
       return u && !u.selectedAnnotationId;
     });
 
-    await page
-      .locator("#annotationLayer .annotation.text")
-      .click({ button: "right", position: { x: 40, y: 22 } });
+    // Zone texte initiale ≈ 2 lettres (~20 px) : clic droit au centre de la bbox.
+    await page.locator("#annotationLayer .annotation.text").click({ button: "right" });
     const menu = page.locator("#textAnnotationCtxMenu");
     await expect(menu).toBeVisible({ timeout: 8000 });
     await expect(menu.locator("#ctxTextRotation")).toBeVisible();

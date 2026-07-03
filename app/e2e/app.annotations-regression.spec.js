@@ -179,11 +179,10 @@ test("texte: menu contextuel contient rotation et opacite", async () => {
   await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(1, {
     timeout: 15000
   });
-  await page.locator("#annotationLayer .annotation.text").click({ position: { x: 30, y: 20 } });
-
-  await page
-    .locator("#annotationLayer .annotation.text")
-    .click({ button: "right", position: { x: 40, y: 22 } });
+  const textAnn = page.locator("#annotationLayer .annotation.text");
+  // Zone texte initiale ≈ 2 lettres (~20 px) : clic au centre, pas hors bbox.
+  await textAnn.click();
+  await textAnn.click({ button: "right" });
   const textMenu = page.locator("#textAnnotationCtxMenu");
   await expect(textMenu).toBeVisible({ timeout: 8000 });
   await expect(textMenu.locator("#ctxTextRotation")).toBeVisible();
