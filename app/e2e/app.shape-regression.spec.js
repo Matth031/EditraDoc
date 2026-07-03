@@ -5,6 +5,7 @@
 const { test, expect, _electron: electron } = require("@playwright/test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
+const { dispatchTextAnnotationContextMenu } = require("./helpers");
 const path = require("path");
 const fs = require("fs");
 
@@ -190,8 +191,8 @@ test.describe("Menus contextuels : clic droit sans sélection préalable", () =>
       return u && !u.selectedAnnotationId;
     });
 
-    // Zone texte initiale ≈ 2 lettres (~20 px) : clic droit au centre de la bbox.
-    await page.locator("#annotationLayer .annotation.text").click({ button: "right" });
+    // xvfb/Linux : dispatchEvent évite l'interception par #annotationLayer sur bbox ~20 px.
+    await dispatchTextAnnotationContextMenu(page);
     const menu = page.locator("#textAnnotationCtxMenu");
     await expect(menu).toBeVisible({ timeout: 8000 });
     await expect(menu.locator("#ctxTextRotation")).toBeVisible();

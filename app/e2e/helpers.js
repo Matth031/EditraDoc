@@ -68,8 +68,40 @@ function cleanupGeneratedPdf(outputPath, deleteAfterTest, alsoRemove = []) {
   }
 }
 
+/**
+ * Ouvre le menu contextuel d'une annotation texte via dispatchEvent.
+ * Sous xvfb/Linux, les clics Playwright sur la bbox initiale (~20 px) sont souvent
+ * interceptés par #annotationLayer ; ce helper contourne le hit-test.
+ * @param {import("@playwright/test").Page} page
+ * @param {{ annotationId?: string }} [options]
+ */
+async function dispatchTextAnnotationContextMenu(page, options = {}) {
+  const ok = await page.evaluate((annotationId) => {
+    const el = annotationId
+      ? document.querySelector(`#annotationLayer .annotation.text[data-id="${annotationId}"]`)
+      : document.querySelector("#annotationLayer .annotation.text");
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: rect.left + Math.max(1, rect.width / 2),
+      clientY: rect.top + Math.max(1, rect.height / 2),
+      button: 2,
+      buttons: 2
+    });
+    el.dispatchEvent(event);
+    return true;
+  }, options.annotationId ?? null);
+  if (!ok) {
+    throw new Error("dispatchTextAnnotationContextMenu: annotation texte introuvable");
+  }
+}
+
 module.exports = {
   waitForPdfPagesRendered,
   assertHtmlToPdfCreatedWithoutError,
-  cleanupGeneratedPdf
+  cleanupGeneratedPdf,
+  dispatchTextAnnotationContextMenu
 };

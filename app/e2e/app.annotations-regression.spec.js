@@ -8,7 +8,7 @@ const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");
 const fs = require("fs");
-const { waitForPdfPagesRendered } = require("./helpers");
+const { waitForPdfPagesRendered, dispatchTextAnnotationContextMenu } = require("./helpers");
 
 function getRepoPdfFixture() {
   const p = path.resolve(process.cwd(), "..", "tests", "formulaire_test.pdf");
@@ -180,9 +180,8 @@ test("texte: menu contextuel contient rotation et opacite", async () => {
     timeout: 15000
   });
   const textAnn = page.locator("#annotationLayer .annotation.text");
-  // Zone texte initiale ≈ 2 lettres (~20 px) : clic au centre, pas hors bbox.
-  await textAnn.click();
-  await textAnn.click({ button: "right" });
+  await expect(textAnn).toBeVisible({ timeout: 15000 });
+  await dispatchTextAnnotationContextMenu(page);
   const textMenu = page.locator("#textAnnotationCtxMenu");
   await expect(textMenu).toBeVisible({ timeout: 8000 });
   await expect(textMenu.locator("#ctxTextRotation")).toBeVisible();
