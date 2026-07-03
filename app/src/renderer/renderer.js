@@ -108,7 +108,7 @@ const {
   replacePlainTextRangeInEditor,
   replacePlainRangeInTextItem
 } = window.__editifyTextCtxHelpers;
-const { logText, newAnnotationId, deepClone, cloneForClipboard } = window.__editifyUtils;
+const { logText, newAnnotationId, deepClone, cloneForClipboard, pathsEqual } = window.__editifyUtils;
 const { ensureToastRoot, dismissToast, showToast } = window.__editifyToast;
 const tcm = window.__editifyTextCtxMenu;
 const sim = window.__editifyShapeImageCtxMenu;
@@ -2694,6 +2694,12 @@ function buildSuggestedSaveAsName(tab) {
   }
 }
 
+/* =============================================================================
+ * ENREGISTREMENT PDF (savePdfAs / exportActivePdfToPath)
+ * Référence stable : 33b8dda + correctifs 226608a (chemin dialogue, images).
+ * NE PAS MODIFIER lors de travaux ergonomie texte, clavier, journal, etc.
+ * ============================================================================= */
+
 /** Chemin suggéré complet (dossier du PDF ouvert + nom _modifie.pdf) pour le dialogue Enregistrer sous. */
 function buildSuggestedSaveAsPath(tab) {
   const suggested = buildSuggestedSaveAsName(tab);
@@ -2793,7 +2799,6 @@ function flushAllTextAnnotationsForExport(tab) {
       const ed = getAnnotationTextEditor(node);
       if (ed) {
         syncTextFromEditor(item, ed);
-        finalizeTextAnnotationLayout(item);
         return;
       }
       const plain = String(node.textContent || "").trim();
@@ -3087,6 +3092,20 @@ async function exportActivePdfToPath(outputPath) {
   return exportResult;
 }
 
+function applySaveExportSuccess(tab, outputPath) {
+  if (!tab) return;
+  try {
+    tab.dirty = false;
+  } catch {
+    /* ignore */
+  }
+  const out = String(outputPath || "").trim();
+  if (!out || !tab.path) return;
+  if (!pathsEqual(out, tab.path)) return;
+  pdfv.invalidatePdfRenderCache([tab.path, out]);
+  pdfv.updateViewer();
+}
+
 async function savePdfAs() {
   logSave("save_start", {});
   try {
@@ -3097,7 +3116,7 @@ async function savePdfAs() {
       return;
     }
 
-    const suggested = buildSuggestedSaveAsName(tab);
+    const suggested = buildSuggestedSaveAsPath(tab);
     logSave("dialog_request", { suggested, inputPath: tab.path });
     const r = await window.maniPdfApi.savePdfAsDialog(suggested);
     if (!r?.ok) {
@@ -3116,11 +3135,7 @@ async function savePdfAs() {
     if (exportResult?.ok) {
       logSave("save_success", { outputPath: r.path });
       setStatus(t("stExported"));
-      try {
-        tab.dirty = false;
-      } catch {
-        /* ignore */
-      }
+      applySaveExportSuccess(tab, r.path);
     } else if (exportResult?.error === "image_encode_failed") {
       logSave("save_fail", { reason: "image_encode_failed" });
       setStatus(t("stExportImageEncodeFailed"));
@@ -3288,10 +3303,28 @@ blankAddImageBtn?.addEventListener?.("click", () => {
 });
 imageInput?.addEventListener?.("change", (event) => {
   const file = event.target.files?.[0];
-  if (!file) return;
-  const src = URL.createObjectURL(file);
-  addAnnotation("image", { src, fileName: file.name || null });
   imageInput.value = "";
+  if (!file) return;
+  void (async () => {
+    try {
+      const src = URL.createObjectURL(file);
+      const mimeType = String(file.type || "image/png").trim() || "image/png";
+      let src_base64;
+      try {
+        src_base64 = await readImageFileAsBase64(file);
+      } catch {
+        src_base64 = undefined;
+      }
+      addAnnotation("image", {
+        src,
+        fileName: file.name || null,
+        mimeType,
+        ...(src_base64 ? { src_base64 } : {})
+      });
+    } catch {
+      setStatus(t("stExportImageEncodeFailed"));
+    }
+  })();
 });
 deleteSelectedBtn?.addEventListener?.("click", deleteSelected);
 undoBtn?.addEventListener?.("click", undo);
