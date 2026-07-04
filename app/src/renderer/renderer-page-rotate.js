@@ -101,6 +101,8 @@
       if (!tab.pageRotationsByPage) tab.pageRotationsByPage = {};
       const current = norm(tab.pageRotationsByPage[pageKey] ?? 0);
       tab.pageRotationsByPage[pageKey] = norm(current + delta);
+      if (!tab.pageRotationsUserTouched) tab.pageRotationsUserTouched = {};
+      tab.pageRotationsUserTouched[pageKey] = true;
 
       const annotations = tab.annotationsByPage?.[pageKey] || [];
       if (annotations.length && cw > 0 && ch > 0 && math()?.rotateAnnotationsOnPage) {

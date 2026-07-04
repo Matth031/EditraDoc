@@ -55,6 +55,7 @@
         currentPage: t.currentPage || 1,
         annotationsByPage: cloneForSession(t.annotationsByPage || {}),
         pageRotationsByPage: cloneForSession(t.pageRotationsByPage || {}),
+        pageRotationsUserTouched: cloneForSession(t.pageRotationsUserTouched || {}),
         viewportByPage: cloneForSession(t.viewportByPage || {}),
         undoStack: Array.isArray(t.undoStack) ? cloneForSession(t.undoStack) : [],
         redoStack: Array.isArray(t.redoStack) ? cloneForSession(t.redoStack) : []
@@ -95,6 +96,10 @@
           pageRotationsByPage:
             row.pageRotationsByPage && typeof row.pageRotationsByPage === "object"
               ? row.pageRotationsByPage
+              : {},
+          pageRotationsUserTouched:
+            row.pageRotationsUserTouched && typeof row.pageRotationsUserTouched === "object"
+              ? row.pageRotationsUserTouched
               : {},
           viewportByPage:
             row.viewportByPage && typeof row.viewportByPage === "object" ? row.viewportByPage : {},

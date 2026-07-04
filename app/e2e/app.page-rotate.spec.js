@@ -227,6 +227,26 @@ test("Rotation page : export écrit /Rotate (AC-ROT-03)", async () => {
   }
 });
 
+test("Rotation page : -90° sur PDF /Rotate natif 270° (AC-ROT-04)", async () => {
+  const { app, page } = await launchWithRotatedPdf();
+  try {
+    const before = await page.evaluate(() => window.__maniE2E.getPageRenderMetaForTest(1));
+    expect(before.intrinsic).toBe(270);
+    expect(before.user).toBe(0);
+
+    await page.evaluate(() => window.__maniE2E.rotatePageForTest("left"));
+    await expect
+      .poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest()))
+      .toBe(270);
+
+    const after = await page.evaluate(() => window.__maniE2E.getPageRenderMetaForTest(1));
+    expect(after.user).toBe(270);
+    expect(after.h).not.toBe(before.h);
+  } finally {
+    await e2eCi.closeElectronApp(app);
+  }
+});
+
 test("Rotation page : /Rotate PDF natif affiché droit sans delta (AC-ROT-07)", async () => {
   const { app, page } = await launchWithRotatedPdf();
   try {

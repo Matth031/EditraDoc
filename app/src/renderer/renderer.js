@@ -1471,6 +1471,7 @@ async function addPdfTab(filePath, fileName) {
     currentPage: 1,
     annotationsByPage: {},
     pageRotationsByPage: {},
+    pageRotationsUserTouched: {},
     viewportByPage: {},
     undoStack: [],
     redoStack: []
@@ -1519,7 +1520,8 @@ function currentPageAnnotations(tab) {
 function getTabSnapshotState(tab) {
   return {
     annotationsByPage: tab.annotationsByPage,
-    pageRotationsByPage: tab.pageRotationsByPage || {}
+    pageRotationsByPage: tab.pageRotationsByPage || {},
+    pageRotationsUserTouched: tab.pageRotationsUserTouched || {}
   };
 }
 
@@ -1544,6 +1546,10 @@ function applySnapshot(tab, snapshot) {
   tab.pageRotationsByPage =
     parsed.pageRotationsByPage && typeof parsed.pageRotationsByPage === "object"
       ? parsed.pageRotationsByPage
+      : {};
+  tab.pageRotationsUserTouched =
+    parsed.pageRotationsUserTouched && typeof parsed.pageRotationsUserTouched === "object"
+      ? parsed.pageRotationsUserTouched
       : {};
   const changedPages = new Set();
   const allKeys = new Set([...Object.keys(prevRot), ...Object.keys(tab.pageRotationsByPage)]);

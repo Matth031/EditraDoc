@@ -355,6 +355,7 @@
       const sameFileReload = (paths || []).some((p) => p && d.pathsEqual(String(p), tab.path));
       if (sameFileReload) {
         tab.pageRotationsByPage = {};
+        tab.pageRotationsUserTouched = {};
         try {
           d.scheduleAutoSave?.();
         } catch {
@@ -405,8 +406,9 @@
     if (tab.pageRotationsByPage[pageKey] === undefined) return 0;
     const intrinsic = normalizePageRotation(intrinsicRotate);
     const stored = normalizePageRotation(tab.pageRotationsByPage[pageKey]);
-    // Anciennes sessions : /Rotate PDF confondu avec rotation utilisateur
-    if (stored === intrinsic) {
+    const userTouched = Boolean(tab.pageRotationsUserTouched?.[pageKey]);
+    // Anciennes sessions : /Rotate PDF confondu avec rotation utilisateur (sans action explicite)
+    if (!userTouched && stored === intrinsic) {
       delete tab.pageRotationsByPage[pageKey];
       return 0;
     }
