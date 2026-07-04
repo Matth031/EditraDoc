@@ -418,15 +418,22 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
     }
 
     for idx, page in enumerate(reader.pages, start=1):
-        page_w = float(page.mediabox.width)
-        page_h = float(page.mediabox.height)
         page_rot = _page_rotation_deg(page)
 
         canvas_px = canvases_px_by_page.get(str(idx)) or canvases_px_by_page.get(idx) or {}
         cw = float(canvas_px.get("w") or 0)
         ch = float(canvas_px.get("h") or 0)
         meta_rot = int(canvas_px.get("rotation", 0) or 0) % 360
-        rot = meta_rot if meta_rot in (0, 90, 180, 270) else page_rot
+        target_rot = meta_rot if meta_rot in (0, 90, 180, 270) else page_rot
+        if target_rot != page_rot:
+            delta = (target_rot - page_rot) % 360
+            if delta:
+                page.rotate(delta)
+            page_rot = _page_rotation_deg(page)
+
+        page_w = float(page.mediabox.width)
+        page_h = float(page.mediabox.height)
+        rot = page_rot
 
         disp_w, disp_h = _display_dims(page_w, page_h, rot)
         if cw <= 0 or ch <= 0:
@@ -818,4 +825,134 @@ def unprotect_pdf(input_path: str, output_path: str, password: str) -> str:
     with open(output_path, "wb") as f:
         writer.write(f)
     return output_path
+
+
+# --- Conversion image(s) raster → PDF multipage ---------------------------------
+
+IMAGE_TO_PDF_MARGIN_PT = 24.0
+IMAGE_TO_PDF_MAX_BYTES = 80 * 1024 * 1024
+IMAGE_TO_PDF_MAX_COUNT = 50
+_IMAGE_TO_PDF_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+
+
+def _normalize_image_ext(path: str) -> str:
+    return os.path.splitext(str(path or ""))[1].lower()
+
+
+def _validate_image_input_path(path: str) -> None:
+    if not path or not isinstance(path, str):
+        raise ValueError("Chemin d'image invalide.")
+    resolved = os.path.abspath(path)
+    if not os.path.isfile(resolved):
+        raise ValueError(f"Fichier image introuvable: {os.path.basename(resolved)}")
+    ext = _normalize_image_ext(resolved)
+    if ext not in _IMAGE_TO_PDF_EXTENSIONS:
+        raise ValueError("Format non supporté. Utilisez PNG, JPG ou JPEG.")
+    try:
+        size = os.path.getsize(resolved)
+    except OSError as exc:
+        raise ValueError(f"Impossible de lire l'image: {os.path.basename(resolved)}") from exc
+    if size <= 0:
+        raise ValueError(f"Image vide: {os.path.basename(resolved)}")
+    if size > IMAGE_TO_PDF_MAX_BYTES:
+        raise ValueError(f"Image trop volumineuse (max {IMAGE_TO_PDF_MAX_BYTES // (1024 * 1024)} Mo).")
+
+
+def _page_size_for_image(img_w: float, img_h: float) -> tuple[float, float]:
+    from reportlab.lib.pagesizes import A4, landscape  # type: ignore
+
+    if img_w > img_h:
+        return landscape(A4)
+    return A4
+
+
+def _fit_image_on_page(
+    img_w: float, img_h: float, page_w: float, page_h: float, margin: float
+) -> tuple[float, float, float, float]:
+    """Retourne x, y, draw_w, draw_h (coin bas-gauche ReportLab), ratio conservé."""
+    avail_w = max(1.0, page_w - 2.0 * margin)
+    avail_h = max(1.0, page_h - 2.0 * margin)
+    if img_w <= 0 or img_h <= 0:
+        raise ValueError("Dimensions d'image invalides.")
+    scale = min(avail_w / img_w, avail_h / img_h)
+    draw_w = img_w * scale
+    draw_h = img_h * scale
+    x = (page_w - draw_w) / 2.0
+    y = (page_h - draw_h) / 2.0
+    return x, y, draw_w, draw_h
+
+
+def images_to_pdf(input_paths: Iterable[str], output_path: str) -> str:
+    """
+    Convertit une ou plusieurs images PNG/JPG/JPEG en PDF multipage.
+    Une page par image, orientation A4 portrait/paysage selon le ratio, marges fixes.
+    Lecture directe depuis le disque (pas de base64).
+    """
+    _require_reportlab()
+    from reportlab.lib.colors import white  # type: ignore
+    from reportlab.lib.utils import ImageReader  # type: ignore
+    from reportlab.pdfgen import canvas  # type: ignore
+
+    paths = [os.path.abspath(str(p)) for p in (input_paths or []) if p]
+    if not paths:
+        raise ValueError("Aucune image sélectionnée.")
+    if len(paths) > IMAGE_TO_PDF_MAX_COUNT:
+        raise ValueError(f"Trop d'images (max {IMAGE_TO_PDF_MAX_COUNT}).")
+
+    for p in paths:
+        _validate_image_input_path(p)
+
+    out_abs = os.path.abspath(str(output_path or ""))
+    if not out_abs.lower().endswith(".pdf"):
+        raise ValueError("Sortie PDF invalide.")
+    first_dir = os.path.dirname(paths[0])
+    if os.path.dirname(out_abs) != first_dir:
+        raise ValueError("Le PDF de sortie doit être dans le même dossier que la première image.")
+
+    out_dir = os.path.dirname(out_abs)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    pdf_title = os.path.splitext(os.path.basename(paths[0]))[0]
+    c: canvas.Canvas | None = None
+
+    for img_path in paths:
+        try:
+            reader = ImageReader(img_path)
+            iw, ih = reader.getSize()
+        except Exception as exc:
+            raise ValueError(f"Image corrompue ou illisible: {os.path.basename(img_path)}") from exc
+
+        page_w, page_h = _page_size_for_image(float(iw), float(ih))
+        if c is None:
+            c = canvas.Canvas(out_abs, pagesize=(page_w, page_h))
+            c.setTitle(pdf_title)
+            c.setAuthor("EditraDoc")
+        else:
+            c.setPageSize((page_w, page_h))
+            c.showPage()
+
+        c.setFillColor(white)
+        c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+        x, y, draw_w, draw_h = _fit_image_on_page(
+            float(iw), float(ih), page_w, page_h, IMAGE_TO_PDF_MARGIN_PT
+        )
+        c.drawImage(
+            reader,
+            x,
+            y,
+            width=draw_w,
+            height=draw_h,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+    if c is None:
+        raise ValueError("Aucune image sélectionnée.")
+    c.save()
+
+    if not os.path.isfile(out_abs) or os.path.getsize(out_abs) == 0:
+        raise RuntimeError("Échec de la génération PDF: fichier de sortie vide.")
+    return out_abs
 

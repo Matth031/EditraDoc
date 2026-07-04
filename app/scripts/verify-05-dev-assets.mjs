@@ -37,6 +37,9 @@ const idxShapeImageCtxMenu = srcs.findIndex((s) => rel(s) === "renderer-shape-im
 const idxSplitWorkspace = srcs.findIndex((s) => rel(s) === "renderer-split-workspace.js");
 const idxJobs = srcs.findIndex((s) => rel(s) === "renderer-jobs.js");
 const idxHtmlConvert = srcs.findIndex((s) => rel(s) === "renderer-html-convert.js");
+const idxImageConvert = srcs.findIndex((s) => rel(s) === "renderer-image-convert.js");
+const idxPageRotateMath = srcs.findIndex((s) => rel(s) === "../lib/page-rotate-math.js");
+const idxPageRotate = srcs.findIndex((s) => rel(s) === "renderer-page-rotate.js");
 const idxAppChrome = srcs.findIndex((s) => rel(s) === "renderer-app-chrome.js");
 const idxTooltips = srcs.findIndex((s) => rel(s) === "renderer-tooltips.js");
 const idxSession = srcs.findIndex((s) => rel(s) === "renderer-session.js");
@@ -59,6 +62,9 @@ if (idxShapeImageCtxMenu === -1)
 if (idxSplitWorkspace === -1) fail("index.html : script renderer-split-workspace.js introuvable.");
 if (idxJobs === -1) fail("index.html : script renderer-jobs.js introuvable.");
 if (idxHtmlConvert === -1) fail("index.html : script renderer-html-convert.js introuvable.");
+if (idxImageConvert === -1) fail("index.html : script renderer-image-convert.js introuvable.");
+if (idxPageRotateMath === -1) fail("index.html : script ../lib/page-rotate-math.js introuvable.");
+if (idxPageRotate === -1) fail("index.html : script renderer-page-rotate.js introuvable.");
 if (idxAppChrome === -1) fail("index.html : script renderer-app-chrome.js introuvable.");
 if (idxTooltips === -1) fail("index.html : script renderer-tooltips.js introuvable.");
 if (idxSession === -1) fail("index.html : script renderer-session.js introuvable.");
@@ -80,7 +86,10 @@ if (
   idxShapeImageCtxMenu >= idxSplitWorkspace ||
   idxSplitWorkspace >= idxJobs ||
   idxJobs >= idxHtmlConvert ||
-  idxHtmlConvert >= idxAppChrome ||
+  idxHtmlConvert >= idxImageConvert ||
+  idxImageConvert >= idxPageRotateMath ||
+  idxPageRotateMath >= idxPageRotate ||
+  idxPageRotate >= idxAppChrome ||
   idxAppChrome >= idxTooltips ||
   idxTooltips >= idxSession ||
   idxSession >= idxPdfViewer ||

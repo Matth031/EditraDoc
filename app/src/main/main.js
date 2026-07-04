@@ -1,12 +1,14 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, execSync } = require("node:child_process");
 const http = require("node:http");
 const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
 const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
+const { convertImagesToPdf } = require("./lib/images-to-pdf");
+const { freeLocalPort } = require("./lib/free-local-port");
 const spellcheckService = require("./spellcheck-service");
 const MENU_I18N = require("../lib/menu-i18n-data");
 
@@ -432,6 +434,13 @@ function createMenu() {
                 if (!mainWindow) return;
                 mainWindow.webContents.send("app:html-to-pdf");
               }
+            },
+            {
+              label: "Image(s) vers PDF",
+              click: () => {
+                if (!mainWindow) return;
+                mainWindow.webContents.send("app:images-to-pdf");
+              }
             }
           ]
         },
@@ -544,7 +553,9 @@ function stopBackgroundTimers() {
   }
 }
 
-function startPythonService() {
+async function startPythonService() {
+  stopPythonService();
+  await freeLocalPort(8765);
   const { command, args, cwd, env } = getPythonLaunchConfig();
   try {
     console.log("[EditraDoc:python] demarrage", { command, args, cwd });
@@ -581,10 +592,12 @@ function stopPythonService() {
   const p = pythonProcess;
   pythonProcess = null;
   try {
-    // E2E Playwright : SIGTERM peut laisser Python vivre assez longtemps pour bloquer
-    // le teardown du worker (gracefullyCloseAll). En prod, TERM reste le défaut.
-    if (process.env.MANI_PDF_E2E === "1" && process.platform !== "win32") {
-      p.kill("SIGKILL");
+    if (process.env.MANI_PDF_E2E === "1") {
+      if (process.platform === "win32") {
+        execSync(`taskkill /F /T /PID ${p.pid}`, { stdio: "ignore" });
+      } else {
+        p.kill("SIGKILL");
+      }
     } else {
       p.kill();
     }
@@ -885,11 +898,26 @@ async function showOpenFileDialog(filters) {
   return { ok: true, path: result.filePaths[0] };
 }
 
+/**
+ * Dialogue natif images raster (sélection multiple).
+ */
+async function showOpenImagesDialog() {
+  if (!mainWindow) return { ok: false, error: "Fenetre principale indisponible." };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openFile", "multiSelections"],
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg"] }]
+  });
+  if (result.canceled || !result.filePaths?.length) return { ok: false, cancelled: true };
+  return { ok: true, paths: result.filePaths };
+}
+
 ipcMain.handle("dialog:openPdf", () => showOpenFileDialog([{ name: "PDF", extensions: ["pdf"] }]));
 
 ipcMain.handle("dialog:openHtml", () =>
   showOpenFileDialog([{ name: "HTML", extensions: ["html", "htm"] }])
 );
+
+ipcMain.handle("dialog:openImages", () => showOpenImagesDialog());
 
 ipcMain.handle("convert:html-to-pdf", async (_, payload) => {
   try {
@@ -903,6 +931,26 @@ ipcMain.handle("convert:html-to-pdf", async (_, payload) => {
   } catch (error) {
     logIpcFailure("convert:html-to-pdf", error);
     return { ok: false, error: "Échec de la conversion HTML vers PDF." };
+  }
+});
+
+ipcMain.handle("convert:images-to-pdf", async (_, payload) => {
+  try {
+    const inputPaths = payload && typeof payload === "object" ? payload.inputPaths : null;
+    const outputPath = payload && typeof payload === "object" ? payload.outputPath : undefined;
+    const result = await convertImagesToPdf(inputPaths, outputPath, {
+      postToPython,
+      getPythonHealth
+    });
+    if (!result?.ok) {
+      logWarn("convert:images-to-pdf", result?.error || "Conversion échouée", {
+        count: Array.isArray(inputPaths) ? inputPaths.length : 0
+      });
+    }
+    return result;
+  } catch (error) {
+    logIpcFailure("convert:images-to-pdf", error);
+    return { ok: false, error: "Échec de la conversion image vers PDF." };
   }
 });
 
@@ -1264,7 +1312,9 @@ app.whenReady().then(() => {
   createWindow();
   createMenu();
   startAutosave();
-  startPythonService();
+  startPythonService().catch((err) => {
+    logError("python:start", err?.message || String(err));
+  });
   jobQueueIntervalId = setInterval(processJobQueue, 500);
 });
 

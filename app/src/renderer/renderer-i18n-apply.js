@@ -52,6 +52,7 @@
     toolbarOpenPdfBtn: "ttToolbarOpenPdf",
     toolbarSaveAsBtn: "ttToolbarSaveAs",
     toolbarHtmlToPdfBtn: "ttHtmlToPdf",
+    toolbarImagesToPdfBtn: "ttImagesToPdf",
     toolbarQuitBtn: "ttToolbarQuit",
     toolbarOptionsBtn: "ttToolbarOptions",
     mergeBtn: "ttMerge",
@@ -67,6 +68,8 @@
     deleteSelectedBtn: "ttDelete",
     undoBtn: "ttUndo",
     redoBtn: "ttRedo",
+    rotateLeftBtn: "ttRotateLeft",
+    rotateRightBtn: "ttRotateRight",
     validateTextColorBtn: "ttValidateTextColor",
     applyBgBtn: "ttValidateBg",
     applyPropsBtn: "ttApplyProps",
@@ -159,6 +162,8 @@
       deleteSelectedBtn,
       undoBtn,
       redoBtn,
+      rotateLeftBtn,
+      rotateRightBtn,
       applyPropsBtn,
       validateTextColorBtn,
       applyBgBtn,
@@ -173,6 +178,7 @@
       toolbarOpenPdfBtn,
       toolbarSaveAsBtn,
       toolbarHtmlToPdfBtn,
+      toolbarImagesToPdfBtn,
       toolbarQuitBtn,
       toolbarAboutMenuItem,
       toolbarSessionLogMenuItem,
@@ -217,6 +223,8 @@
     deleteSelectedBtn.textContent = t("del");
     undoBtn.textContent = t("undo");
     redoBtn.textContent = t("redo");
+    if (rotateLeftBtn) rotateLeftBtn.textContent = t("rotateLeft");
+    if (rotateRightBtn) rotateRightBtn.textContent = t("rotateRight");
     applyPropsBtn.textContent = t("apply");
     if (validateTextColorBtn) validateTextColorBtn.textContent = t("validate");
     if (applyBgBtn) applyBgBtn.textContent = t("validate");
@@ -231,6 +239,7 @@
     if (toolbarOpenPdfBtn) toolbarOpenPdfBtn.textContent = t("openPdf");
     if (toolbarSaveAsBtn) toolbarSaveAsBtn.textContent = t("saveAs");
     if (toolbarHtmlToPdfBtn) toolbarHtmlToPdfBtn.textContent = t("htmlToPdf");
+    if (toolbarImagesToPdfBtn) toolbarImagesToPdfBtn.textContent = t("imagesToPdf");
     if (toolbarQuitBtn) toolbarQuitBtn.textContent = t("quit");
     if (toolbarAboutMenuItem) toolbarAboutMenuItem.textContent = t("about");
     if (toolbarSessionLogMenuItem) toolbarSessionLogMenuItem.textContent = t("menuSessionLog");
@@ -316,6 +325,7 @@
     if (sbd) sbd.textContent = t("shapeBackdrop");
     if (sbdol) sbdol.textContent = t("shapeBackdropOp");
     if (!getActiveTab()) pageInfo.textContent = t("noPdf");
+    else pdfv.syncPageInfoFooter?.(getActiveTab().currentPage || 1);
     if (toolbarF10Hint) {
       const hint = t("f10Toolbar");
       toolbarF10Hint.textContent = hint;

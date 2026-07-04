@@ -64,6 +64,8 @@
         /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
           d.exportActivePdfToPath
         );
+      const invalidatePdfRenderCacheAfterSave =
+        /** @type {(paths: string[]) => void} */ (d.invalidatePdfRenderCacheAfterSave);
 
       window.__maniE2E.resetUiState = () => {
         try {
@@ -369,7 +371,140 @@
           return false;
         }
       };
+      window.__maniE2E.getPageRotationForTest = () => {
+        try {
+          const tab = getActiveTab();
+          const pageKey = String(tab?.currentPage || 1);
+          const node = pagesContainer?.querySelector?.(`.pdf-page[data-page="${pageKey}"]`);
+          const fromTab = tab?.pageRotationsByPage?.[pageKey];
+          if (fromTab !== undefined) {
+            return ((Number(fromTab) || 0) % 360 + 360) % 360;
+          }
+          return ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360;
+        } catch {
+          return -1;
+        }
+      };
+      window.__maniE2E.getPageRotationForPageTest = (pageNum) => {
+        try {
+          const tab = getActiveTab();
+          const key = String(pageNum || 1);
+          const node = pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
+          const fromTab = tab?.pageRotationsByPage?.[key];
+          if (fromTab !== undefined) {
+            return ((Number(fromTab) || 0) % 360 + 360) % 360;
+          }
+          return ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360;
+        } catch {
+          return -1;
+        }
+      };
+      window.__maniE2E.getPageRenderMetaForTest = (pageNum) => {
+        try {
+          const key = String(pageNum || 1);
+          const node = pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
+          const canvas = node?.querySelector?.("canvas.pdf-canvas");
+          return {
+            w: canvas?.width || 0,
+            h: canvas?.height || 0,
+            intrinsic: ((Number(node?.dataset?.intrinsicRotation) || 0) % 360 + 360) % 360,
+            user: ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360,
+            absolute: ((Number(node?.dataset?.rotation) || 0) % 360 + 360) % 360
+          };
+        } catch {
+          return null;
+        }
+      };
+      window.__maniE2E.getThumbTitleForPageTest = (pageNum) => {
+        try {
+          const items = document.querySelectorAll("#thumbsList .thumb-item");
+          for (const item of items) {
+            const title = item.querySelector(".thumb-title");
+            const text = String(title?.textContent || "");
+            if (text.includes(` ${pageNum}`) || text.startsWith(`Page ${pageNum}`)) {
+              return text;
+            }
+          }
+          const idx = Math.max(0, (Number(pageNum) || 1) - 1);
+          return String(items[idx]?.querySelector(".thumb-title")?.textContent || "");
+        } catch {
+          return "";
+        }
+      };
+      window.__maniE2E.setCurrentPageForTest = (pageNum) => {
+        try {
+          const tab = getActiveTab();
+          if (!tab) return false;
+          const n = Math.max(1, Math.floor(Number(pageNum) || 1));
+          const max = tab.pageCount ? Math.max(1, tab.pageCount) : n;
+          tab.currentPage = Math.min(n, max);
+          pdfv.setActivePage(tab.currentPage);
+          const active = pagesContainer?.querySelector?.(`.pdf-page[data-page="${tab.currentPage}"]`);
+          active?.scrollIntoView?.({ block: "start", inline: "nearest" });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.beginTextEditForTest = (annotationId) => {
+        try {
+          const tab = getActiveTab();
+          if (!tab || !annotationId) return false;
+          const loc = findAnnotationLocation(tab, String(annotationId));
+          if (!loc?.item || loc.item.type !== "text") return false;
+          state.selectedAnnotationId = String(annotationId);
+          state.editingAnnotationId = String(annotationId);
+          syncPropertyInputs();
+          renderAnnotations();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.getStatusTextForTest = () => {
+        try {
+          const el = document.getElementById("statusText");
+          return String(el?.textContent || "");
+        } catch {
+          return "";
+        }
+      };
+      window.__maniE2E.areRotateButtonsDisabledForTest = () => {
+        try {
+          const left = document.getElementById("rotateLeftBtn");
+          const right = document.getElementById("rotateRightBtn");
+          return Boolean(left?.disabled && right?.disabled);
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.rotatePageForTest = async (direction) => {
+        try {
+          const fn = window.__editifyPageRotate?.rotateCurrentPage;
+          if (typeof fn !== "function") return false;
+          await fn(direction === "left" ? "left" : "right");
+          return true;
+        } catch {
+          return false;
+        }
+      };
       window.__maniE2E.exportActivePdfToPathForTest = (p) => exportActivePdfToPath(String(p || ""));
+      window.__maniE2E.overwriteActivePdfForTest = async () => {
+        try {
+          const tab = getActiveTab();
+          const out = String(tab?.path || "").trim();
+          if (!out) return { ok: false, error: "no_active_pdf" };
+          const result = await exportActivePdfToPath(out);
+          if (result?.ok) {
+            tab.dirty = false;
+            invalidatePdfRenderCacheAfterSave?.([out]);
+            pdfv.updateViewer();
+          }
+          return result;
+        } catch (error) {
+          return { ok: false, error: String(error?.message || error) };
+        }
+      };
     } catch {
       /* ignore */
     }

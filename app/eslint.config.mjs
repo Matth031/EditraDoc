@@ -108,6 +108,8 @@ export default [
       "src/renderer/renderer-split-workspace.js",
       "src/renderer/renderer-jobs.js",
       "src/renderer/renderer-html-convert.js",
+      "src/renderer/renderer-image-convert.js",
+      "src/renderer/renderer-page-rotate.js",
       "src/renderer/renderer-app-chrome.js",
       "src/renderer/renderer-tooltips.js",
       "src/renderer/renderer-session.js",

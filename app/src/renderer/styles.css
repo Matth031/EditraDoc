@@ -317,6 +317,11 @@ h1 {
   flex-wrap: wrap;
 }
 
+.actions-group button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .actions-group {
   display: inline-flex;
   align-items: center;

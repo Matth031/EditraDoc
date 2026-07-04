@@ -17,6 +17,7 @@ if _SERVICE_DIR not in sys.path:
 from pdf_ops import (
     apply_annotations,
     compress_pdf,
+    images_to_pdf,
     merge_pdfs,
     protect_pdf,
     split_pdf,
@@ -125,6 +126,13 @@ class Handler(BaseHTTPRequestHandler):
                 if LOG_VERBOSE:
                     logging.info("apply-annotations ok output=%s", output)
                 self._json_response(200, {"ok": True, "output_path": output})
+                return
+
+            if self.path == "/images-to-pdf":
+                raw_paths = payload.get("input_paths", []) or []
+                paths = [str(p) for p in raw_paths if p]
+                output = images_to_pdf(paths, str(payload.get("output_path", "") or ""))
+                self._json_response(200, {"ok": True, "output_path": output, "page_count": len(paths)})
                 return
 
             self._json_response(404, {"ok": False, "error": "Route inconnue"})

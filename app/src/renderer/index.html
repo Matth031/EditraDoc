@@ -33,6 +33,7 @@
             <button type="button" id="toolbarOpenPdfBtn" role="menuitem" data-tooltip="Ouvre un fichier PDF.">📂 Ouvrir PDF</button>
             <button type="button" id="toolbarSaveAsBtn" role="menuitem" data-tooltip="Enregistre un nouveau PDF (Ctrl+S).">💾 Enregistrer sous…</button>
             <button type="button" id="toolbarHtmlToPdfBtn" role="menuitem" data-tooltip="Convertit un fichier HTML local en PDF dans le même dossier.">📄 HTML vers PDF</button>
+            <button type="button" id="toolbarImagesToPdfBtn" role="menuitem" data-tooltip="Convertit une ou plusieurs images PNG/JPG en PDF dans le même dossier.">🖼 Image(s) vers PDF</button>
             <button type="button" id="toolbarQuitBtn" role="menuitem" data-tooltip="Ferme l'application.">✕ Quitter</button>
           </div>
         </div>
@@ -163,6 +164,8 @@
           <button id="deleteSelectedBtn" data-tooltip="Supprime l'élément actuellement sélectionné.">🗑️ Supprimer</button>
           <button id="undoBtn" data-tooltip="Annule la dernière modification.">↶ Undo</button>
           <button id="redoBtn" data-tooltip="Rétablit la modification annulée.">↷ Redo</button>
+          <button type="button" id="rotateLeftBtn" data-tooltip="Fait pivoter la page courante de 90° vers la gauche (anti-horaire).">↺ Rotation gauche</button>
+          <button type="button" id="rotateRightBtn" data-tooltip="Fait pivoter la page courante de 90° vers la droite (horaire).">↻ Rotation droite</button>
         </div>
       </div>
       <div class="header-toolbar-secondary" aria-label="Affichage et proprietes">
@@ -458,6 +461,9 @@
     <script src="./renderer-split-workspace.js"></script>
     <script src="./renderer-jobs.js"></script>
     <script src="./renderer-html-convert.js"></script>
+    <script src="./renderer-image-convert.js"></script>
+    <script src="../lib/page-rotate-math.js"></script>
+    <script src="./renderer-page-rotate.js"></script>
     <script src="./renderer-app-chrome.js"></script>
     <script src="./renderer-tooltips.js"></script>
     <script src="./renderer-session.js"></script>

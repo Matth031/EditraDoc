@@ -55,8 +55,24 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   onToolbarF10Toggle: (cb) => ipcRenderer.on("toolbar:f10-toggle", () => cb()),
   onPdfToolAction: (cb) => ipcRenderer.on("app:pdf-tool", (_, action) => cb(action)),
   onHtmlToPdfRequested: (cb) => ipcRenderer.on("app:html-to-pdf", () => cb()),
+  onImagesToPdfRequested: (cb) => ipcRenderer.on("app:images-to-pdf", () => cb()),
   openHtmlDialog: () => openDialogOrE2eBypass("MANI_PDF_E2E_HTML_PATH", "dialog:openHtml"),
   convertHtmlToPdf: (payload) => ipcRenderer.invoke("convert:html-to-pdf", payload),
+  openImagesDialog: () => {
+    try {
+      const raw = process?.env?.MANI_PDF_E2E_IMAGE_PATHS;
+      if (raw && typeof raw === "string") {
+        const paths = JSON.parse(raw);
+        if (Array.isArray(paths) && paths.length && paths.every((p) => typeof p === "string")) {
+          return Promise.resolve({ ok: true, paths });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return ipcRenderer.invoke("dialog:openImages");
+  },
+  convertImagesToPdf: (payload) => ipcRenderer.invoke("convert:images-to-pdf", payload),
   onAboutRequested: (cb) => ipcRenderer.on("app:about", () => cb()),
   onSessionLogRequested: (cb) => ipcRenderer.on("app:session-log", () => cb()),
   onLogFileSettingsRequested: (cb) => ipcRenderer.on("app:log-file-settings", () => cb()),

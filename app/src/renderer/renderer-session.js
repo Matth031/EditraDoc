@@ -54,6 +54,7 @@
         path: t.path,
         currentPage: t.currentPage || 1,
         annotationsByPage: cloneForSession(t.annotationsByPage || {}),
+        pageRotationsByPage: cloneForSession(t.pageRotationsByPage || {}),
         viewportByPage: cloneForSession(t.viewportByPage || {}),
         undoStack: Array.isArray(t.undoStack) ? cloneForSession(t.undoStack) : [],
         redoStack: Array.isArray(t.redoStack) ? cloneForSession(t.redoStack) : []
@@ -90,6 +91,10 @@
           annotationsByPage:
             row.annotationsByPage && typeof row.annotationsByPage === "object"
               ? row.annotationsByPage
+              : {},
+          pageRotationsByPage:
+            row.pageRotationsByPage && typeof row.pageRotationsByPage === "object"
+              ? row.pageRotationsByPage
               : {},
           viewportByPage:
             row.viewportByPage && typeof row.viewportByPage === "object" ? row.viewportByPage : {},

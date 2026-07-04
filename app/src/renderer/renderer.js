@@ -120,6 +120,7 @@ const sim = window.__editifyShapeImageCtxMenu;
 const sw = window.__editifySplitWorkspace;
 const jobs = window.__editifyJobs;
 const htmlConvert = window.__editifyHtmlConvert;
+const imageConvert = window.__editifyImageConvert;
 const chrome = window.__editifyAppChrome;
 const tooltips = window.__editifyTooltips;
 const session = window.__editifySession;
@@ -136,6 +137,8 @@ const imageInput = document.getElementById("imageInput");
 const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
+const rotateLeftBtn = document.getElementById("rotateLeftBtn");
+const rotateRightBtn = document.getElementById("rotateRightBtn");
 const propWidth = document.getElementById("propWidth");
 const propHeight = document.getElementById("propHeight");
 const propRotation = document.getElementById("propRotation");
@@ -222,6 +225,7 @@ const welcomeOpenPdfBtn = document.getElementById("welcomeOpenPdfBtn");
 const toolbarOpenPdfBtn = document.getElementById("toolbarOpenPdfBtn");
 const toolbarSaveAsBtn = document.getElementById("toolbarSaveAsBtn");
 const toolbarHtmlToPdfBtn = document.getElementById("toolbarHtmlToPdfBtn");
+const toolbarImagesToPdfBtn = document.getElementById("toolbarImagesToPdfBtn");
 const toolbarQuitBtn = document.getElementById("toolbarQuitBtn");
 const menuLangLabel = document.getElementById("menuLangLabel");
 const menuToolsLabel = document.getElementById("menuToolsLabel");
@@ -1340,6 +1344,11 @@ function updateWelcomeVisibility() {
   } else {
     welcomeScreen.classList.remove("hidden");
   }
+  try {
+    window.__editifyPageRotate?.syncRotateButtonsState?.();
+  } catch {
+    /* ignore */
+  }
 }
 
 function getActiveTab() {
@@ -1461,6 +1470,7 @@ async function addPdfTab(filePath, fileName) {
     path: result.path,
     currentPage: 1,
     annotationsByPage: {},
+    pageRotationsByPage: {},
     viewportByPage: {},
     undoStack: [],
     redoStack: []
@@ -1506,10 +1516,20 @@ function currentPageAnnotations(tab) {
   return annotationsOnPage(tab, page);
 }
 
+function getTabSnapshotState(tab) {
+  return {
+    annotationsByPage: tab.annotationsByPage,
+    pageRotationsByPage: tab.pageRotationsByPage || {}
+  };
+}
+
+function normalizePageRotationDeg(deg) {
+  const n = Number(deg) || 0;
+  return ((Math.round(n) % 360) + 360) % 360;
+}
+
 function captureSnapshot(tab) {
-  const snapshot = JSON.stringify({
-    annotationsByPage: tab.annotationsByPage
-  });
+  const snapshot = JSON.stringify(getTabSnapshotState(tab));
   tab.undoStack.push(snapshot);
   if (tab.undoStack.length > 50) tab.undoStack.shift();
   tab.redoStack = [];
@@ -1519,7 +1539,23 @@ function captureSnapshot(tab) {
 
 function applySnapshot(tab, snapshot) {
   const parsed = JSON.parse(snapshot);
+  const prevRot = { ...(tab.pageRotationsByPage || {}) };
   tab.annotationsByPage = parsed.annotationsByPage || {};
+  tab.pageRotationsByPage =
+    parsed.pageRotationsByPage && typeof parsed.pageRotationsByPage === "object"
+      ? parsed.pageRotationsByPage
+      : {};
+  const changedPages = new Set();
+  const allKeys = new Set([...Object.keys(prevRot), ...Object.keys(tab.pageRotationsByPage)]);
+  for (const k of allKeys) {
+    if (
+      normalizePageRotationDeg(prevRot[k] || 0) !==
+      normalizePageRotationDeg(tab.pageRotationsByPage[k] || 0)
+    ) {
+      changedPages.add(Number(k) || 1);
+    }
+  }
+  return changedPages;
 }
 
 function renderAnnotations() {
@@ -2152,30 +2188,41 @@ function deleteSelected() {
   session.scheduleAutoSave();
 }
 
-function undo() {
-  const tab = getActiveTab();
-  if (!tab || tab.undoStack.length === 0) return;
-  const current = JSON.stringify({ annotationsByPage: tab.annotationsByPage });
-  tab.redoStack.push(current);
-  const snapshot = tab.undoStack.pop();
-  applySnapshot(tab, snapshot);
+function finishUndoRedoUi(tab) {
   state.selectedAnnotationId = null;
   syncPropertyInputs();
   renderAnnotations();
   session.scheduleAutoSave();
 }
 
+function undo() {
+  const tab = getActiveTab();
+  if (!tab || tab.undoStack.length === 0) return;
+  const current = JSON.stringify(getTabSnapshotState(tab));
+  tab.redoStack.push(current);
+  const snapshot = tab.undoStack.pop();
+  const changedPages = applySnapshot(tab, snapshot);
+  const after = () => finishUndoRedoUi(tab);
+  if (changedPages.size) {
+    pdfv.rerenderPages([...changedPages]).then(after).catch(after);
+  } else {
+    after();
+  }
+}
+
 function redo() {
   const tab = getActiveTab();
   if (!tab || tab.redoStack.length === 0) return;
-  const current = JSON.stringify({ annotationsByPage: tab.annotationsByPage });
+  const current = JSON.stringify(getTabSnapshotState(tab));
   tab.undoStack.push(current);
   const snapshot = tab.redoStack.pop();
-  applySnapshot(tab, snapshot);
-  state.selectedAnnotationId = null;
-  syncPropertyInputs();
-  renderAnnotations();
-  session.scheduleAutoSave();
+  const changedPages = applySnapshot(tab, snapshot);
+  const after = () => finishUndoRedoUi(tab);
+  if (changedPages.size) {
+    pdfv.rerenderPages([...changedPages]).then(after).catch(after);
+  } else {
+    after();
+  }
 }
 
 function syncPropertyInputs() {
@@ -2275,6 +2322,25 @@ pdfv.wireResize();
 pdfv.wireWheel();
 pdfv.wireZoomButtons();
 pdfv.wireScrollPageSync();
+
+/** Après écrasement : la rotation est dans le PDF — ne pas réappliquer pageRotationsByPage. */
+function invalidatePdfRenderCacheAfterSave(paths) {
+  const tab = getActiveTab();
+  if (
+    tab?.path &&
+    Array.isArray(paths) &&
+    paths.some((p) => p && pathsEqual(String(p), tab.path))
+  ) {
+    tab.pageRotationsByPage = {};
+    try {
+      session.scheduleAutoSave();
+    } catch {
+      /* ignore */
+    }
+  }
+  pdfv.invalidatePdfRenderCache(paths);
+}
+
 pdfSave.bind({
   getActiveTab,
   layerRef: pdfLayerRef,
@@ -2288,7 +2354,7 @@ pdfSave.bind({
   SHAPE_TYPES,
   mergeShapeStyleFields,
   convertCanvasRectToPdfUser: pdfv.convertCanvasRectToPdfUser,
-  invalidatePdfRenderCache: pdfv.invalidatePdfRenderCache,
+  invalidatePdfRenderCache: invalidatePdfRenderCacheAfterSave,
   updateViewer: pdfv.updateViewer,
   pathsEqual,
   setStatus,
@@ -2380,6 +2446,31 @@ htmlConvert.bind({
   sessionLog,
   closeMenus: () => chrome.closeAllFlyoutMenus(),
   openPdfAtPath: (filePath, fileName) => addPdfTab(filePath, fileName)
+});
+imageConvert.bind({
+  toolbarImagesToPdfBtn,
+  t,
+  tr,
+  setStatus,
+  showToastBrief,
+  sessionLog,
+  closeMenus: () => chrome.closeAllFlyoutMenus(),
+  openPdfAtPath: (filePath, fileName) => addPdfTab(filePath, fileName)
+});
+window.__editifyPageRotate.bind({
+  rotateLeftBtn,
+  rotateRightBtn,
+  state,
+  getActiveTab,
+  pagesContainer,
+  captureSnapshot,
+  renderAnnotations,
+  enforceSafeZoneForActiveTab,
+  rerenderPage: (n) => pdfv.rerenderPage(n),
+  scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate,
+  session,
+  t,
+  setStatus
 });
 sw.bind({
   getActiveTab,
@@ -2727,6 +2818,7 @@ chrome.bind({
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
   toolbarHtmlToPdfBtn,
+  toolbarImagesToPdfBtn,
   toolbarQuitBtn,
   toolbarCloseBtn,
   toolbarAboutMenuItem,
@@ -2786,6 +2878,8 @@ i18nApply.bind({
   deleteSelectedBtn,
   undoBtn,
   redoBtn,
+  rotateLeftBtn,
+  rotateRightBtn,
   applyPropsBtn,
   validateTextColorBtn,
   applyBgBtn,
@@ -2800,6 +2894,7 @@ i18nApply.bind({
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
   toolbarHtmlToPdfBtn,
+  toolbarImagesToPdfBtn,
   toolbarQuitBtn,
   toolbarAboutMenuItem,
   toolbarSessionLogMenuItem,
@@ -3328,6 +3423,7 @@ try {
     clickManiColorValidateButtonForInputId,
     setLanguage,
     captureLastTextStyleFromItem,
-    exportActivePdfToPath: pdfSave.exportActivePdfToPath
+    exportActivePdfToPath: pdfSave.exportActivePdfToPath,
+    invalidatePdfRenderCacheAfterSave
   });
 } catch {}

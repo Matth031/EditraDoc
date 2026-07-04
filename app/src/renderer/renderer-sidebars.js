@@ -168,6 +168,11 @@
 
     pages.forEach((pageNode) => {
       const pageNumber = Number(pageNode.dataset.page) || 1;
+      const pageKey = String(pageNumber);
+      const userRot =
+        ((Number(tab.pageRotationsByPage?.[pageKey] ?? pageNode.dataset.userRotation) || 0) % 360 +
+          360) %
+        360;
       const srcCanvas = pageNode.querySelector("canvas.pdf-canvas");
       if (!srcCanvas) return;
 
@@ -194,7 +199,10 @@
       meta.className = "thumb-meta";
       const title = document.createElement("div");
       title.className = "thumb-title";
-      title.textContent = `${d.t("pageWord")} ${pageNumber}`;
+      title.textContent =
+        userRot === 0
+          ? `${d.t("pageWord")} ${pageNumber}`
+          : d.tr("pageInfoLine", { page: String(pageNumber), deg: String(userRot) });
       const annosCount = (tab.annotationsByPage?.[String(pageNumber)] || []).length;
       const sub = document.createElement("div");
       sub.className = "thumb-sub";

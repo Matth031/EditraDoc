@@ -146,6 +146,40 @@ class TestPdfExportAnnotations(unittest.TestCase):
             text = (reader.pages[0].extract_text() or "").replace("\n", " ")
             self.assertIn("ROT90_OK", text)
 
+    def test_apply_annotations_writes_page_rotate_from_canvas_meta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src)
+
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 400, "h": 300, "rotation": 90}},
+                {},
+            )
+
+            reader = PdfReader(out)
+            rot = int(reader.pages[0].get("/Rotate", 0) or 0) % 360
+            self.assertEqual(rot, 90)
+
+    def test_apply_annotations_cumulative_source_and_user_rotate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src90.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src, rotate=90)
+
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 300, "h": 400, "rotation": 180}},
+                {},
+            )
+
+            reader = PdfReader(out)
+            rot = int(reader.pages[0].get("/Rotate", 0) or 0) % 360
+            self.assertEqual(rot, 180)
+
 
 if __name__ == "__main__":
     unittest.main()

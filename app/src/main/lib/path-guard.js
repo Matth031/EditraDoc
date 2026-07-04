@@ -71,6 +71,61 @@ function validateHtmlToPdfPaths(inputPath, outputPath) {
   return { ok: true, outputPath: out };
 }
 
+const RASTER_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+
+/**
+ * @param {unknown} inputPath
+ * @returns {boolean}
+ */
+function isRasterImageInputPath(inputPath) {
+  if (!inputPath || typeof inputPath !== "string") return false;
+  const lower = inputPath.toLowerCase();
+  return RASTER_IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * @param {string[]} inputPaths
+ * @returns {string}
+ */
+function resolveImagesToPdfOutputPath(inputPaths) {
+  const first = path.resolve(String(inputPaths[0]));
+  const dir = path.dirname(first);
+  const base = path.basename(first, path.extname(first));
+  return path.join(dir, `${base}.pdf`);
+}
+
+/**
+ * @param {unknown} inputPaths
+ * @param {unknown} [outputPath]
+ * @returns {{ ok: true, outputPath: string, inputPaths: string[] } | { ok: false, error: string }}
+ */
+function validateImagesToPdfPaths(inputPaths, outputPath) {
+  if (!Array.isArray(inputPaths) || inputPaths.length === 0) {
+    return { ok: false, error: "Aucune image sélectionnée." };
+  }
+  const resolved = [];
+  for (const p of inputPaths) {
+    if (!isRasterImageInputPath(p)) {
+      return { ok: false, error: "Format non supporté. Utilisez PNG, JPG ou JPEG." };
+    }
+    resolved.push(path.resolve(String(p)));
+  }
+  const out =
+    outputPath && typeof outputPath === "string" && outputPath.trim()
+      ? path.resolve(outputPath.trim())
+      : resolveImagesToPdfOutputPath(resolved);
+  if (!out.toLowerCase().endsWith(".pdf")) {
+    return { ok: false, error: "Sortie PDF invalide." };
+  }
+  if (!isPdfOutputColocatedWithInput(resolved[0], out)) {
+    return {
+      ok: false,
+      error: "Le PDF de sortie doit être dans le même dossier que la première image."
+    };
+  }
+  return { ok: true, outputPath: out, inputPaths: resolved };
+}
+
 /** @deprecated Alias historique (jobs PDF merge/split) — préférer `isPdfOutputColocatedWithInput`. */
 const isOutputPdfInSameDirectoryAsInput = isPdfOutputColocatedWithInput;
 
@@ -78,6 +133,9 @@ module.exports = {
   isPdfOutputColocatedWithInput,
   isOutputPdfInSameDirectoryAsInput,
   isHtmlInputPath,
+  isRasterImageInputPath,
   resolveHtmlToPdfOutputPath,
-  validateHtmlToPdfPaths
+  resolveImagesToPdfOutputPath,
+  validateHtmlToPdfPaths,
+  validateImagesToPdfPaths
 };

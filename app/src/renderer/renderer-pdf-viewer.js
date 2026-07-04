@@ -193,7 +193,92 @@
       }
       setStatus(t("stPdfRenderError"));
     });
-    if (pageInfo) pageInfo.textContent = `${t("pageWord")} ${tab.currentPage || 1}`;
+    syncPageInfoFooter(tab.currentPage || 1);
+  }
+
+  async function paintPdfPageOnNode(page, pageNumber, pageNode, tab, containerWidth) {
+    const pageKey = String(pageNumber);
+    const intrinsic = page.rotate || 0;
+    const userDelta = getUserPageRotation(tab, pageKey, intrinsic);
+    const absRot = getAbsolutePageRotation(tab, pageKey, intrinsic);
+
+    const d = requireDeps();
+  // pdf.js : rotation = angle total affiché (défaut page.rotate), pas un delta additif.
+    const baseViewport = page.getViewport({ scale: 1, rotation: absRot });
+    const baseScale = containerWidth / baseViewport.width;
+    const scale = baseScale * (d.state.zoomScale || 1);
+    const viewport = page.getViewport({
+      scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
+      rotation: absRot
+    });
+
+    pageNode.dataset.intrinsicRotation = String(normalizePageRotation(intrinsic));
+    pageNode.dataset.rotation = String(absRot);
+    pageNode.dataset.userRotation = String(userDelta);
+
+    let canvas = pageNode.querySelector("canvas.pdf-canvas");
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.className = "pdf-canvas";
+      pageNode.appendChild(canvas);
+    }
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    pageNode.style.width = `${canvas.width}px`;
+    pageNode.style.height = `${canvas.height}px`;
+
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const task = page.render({ canvasContext: ctx, viewport });
+    activePdfRenderTasks.push(task);
+    try {
+      await task.promise;
+    } finally {
+      activePdfRenderTasks = activePdfRenderTasks.filter((tk) => tk !== task);
+    }
+    return canvas;
+  }
+
+  async function rerenderPage(pageNumber) {
+    const d = requireDeps();
+    const tab = d.getActiveTab();
+    if (!tab?.path || !d.pagesContainer) return;
+    const pageNode = d.pagesContainer.querySelector(`.pdf-page[data-page="${pageNumber}"]`);
+    if (!pageNode) return;
+
+    const doc = await loadPdfDocument(tab.path);
+    const page = await doc.getPage(pageNumber);
+    const containerWidth = Math.max(1, Math.floor((d.viewer?.clientWidth || 1) - 24));
+    const canvas = await paintPdfPageOnNode(page, pageNumber, pageNode, tab, containerWidth);
+
+    const pageKey = String(pageNumber);
+    if (!tab.viewportByPage) tab.viewportByPage = {};
+    if (canvas) {
+      tab.viewportByPage[pageKey] = { width: canvas.width, height: canvas.height };
+    }
+
+    if (tab.currentPage === pageNumber) {
+      syncPageInfoFooter(pageNumber);
+      ensureOverlaysOn(pageNode);
+      const lr = d.layerRef;
+      lr.pdfCanvas = canvas;
+      if (lr.annotationLayer) {
+        lr.annotationLayer.style.width = `${canvas.width}px`;
+        lr.annotationLayer.style.height = `${canvas.height}px`;
+      }
+      if (lr.dropOverlay) {
+        lr.dropOverlay.style.width = `${canvas.width}px`;
+        lr.dropOverlay.style.height = `${canvas.height}px`;
+      }
+      d.enforceSafeZoneForActiveTab();
+      d.renderAnnotations();
+    }
+    d.scheduleSidebarUpdate();
+  }
+
+  async function rerenderPages(pageNumbers) {
+    for (const n of pageNumbers) {
+      await rerenderPage(n);
+    }
   }
 
   function clampZoomScale(value) {
@@ -294,13 +379,57 @@
     attachDropOverlayListeners(lr.dropOverlay);
   }
 
+  function normalizePageRotation(deg) {
+    const n = Number(deg) || 0;
+    return ((Math.round(n) % 360) + 360) % 360;
+  }
+
+  function getUserPageRotation(tab, pageKey, intrinsicRotate) {
+    if (!tab?.pageRotationsByPage) return 0;
+    if (tab.pageRotationsByPage[pageKey] === undefined) return 0;
+    const intrinsic = normalizePageRotation(intrinsicRotate);
+    const stored = normalizePageRotation(tab.pageRotationsByPage[pageKey]);
+    // Anciennes sessions : /Rotate PDF confondu avec rotation utilisateur
+    if (stored === intrinsic) {
+      delete tab.pageRotationsByPage[pageKey];
+      return 0;
+    }
+    return stored;
+  }
+
+  function getAbsolutePageRotation(tab, pageKey, intrinsicRotate) {
+    const intrinsic = normalizePageRotation(intrinsicRotate);
+    const userDelta = getUserPageRotation(tab, pageKey, intrinsic);
+    return normalizePageRotation(intrinsic + userDelta);
+  }
+
+  function formatPageInfoLabel(pageNumber, userRotationDeg) {
+    const d = requireDeps();
+    const userRot = normalizePageRotation(userRotationDeg);
+    if (userRot === 0) {
+      return `${d.t("pageWord")} ${pageNumber}`;
+    }
+    return d.tr("pageInfoLine", { page: String(pageNumber), deg: String(userRot) });
+  }
+
+  function syncPageInfoFooter(pageNumber) {
+    const d = requireDeps();
+    const tab = d.getActiveTab();
+    if (!d.pageInfo || !tab) return;
+    const pageKey = String(pageNumber);
+    const pageNode = d.pagesContainer?.querySelector?.(`.pdf-page[data-page="${pageKey}"]`);
+    const intrinsic = Number(pageNode?.dataset?.intrinsicRotation) || 0;
+    const userRot = getUserPageRotation(tab, pageKey, intrinsic);
+    d.pageInfo.textContent = formatPageInfoLabel(pageNumber, userRot);
+  }
+
   function setActivePage(pageNumber) {
     const d = requireDeps();
     const tab = d.getActiveTab();
-    const { pagesContainer, pageInfo, t, layerRef: lr } = d;
+    const { pagesContainer, layerRef: lr } = d;
     if (!tab || !pagesContainer) return;
     tab.currentPage = pageNumber;
-    if (pageInfo) pageInfo.textContent = `${t("pageWord")} ${pageNumber}`;
+    syncPageInfoFooter(pageNumber);
 
     pagesContainer.querySelectorAll(".pdf-page").forEach((p) => p.classList.remove("active"));
     const active = pagesContainer.querySelector(`.pdf-page[data-page="${pageNumber}"]`);
@@ -325,8 +454,7 @@
 
   async function renderPdfDocument(pdfPath) {
     const d = requireDeps();
-    const { pagesContainer, viewer, state, setStatus, tr, t, scheduleSidebarUpdate, getActiveTab } =
-      d;
+    const { pagesContainer, viewer, setStatus, tr, t, scheduleSidebarUpdate, getActiveTab } = d;
     if (!pagesContainer) return;
     const tab = getActiveTab();
     if (!tab) return;
@@ -365,36 +493,16 @@
         }
       }
       const page = await doc.getPage(pageNumber);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const baseScale = containerWidth / baseViewport.width;
-      const scale = baseScale * (state.zoomScale || 1);
-      const viewport = page.getViewport({ scale: Number.isFinite(scale) && scale > 0 ? scale : 1 });
 
       const pageNode = document.createElement("div");
       pageNode.className = "pdf-page";
       pageNode.dataset.page = String(pageNumber);
-      pageNode.dataset.rotation = String(page.rotate || 0);
-
-      const canvas = document.createElement("canvas");
-      canvas.className = "pdf-canvas";
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      pageNode.style.width = `${canvas.width}px`;
-      pageNode.style.height = `${canvas.height}px`;
-      pageNode.appendChild(canvas);
 
       pageNode.addEventListener("mousedown", () => setActivePage(pageNumber));
 
       pagesContainer.appendChild(pageNode);
 
-      const ctx = canvas.getContext("2d", { alpha: false });
-      const task = page.render({ canvasContext: ctx, viewport });
-      activePdfRenderTasks.push(task);
-      try {
-        await task.promise;
-      } finally {
-        activePdfRenderTasks = activePdfRenderTasks.filter((tk) => tk !== task);
-      }
+      await paintPdfPageOnNode(page, pageNumber, pageNode, tab, containerWidth);
     }
 
     setActivePage(tab.currentPage || 1);
@@ -570,11 +678,21 @@
   }
 
   async function convertCanvasRectToPdfUser(pdfPath, pageNumber, rect, canvasW, canvasH) {
+    void canvasH;
     const doc = await loadPdfDocument(pdfPath);
     const page = await doc.getPage(pageNumber);
-    const baseVp = page.getViewport({ scale: 1 });
+    const intrinsic = page.rotate || 0;
+    const tab = requireDeps().getActiveTab?.();
+    const pageKey = String(pageNumber);
+    const absRot = tab
+      ? getAbsolutePageRotation(tab, pageKey, intrinsic)
+      : normalizePageRotation(intrinsic);
+    const baseVp = page.getViewport({ scale: 1, rotation: absRot });
     const scale = canvasW > 0 && baseVp.width > 0 ? canvasW / baseVp.width : 1;
-    const viewport = page.getViewport({ scale: Number.isFinite(scale) && scale > 0 ? scale : 1 });
+    const viewport = page.getViewport({
+      scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
+      rotation: absRot
+    });
 
     const x1 = Number(rect?.x) || 0;
     const y1 = Number(rect?.y) || 0;
@@ -609,6 +727,11 @@
     zoomByWheelDelta,
     runWithScrollSyncPaused,
     invalidatePdfRenderCache,
-    convertCanvasRectToPdfUser
+    convertCanvasRectToPdfUser,
+    rerenderPage,
+    rerenderPages,
+    syncPageInfoFooter,
+    formatPageInfoLabel,
+    getUserPageRotation
   };
 })();

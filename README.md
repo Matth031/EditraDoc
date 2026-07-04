@@ -27,11 +27,57 @@ Pour installer EditraDoc en confiance :
 
 ## Ce que fait EditraDoc
 
-- Ouvrir un PDF et naviguer page par page
-- Ajouter du texte, des formes et des images
-- Enregistrer une nouvelle version du PDF
-- **Convertir un fichier HTML local en PDF** (même dossier que le source, ouverture automatique dans l’interface)
-- Fusionner et diviser (outils PDF intégrés)
+EditraDoc est un **éditeur et boîte à outils PDF 100 % locale** (Windows, avec installateur ; développement possible sur Linux/macOS). Version applicative courante : **1.1.0**.
+
+### Ouvrir et parcourir
+
+- Ouvrir un ou plusieurs PDF (**onglets**), fichiers **récents**
+- Navigation **page par page** (boutons, miniatures, scroll)
+- **Zoom** (molette, boutons, ajustement à la largeur)
+- Pied de page : numéro de page et **angle d’orientation** (ex. « Page 2 — 90° »)
+
+### Annoter un PDF
+
+- **Texte** enrichi (police, couleur, fond, marges, gras/italique via menu contextuel)
+- **Formes** (rectangle, ellipse, flèche, étoile, etc.)
+- **Images** (fichier local)
+- Déplacer, redimensionner, **rotation d’un objet** (menu contextuel — distinct de la rotation de page)
+- **Annuler / Rétablir** (undo / redo) sur annotations et rotations de page
+- **Correcteur orthographique** (suggestions, dictionnaire personnel)
+- Liste **Ajouts** et colonne **Miniatures** pour retrouver les modifications
+
+### Rotation de page
+
+- Boutons **↺ Rotation gauche** / **↻ Rotation droite** (±90° par clic, **page courante** uniquement)
+- Cumul avec la rotation déjà présente dans le PDF source ; export WYSIWYG (`/Rotate` dans le fichier enregistré)
+- Bloqué pendant la **saisie de texte** active
+
+### Enregistrer
+
+- **Enregistrer sous…** (`Ctrl+S`) : exporte un nouveau PDF avec **annotations et rotations** intégrées (service Python local)
+- Vous pouvez choisir le **même chemin** que le fichier ouvert pour **écraser** une version précédente
+
+### Convertir (sans cloud)
+
+- **HTML → PDF** : menu Fichier > Convertir > HTML vers PDF (ou barre Fichier via **F10**) — PDF créé **dans le même dossier** que le HTML, ouverture automatique ; écrasement silencieux si `{nom}.pdf` existe déjà
+- **Image(s) → PDF** : PNG / JPG / JPEG — **une page par image**, même dossier, ouverture automatique
+
+### Outils PDF (file d’attente intégrée)
+
+- **Fusion** de plusieurs PDF ouverts
+- **Division** par plage ou par **groupes de pages** (overlay dédié)
+- Suivi des **jobs** en cours, **journal de session**, reprise après fermeture (session / autosave)
+
+### Interface et confort
+
+- **4 langues** : français, anglais, espagnol, portugais (menu Options)
+- Barre d’outils **F10**, infobulles, écran d’accueil
+- Journal des **erreurs** configurable (fichier `logs.txt` par défaut)
+- Traitement **sur votre machine** — pas d’envoi des PDF vers un service en ligne pour le cœur métier
+
+### Hors interface (API Python locale uniquement)
+
+Les routes **compression** et **protection par mot de passe** existent côté service (`pdf_service.py`) pour évolution future ; elles ne sont **pas** encore exposées dans les menus de l’application.
 
 ## Ergonomie clavier (annotations)
 
@@ -43,6 +89,16 @@ Lorsqu’une zone de **texte**, une **forme** ou une **image** est sélectionné
 | **Maj + Flèche** | Agrandit la zone de **1 px** (appui bref) ou de **5 px** par répétition si la touche reste enfoncée, dans le sens de la flèche |
 
 Sans annotation sélectionnée, **←** et **→** changent de page PDF.
+
+| Touche | Action (global) |
+|--------|------------------|
+| **Ctrl+O** | Ouvrir un PDF |
+| **Ctrl+S** | Enregistrer sous… |
+| **F10** | Afficher / masquer la barre d’outils |
+
+### Rotation de page
+
+Les boutons ↺ / ↻ agissent sur la **page entière** affichée (pas sur un objet sélectionné). Pour pivoter un texte, une forme ou une image, utilisez le **menu contextuel** de l’objet.
 
 ### Saisie de texte
 
@@ -102,13 +158,14 @@ EditraDoc adopte une approche **local-first** : le traitement des opérations PD
 Fonctionnalités alignées sur le code actuel du dépôt :
 
 - **Visualisation** multi-onglets, miniatures, navigation par page, zoom (ajustement largeur / page).
-- **Annotations** : zones de texte enrichi (édition dans le document), formes, images ; annulation / rétablissement (undo / redo). Voir la section **Ergonomie clavier** pour les raccourcis (Entrée, flèches, Maj+flèches).
+- **Annotations** : zones de texte enrichi (édition dans le document), formes, images ; **rotation de page** (page courante, ±90°) ; annulation / rétablissement (undo / redo). Voir la section **Ergonomie clavier** pour les raccourcis (Entrée, flèches, Maj+flèches).
 - **Propriétés** : couleurs, polices, marges pour le texte ; remplissage, contour, opacité pour les formes.
 - **Menus contextuels** pour le texte, les formes, les images et la zone de page vide.
 - **Découpe avancée** : définition de **groupes de pages** (overlay dédié).
 - **Outils PDF** (via Python / pypdf) : **fusion**, **division** (plage ou groupes).
 - **Conversion HTML → PDF** (100 % local, Electron `printToPDF`) : menu **Fichier > Convertir > HTML vers PDF** ou entrée équivalente dans la barre **Fichier** (F10). Le PDF `{nom}.pdf` est créé **dans le même dossier** que le fichier HTML et **s’ouvre aussitôt** dans l’application. Si un PDF du même nom existe déjà, il est **remplacé sans dialogue** (infobulle explicative). Avertissements possibles : ressources images manquantes, ressources distantes ignorées (mode local uniquement).
-- **Enregistrement** : export PDF en intégrant annotations et calques (route `/apply-annotations` côté service Python ; images encodées à l'insertion ; écriture atomique pour l'écrasement du fichier source).
+- **Conversion image(s) → PDF** (ReportLab, une page par image) : menu **Fichier > Convertir > Image(s) vers PDF** ; sortie co-localisée, ouverture automatique.
+- **Enregistrement** : export PDF intégrant annotations, images embarquées et **rotations de page** (`/Rotate`) ; écriture atomique à l’écrasement.
 - **File d’attente de jobs** avec suivi, journal de session, persistance de session.
 - **Correcteur orthographique** intégré (suggestions, dictionnaire utilisateur).
 - **Internationalisation** : français, anglais, espagnol, portugais (interface).
@@ -123,8 +180,8 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Code source ouvert dans le dépôt** | Projet versionné de façon à permettre relecture et audit ; **aucun fichier `LICENSE` n’est fourni à la racine** - voir la section Licence. |
 | **Multilingue** | Quatre langues d’interface (`fr`, `en`, `es`, `pt`) dans `renderer-i18n-data.js`. |
 | **Orthographe** | `nspell` + dictionnaires `dictionary-*` ; analyse côté processus principal Electron. |
-| **Tests automatisés** | Unitaires Python, tests Node (`node:test` + c8), vérifications statiques, Playwright E2E, smoke orthographe, régression export image (dev + build packagé Windows). |
-| **Architecture Electron + Python** | UI et IPC dans Node/Electron ; opérations PDF dans `pdf_service.py` (pypdf, reportlab pour l’export annoté) ; **conversion HTML → PDF** dans `src/main/lib/html-to-pdf.js` (sans Python). |
+| **Tests automatisés** | Unitaires Python, tests Node (`node:test` + c8), vérifications statiques, Playwright E2E (annotations, export, HTML/image, **rotation de page**), smoke orthographe, régression export image (dev + build packagé Windows). |
+| **Architecture Electron + Python** | UI et IPC dans Node/Electron ; opérations PDF dans `pdf_service.py` (pypdf, reportlab pour l’export annoté et **image → PDF**) ; **conversion HTML → PDF** dans `src/main/lib/html-to-pdf.js` (sans Python). |
 
 ---
 
@@ -137,6 +194,8 @@ Fonctionnalités alignées sur le code actuel du dépôt :
 | **Renderer** | HTML/CSS/JS vanilla ; **pdf.js** via `pdfjs-dist` et `pdfjs-bridge.mjs` |
 | **Service PDF** | Python 3, **pypdf**, **reportlab** (`app/python/requirements.txt`), serveur `http.server` sur **127.0.0.1:8765** ; sous Windows packagé, runtime **python-runtime** embarqué (`bundle-python/win`) |
 | **Conversion HTML → PDF** | Electron **printToPDF** (`html-to-pdf.js`), IPC `convert:html-to-pdf`, module UI `renderer-html-convert.js` |
+| **Rotation de page** | pdf.js re-rendu + `pageRotationsByPage` ; export `/Rotate` via `pdf_ops.apply_annotations` |
+| **Conversion image → PDF** | ReportLab (`pdf_ops.images_to_pdf`), route `/images-to-pdf`, IPC `convert:images-to-pdf`, UI `renderer-image-convert.js` |
 | **Orthographe** | **nspell** + `dictionary-fr`, `dictionary-en`, `dictionary-es`, `dictionary-pt-br` |
 | **Qualité** | ESLint 10, Prettier 3, c8, Playwright |
 | **Empaquetage** | electron-builder (cibles configurées : Windows NSIS, Linux AppImage, macOS dmg) |
@@ -200,7 +259,7 @@ Commandes définies dans `app/package.json` :
 | `npm run test:embedded-python` | Smoke Python embeddable Windows (`run-embedded-python-smoke.cjs`, skip hors Windows) |
 | `npm run test:export-regression` | Unittest Python + E2E export PDF avec image (`e2e/app.export-image.spec.js`) |
 | `npm run test:packaged-export` | E2E export image sur `dist/win-unpacked/EditraDoc.exe` (nécessite `npm run build` ou `dist:win`) |
-| `npm run e2e` | Playwright (dont `app.html-convert*.spec.js`, `app.export-image*.spec.js`) |
+| `npm run e2e` | Playwright (dont `app.html-convert*.spec.js`, `app.page-rotate.spec.js`, `app.export-image*.spec.js`) |
 | `npm run test:all` | Chaîne complète (qualité + tests + audit + e2e) |
 
 À la racine du dépôt, `npm run test` et `npm run e2e` relaient vers `app/` via `npm --prefix app`.
@@ -252,7 +311,7 @@ Une fois le **`.exe`** obtenu (racine du dépôt après build, ou téléchargeme
 
 > **Note :** `EditraDoc-Setup.exe` à la racine est **généré localement** par la build ; il n’est en général **pas** versionné dans Git (fichier volumineux, entrée dans `.gitignore`). S’il est absent, soit lancer une build (`npm run dist:win` dans `app/`), soit télécharger l’installateur depuis **Releases** / **Actions** comme ci-dessus.
 
-Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un **tag de version** (ex. **`v1.0.1`**), l'installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l'artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**). Après la build, le workflow exécute les tests de régression export image (`test:embedded-python`, `test:packaged-export`).
+Les **Releases** sont alimentées par le workflow GitHub Actions **Release Windows installer** (`.github/workflows/release-windows.yml`) : sur un **tag de version** (ex. **`v1.1.0`**), l'installateur est joint à la release ; une exécution manuelle du workflow dépose aussi l'artefact **`editify-windows-setup`** (contenu : **`EditraDoc-Setup.exe`**). Après la build, le workflow exécute les tests de régression export image (`test:embedded-python`, `test:packaged-export`).
 
 ---
 
