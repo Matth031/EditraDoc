@@ -2316,31 +2316,14 @@ pdfv.bind({
   enforceSafeZoneForActiveTab,
   renderAnnotations,
   shouldPauseScrollPageSync: () => Boolean(interactionMode || state.editingAnnotationId),
-  scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate
+  scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate,
+  pathsEqual,
+  scheduleAutoSave: () => session.scheduleAutoSave()
 });
 pdfv.wireResize();
 pdfv.wireWheel();
 pdfv.wireZoomButtons();
 pdfv.wireScrollPageSync();
-
-/** Après écrasement : la rotation est dans le PDF — ne pas réappliquer pageRotationsByPage. */
-function invalidatePdfRenderCacheAfterSave(paths) {
-  const tab = getActiveTab();
-  if (
-    tab?.path &&
-    Array.isArray(paths) &&
-    paths.some((p) => p && pathsEqual(String(p), tab.path))
-  ) {
-    tab.pageRotationsByPage = {};
-    try {
-      session.scheduleAutoSave();
-    } catch {
-      /* ignore */
-    }
-  }
-  pdfv.invalidatePdfRenderCache(paths);
-}
-
 pdfSave.bind({
   getActiveTab,
   layerRef: pdfLayerRef,
@@ -2354,7 +2337,7 @@ pdfSave.bind({
   SHAPE_TYPES,
   mergeShapeStyleFields,
   convertCanvasRectToPdfUser: pdfv.convertCanvasRectToPdfUser,
-  invalidatePdfRenderCache: invalidatePdfRenderCacheAfterSave,
+  invalidatePdfRenderCache: pdfv.invalidatePdfRenderCache,
   updateViewer: pdfv.updateViewer,
   pathsEqual,
   setStatus,
@@ -3423,7 +3406,6 @@ try {
     clickManiColorValidateButtonForInputId,
     setLanguage,
     captureLastTextStyleFromItem,
-    exportActivePdfToPath: pdfSave.exportActivePdfToPath,
-    invalidatePdfRenderCacheAfterSave
+    exportActivePdfToPath: pdfSave.exportActivePdfToPath
   });
 } catch {}

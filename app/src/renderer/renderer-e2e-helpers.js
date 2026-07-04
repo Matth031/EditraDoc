@@ -64,8 +64,6 @@
         /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
           d.exportActivePdfToPath
         );
-      const invalidatePdfRenderCacheAfterSave =
-        /** @type {(paths: string[]) => void} */ (d.invalidatePdfRenderCacheAfterSave);
 
       window.__maniE2E.resetUiState = () => {
         try {
@@ -497,7 +495,7 @@
           const result = await exportActivePdfToPath(out);
           if (result?.ok) {
             tab.dirty = false;
-            invalidatePdfRenderCacheAfterSave?.([out]);
+            pdfv.invalidatePdfRenderCache([out]);
             pdfv.updateViewer();
           }
           return result;

@@ -31,6 +31,8 @@
    * @property {() => void} renderAnnotations
    * @property {() => boolean} [shouldPauseScrollPageSync]
    * @property {() => void} scheduleSidebarUpdate
+   * @property {(a: string, b: string) => boolean} pathsEqual
+   * @property {() => void} [scheduleAutoSave]
    */
 
   /** @type {PdfViewerDeps | null} */
@@ -347,6 +349,20 @@
 
   /** Invalide le cache pdf.js pour forcer une relecture disque après export / écrasement. */
   function invalidatePdfRenderCache(paths) {
+    const d = requireDeps();
+    const tab = d.getActiveTab?.();
+    if (tab?.path && d.pathsEqual) {
+      const sameFileReload = (paths || []).some((p) => p && d.pathsEqual(String(p), tab.path));
+      if (sameFileReload) {
+        tab.pageRotationsByPage = {};
+        try {
+          d.scheduleAutoSave?.();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
     const norm = (p) => String(p || "").trim().replace(/\//g, "\\").toLowerCase();
     const targets = new Set((paths || []).map(norm).filter(Boolean));
     if (!targets.size || !pdfRenderCache.path) return;
