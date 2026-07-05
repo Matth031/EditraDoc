@@ -8,6 +8,7 @@ const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFileP
 const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
+const { evaluatePdfOpen } = require("./lib/pdf-open");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
 const { freeLocalPort } = require("./lib/free-local-port");
@@ -819,24 +820,16 @@ async function processJobQueue() {
 
 ipcMain.handle("pdf:open", async (_, pdfPath) => {
   try {
-    if (!pdfPath || !fs.existsSync(pdfPath)) {
-      const error = "Le fichier PDF n'existe pas.";
-      logWarn("pdf:open", error, { pdfPath });
-      return { ok: false, error };
-    }
-    const stat = fs.statSync(pdfPath);
-    if (stat.size === 0) {
-      const error = "Le fichier PDF est vide ou corrompu.";
-      logWarn("pdf:open", error, { pdfPath });
-      return { ok: false, error };
-    }
-    const validation = await validateWithPython(pdfPath);
-    if (!validation.ok) {
-      logWarn("pdf:open", validation.error || "Validation PDF échouée", { pdfPath });
-      return validation;
+    const exists = Boolean(pdfPath && fs.existsSync(pdfPath));
+    const fileSize = exists ? fs.statSync(pdfPath).size : 0;
+    const validation = exists && fileSize > 0 ? await validateWithPython(pdfPath) : { ok: false };
+    const result = evaluatePdfOpen(pdfPath, { exists, fileSize, validation });
+    if (!result.ok) {
+      logWarn("pdf:open", result.error || "Ouverture PDF refusée", { pdfPath, errorCode: result.errorCode });
+      return result;
     }
     addRecentPdf(pdfPath);
-    return { ok: true, path: pdfPath };
+    return result;
   } catch (error) {
     logIpcFailure("pdf:open", error, { pdfPath });
     return { ok: false, error: `Impossible d'ouvrir le PDF: ${error.message}` };
