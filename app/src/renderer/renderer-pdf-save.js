@@ -210,13 +210,7 @@
   }
 
   function logExportGeometryAudit(tab, canvases) {
-    let verbose = false;
-    try {
-      verbose =
-        typeof process !== "undefined" && process?.env?.MANI_PDF_EXPORT_VERBOSE === "1";
-    } catch {
-      verbose = false;
-    }
+    const verbose = globalThis.process?.env?.MANI_PDF_EXPORT_VERBOSE === "1";
     if (!verbose) return;
     const pageKey = String(tab?.currentPage || 1);
     logSave("geom_summary", {
