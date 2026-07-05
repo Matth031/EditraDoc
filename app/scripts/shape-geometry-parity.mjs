@@ -57,7 +57,7 @@ export function loadJsShapePolygons(rendererJsPath) {
 export function loadPyShapePct(pdfOpsPyPath) {
   const src = fs.readFileSync(pdfOpsPyPath, "utf8");
   const match = src.match(
-    /SHAPE_PCT: dict\[str, list\[tuple\[float, float\]\]\] = \{([\s\S]*?)\n    \}/
+    /SHAPE_PCT: dict\[str, list\[tuple\[float, float\]\]\] = \{([\s\S]*?)\n {4}\}/
   );
   if (!match) {
     throw new Error(
