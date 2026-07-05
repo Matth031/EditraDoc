@@ -76,24 +76,52 @@ class TestPdfServiceRoutes(unittest.TestCase):
 
     def test_protect_unprotect(self):
         with tempfile.TemporaryDirectory() as tmp:
-            src = os.path.join(tmp, "src.pdf")
-            protected = os.path.join(tmp, "protected.pdf")
-            unprotected = os.path.join(tmp, "unprotected.pdf")
-            self._create_pdf(src)
+            prev_legacy = os.environ.get("MANI_PDF_ENABLE_LEGACY_ROUTES")
+            os.environ["MANI_PDF_ENABLE_LEGACY_ROUTES"] = "1"
+            try:
+                src = os.path.join(tmp, "src.pdf")
+                protected = os.path.join(tmp, "protected.pdf")
+                unprotected = os.path.join(tmp, "unprotected.pdf")
+                self._create_pdf(src)
 
-            status, data = self.request(
-                "POST", "/protect", {"input_path": src, "output_path": protected, "password": "1234"}
-            )
-            self.assertEqual(status, 200)
-            self.assertTrue(data["ok"])
-            self.assertTrue(PdfReader(protected).is_encrypted)
+                status, data = self.request(
+                    "POST", "/protect", {"input_path": src, "output_path": protected, "password": "1234"}
+                )
+                self.assertEqual(status, 200)
+                self.assertTrue(data["ok"])
+                self.assertTrue(PdfReader(protected).is_encrypted)
 
-            status, data = self.request(
-                "POST", "/unprotect", {"input_path": protected, "output_path": unprotected, "password": "1234"}
-            )
-            self.assertEqual(status, 200)
-            self.assertTrue(data["ok"])
-            self.assertFalse(PdfReader(unprotected).is_encrypted)
+                status, data = self.request(
+                    "POST", "/unprotect", {"input_path": protected, "output_path": unprotected, "password": "1234"}
+                )
+                self.assertEqual(status, 200)
+                self.assertTrue(data["ok"])
+                self.assertFalse(PdfReader(unprotected).is_encrypted)
+            finally:
+                if prev_legacy is None:
+                    os.environ.pop("MANI_PDF_ENABLE_LEGACY_ROUTES", None)
+                else:
+                    os.environ["MANI_PDF_ENABLE_LEGACY_ROUTES"] = prev_legacy
+
+    def test_legacy_routes_disabled_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prev_legacy = os.environ.get("MANI_PDF_ENABLE_LEGACY_ROUTES")
+            os.environ.pop("MANI_PDF_ENABLE_LEGACY_ROUTES", None)
+            try:
+                src = os.path.join(tmp, "src.pdf")
+                out = os.path.join(tmp, "out.pdf")
+                self._create_pdf(src)
+                for route in ("/compress", "/protect", "/unprotect"):
+                    status, data = self.request(
+                        "POST",
+                        route,
+                        {"input_path": src, "output_path": out, "password": "x"},
+                    )
+                    self.assertEqual(status, 404, route)
+                    self.assertFalse(data.get("ok"))
+            finally:
+                if prev_legacy is not None:
+                    os.environ["MANI_PDF_ENABLE_LEGACY_ROUTES"] = prev_legacy
 
     def test_split_groups(self):
         with tempfile.TemporaryDirectory() as tmp:

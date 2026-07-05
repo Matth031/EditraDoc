@@ -28,6 +28,12 @@ from pdf_validation import validate_pdf_path
 
 LOG_VERBOSE = os.environ.get("MANI_PDF_PY_LOGS") != "0"
 MAX_POST_BODY_BYTES = 64 * 1024 * 1024
+
+
+def _legacy_routes_enabled() -> bool:
+    return os.environ.get("MANI_PDF_ENABLE_LEGACY_ROUTES") == "1"
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [pdf_service] %(message)s")
 
 
@@ -107,11 +113,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if self.path == "/compress":
+                if not _legacy_routes_enabled():
+                    self._json_response(404, {"ok": False, "error": "Route désactivée."})
+                    return
                 output = compress_pdf(payload.get("input_path", ""), payload.get("output_path", ""))
                 self._json_response(200, {"ok": True, "output_path": output})
                 return
 
             if self.path == "/protect":
+                if not _legacy_routes_enabled():
+                    self._json_response(404, {"ok": False, "error": "Route désactivée."})
+                    return
                 output = protect_pdf(
                     payload.get("input_path", ""),
                     payload.get("output_path", ""),
@@ -121,6 +133,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if self.path == "/unprotect":
+                if not _legacy_routes_enabled():
+                    self._json_response(404, {"ok": False, "error": "Route désactivée."})
+                    return
                 output = unprotect_pdf(
                     payload.get("input_path", ""),
                     payload.get("output_path", ""),
