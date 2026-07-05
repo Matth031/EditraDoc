@@ -7,6 +7,7 @@ const http = require("node:http");
 const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
 const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
+const { validatePdfWithPython } = require("./lib/python-validation");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
 const { freeLocalPort } = require("./lib/free-local-port");
@@ -619,39 +620,7 @@ function getPythonPostHeaders(contentLength) {
 }
 
 function validateWithPython(pdfPath) {
-  return new Promise((resolve) => {
-    const body = JSON.stringify({ path: pdfPath });
-    const req = http.request(
-      {
-        hostname: "127.0.0.1",
-        port: 8765,
-        path: "/validate",
-        method: "POST",
-        headers: getPythonPostHeaders(Buffer.byteLength(body)),
-        timeout: 1000
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            const parsed = JSON.parse(data || "{}");
-            resolve(parsed);
-          } catch {
-            resolve({ ok: false, error: "Reponse validation invalide." });
-          }
-        });
-      }
-    );
-
-    req.on("error", () => resolve({ ok: true }));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve({ ok: true });
-    });
-    req.write(body);
-    req.end();
-  });
+  return validatePdfWithPython(pdfPath, { getPostHeaders: getPythonPostHeaders });
 }
 
 function postToPython(route, payload) {

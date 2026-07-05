@@ -1668,11 +1668,19 @@ function removeTab(tabId) {
   }, 7000);
 }
 
+/** Message utilisateur pour un échec IPC `pdf:open` (codes stables côté main). */
+function resolvePdfOpenErrorMessage(result) {
+  if (result?.errorCode === "VALIDATION_SERVICE_UNAVAILABLE") {
+    return t("stValidationServiceUnavailable");
+  }
+  return result?.error || "Impossible d'ouvrir le PDF.";
+}
+
 async function addPdfTab(filePath, fileName) {
 
   const result = await window.maniPdfApi.openPdf(filePath);
   if (!result.ok) {
-    setStatus(result.error);
+    setStatus(resolvePdfOpenErrorMessage(result));
 
     return;
   }

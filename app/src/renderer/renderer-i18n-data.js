@@ -203,6 +203,8 @@ window.__EDITIFY_I18N = {
     stLinkOpenFailed: "Impossible d'ouvrir le lien automatiquement. Copiez/collez l'URL.",
     stSessionRecovered: "Session reparee.",
     stPythonUnavailable: "Service Python indisponible.",
+    stValidationServiceUnavailable:
+      "Service de validation indisponible — ouverture du PDF refusee.",
     stPythonMissingPypdf: "Attention : pypdf absent. Installez-le : python -m pip install pypdf",
     stPdfRenderError: "Erreur rendu PDF.",
     stRendering: "Rendu pages {{a}}/{{b}}…",
@@ -460,6 +462,8 @@ window.__EDITIFY_I18N = {
     stLinkOpenFailed: "Could not open the link automatically. Copy/paste the URL.",
     stSessionRecovered: "Session repaired.",
     stPythonUnavailable: "Python service unavailable.",
+    stValidationServiceUnavailable:
+      "Validation service unavailable — PDF opening refused.",
     stPythonMissingPypdf: "Warning: pypdf missing. Install: python -m pip install pypdf",
     stPdfRenderError: "PDF rendering error.",
     stRendering: "Rendering pages {{a}}/{{b}}…",
@@ -717,6 +721,8 @@ window.__EDITIFY_I18N = {
     stLinkOpenFailed: "No se pudo abrir el enlace automaticamente. Copie/pega la URL.",
     stSessionRecovered: "Sesion reparada.",
     stPythonUnavailable: "Servicio Python no disponible.",
+    stValidationServiceUnavailable:
+      "Servicio de validacion no disponible — se rechazo abrir el PDF.",
     stPythonMissingPypdf: "Atencion: falta pypdf. Instale: python -m pip install pypdf",
     stPdfRenderError: "Error al renderizar el PDF.",
     stRendering: "Renderizando paginas {{a}}/{{b}}…",
@@ -974,6 +980,8 @@ window.__EDITIFY_I18N = {
     stLinkOpenFailed: "Nao foi possivel abrir a ligacao automaticamente. Copie/cole o URL.",
     stSessionRecovered: "Sessao reparada.",
     stPythonUnavailable: "Servico Python indisponivel.",
+    stValidationServiceUnavailable:
+      "Servico de validacao indisponivel — abertura do PDF recusada.",
     stPythonMissingPypdf: "Aviso: falta pypdf. Instale: python -m pip install pypdf",
     stPdfRenderError: "Erro ao renderizar o PDF.",
     stRendering: "A renderizar paginas {{a}}/{{b}}…",
