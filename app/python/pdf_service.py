@@ -34,6 +34,28 @@ def _legacy_routes_enabled() -> bool:
     return os.environ.get("MANI_PDF_ENABLE_LEGACY_ROUTES") == "1"
 
 
+_SENSITIVE_LOG_KEYS = frozenset({"password", "token", "secret", "src_base64"})
+
+
+def _redact_payload_for_log(payload: object) -> object:
+    """Masque les champs sensibles avant journalisation verbose."""
+    if not isinstance(payload, dict):
+        return payload
+    redacted: dict = {}
+    for key, value in payload.items():
+        if str(key).lower() in _SENSITIVE_LOG_KEYS:
+            redacted[key] = "***"
+        elif isinstance(value, dict):
+            redacted[key] = _redact_payload_for_log(value)
+        elif isinstance(value, list):
+            redacted[key] = [
+                _redact_payload_for_log(item) if isinstance(item, dict) else item for item in value
+            ]
+        else:
+            redacted[key] = value
+    return redacted
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [pdf_service] %(message)s")
 
 
@@ -79,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8")
         payload = json.loads(body or "{}")
         if LOG_VERBOSE:
-            logging.info("POST %s payload=%s", self.path, payload)
+            logging.info("POST %s payload=%s", self.path, _redact_payload_for_log(payload))
         try:
             if self.path == "/validate":
                 result = validate_pdf_path(payload.get("path", ""))
