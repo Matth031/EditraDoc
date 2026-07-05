@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- CSP : ressources locales + worker pdf.js + service Python (127.0.0.1) ; styles inline via JS (annotations). -->
+    <!-- CSP : ressources locales + worker pdf.js ; styles inline via JS (annotations). Service Python via IPC main uniquement. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* blob: data: file:;"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; font-src 'self' data:; connect-src 'self' blob: data: file:;"
     />
     <title>EditraDoc</title>
     <link rel="stylesheet" href="./styles.css" />
