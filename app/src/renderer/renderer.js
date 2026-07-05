@@ -3399,7 +3399,6 @@ try {
     pasteClipboardIntoActivePage,
     clickManiColorValidateButtonForInputId,
     setLanguage,
-    captureLastTextStyleFromItem,
     exportActivePdfToPath: pdfSave.exportActivePdfToPath
   });
 } catch {}
