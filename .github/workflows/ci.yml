@@ -34,6 +34,9 @@ jobs:
       - name: Run unit/integration tests
         run: npm test
 
+      - name: Run node unit tests (shape parity, libs)
+        run: npm run test:node
+
       - name: Run electron smoke e2e
         run: xvfb-run -a npm run e2e
         env:
