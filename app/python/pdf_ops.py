@@ -588,7 +588,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                 elif a_kind == "image":
                     b64 = a.get("src_base64")
                     if b64:
-                        raw = base64.b64decode(b64)
+                        raw = _decode_annotation_image_base64(b64)
                         img = ImageReader(BytesIO(raw))
                         if use_canvas_space:
                             c.drawImage(img, 0, 0, width=w, height=h, preserveAspectRatio=True, mask="auto")
@@ -841,6 +841,29 @@ IMAGE_TO_PDF_MARGIN_PT = 24.0
 IMAGE_TO_PDF_MAX_BYTES = 80 * 1024 * 1024
 IMAGE_TO_PDF_MAX_COUNT = 50
 _IMAGE_TO_PDF_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+ANNOTATION_IMAGE_MAX_BYTES = IMAGE_TO_PDF_MAX_BYTES
+
+
+def _decode_annotation_image_base64(b64: str) -> bytes:
+    """Décode src_base64 d'une annotation image avec plafond aligné IMAGE_TO_PDF_MAX_BYTES."""
+    import base64
+
+    if not b64:
+        raise RuntimeError("Image annotation : données base64 manquantes.")
+    max_b64_len = (ANNOTATION_IMAGE_MAX_BYTES * 4 + 2) // 3 + 4
+    if len(b64) > max_b64_len:
+        raise RuntimeError(
+            f"Image annotation trop volumineuse (max {ANNOTATION_IMAGE_MAX_BYTES // (1024 * 1024)} Mo)."
+        )
+    try:
+        raw = base64.b64decode(b64, validate=True)
+    except Exception as exc:
+        raise RuntimeError("Image annotation : base64 invalide.") from exc
+    if len(raw) > ANNOTATION_IMAGE_MAX_BYTES:
+        raise RuntimeError(
+            f"Image annotation trop volumineuse (max {ANNOTATION_IMAGE_MAX_BYTES // (1024 * 1024)} Mo)."
+        )
+    return raw
 
 
 def _normalize_image_ext(path: str) -> str:
