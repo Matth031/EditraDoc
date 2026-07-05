@@ -27,6 +27,7 @@ from pdf_ops import (
 from pdf_validation import validate_pdf_path
 
 LOG_VERBOSE = os.environ.get("MANI_PDF_PY_LOGS") != "0"
+MAX_POST_BODY_BYTES = 64 * 1024 * 1024
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [pdf_service] %(message)s")
 
 
@@ -45,7 +46,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:  # noqa: N802
-        length = int(self.headers.get("Content-Length", "0"))
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except (TypeError, ValueError):
+            length = 0
+        if length > MAX_POST_BODY_BYTES:
+            self._json_response(
+                413,
+                {"ok": False, "error": "Corps de requête trop volumineux (max 64 Mo)."},
+            )
+            return
         body = self.rfile.read(length).decode("utf-8")
         payload = json.loads(body or "{}")
         if LOG_VERBOSE:
