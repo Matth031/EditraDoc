@@ -189,6 +189,11 @@
       m.setAttribute("aria-hidden", "true");
     }
     targetInput = null;
+    try {
+      document.dispatchEvent(new CustomEvent("mani-color-close", { bubbles: true }));
+    } catch {
+      /* ignore */
+    }
   }
 
   function commit() {
@@ -204,8 +209,11 @@
     const inp = targetInput;
     const { r, g, b } = hsvToRgb(hsv.h, hsv.s, hsv.v);
     inp.value = rgbToHex(r, g, b);
-    inp.dispatchEvent(new Event("input", { bubbles: true }));
-    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    const skipLiveInput = inp.id === "propTextColor" || inp.id === "ctxTextColor";
+    if (!skipLiveInput) {
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     syncOneSwatchForInput(inp);
     try {
       console.info("[mani-color] commit", { id: inp.id, hex: inp.value });
@@ -323,6 +331,7 @@
     });
 
     els.svCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
       draggingSv = true;
       updateSvFromEvent(e);
     });
@@ -357,6 +366,16 @@
       drawSv();
     }
 
+    els.validateBtn?.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      try {
+        document.dispatchEvent(
+          new CustomEvent("mani-color-capture-text-selection", { bubbles: true })
+        );
+      } catch {
+        /* ignore */
+      }
+    });
     els.validateBtn?.addEventListener("click", commit);
     els.closeBtn?.addEventListener("click", closeModal);
     modal?.querySelector("[data-mani-color-dismiss]")?.addEventListener("click", closeModal);
@@ -394,6 +413,21 @@
       const id = btn.getAttribute("data-mani-color-for");
       const inp = id ? $(id) : null;
       if (!inp) return;
+      if (id === "propTextColor" || id === "ctxTextColor") {
+        btn.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          try {
+            document.dispatchEvent(
+              new CustomEvent("mani-color-capture-text-selection", {
+                bubbles: true,
+                detail: { inputId: id }
+              })
+            );
+          } catch {
+            /* ignore */
+          }
+        });
+      }
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         openForInput(inp);

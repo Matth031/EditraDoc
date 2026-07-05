@@ -199,6 +199,205 @@
           return false;
         }
       };
+      window.__maniE2E.applyCtxFormatToTextRangeForTest = (annotationId, start, end, cmd) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id || !cmd) return false;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          state.selectedAnnotationId = id;
+          state.editingAnnotationId = id;
+          tcm.setTextCtxMenuTargetId(id);
+          renderAnnotations();
+          const host = pagesContainer?.querySelector?.(`[data-id="${id}"]`);
+          const ed = host?.querySelector?.(".text-editor");
+          const helpers = window.__editifyTextCtxHelpers;
+          const htmlApi = window.__editifyTextHtml;
+          if (!ed || !helpers || !htmlApi) return false;
+          if (!helpers.setPlainSelectionInEditor(ed, start, end)) return false;
+          captureSnapshot(tab);
+          ed.focus();
+          try {
+            document.execCommand(String(cmd), false, null);
+          } catch {
+            return false;
+          }
+          loc.item.textHtml = htmlApi.sanitizeTextHtml(ed.innerHTML);
+          const rng = document.createRange();
+          rng.selectNodeContents(ed);
+          loc.item.text = String(rng.toString() || "").replace(/\r\n/g, "\n");
+          delete loc.item._spellErrors;
+          state.editingAnnotationId = null;
+          renderAnnotations();
+          session.scheduleAutoSave();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.getTextInlineFormatForTest = (annotationId) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return null;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return null;
+          const html = String(loc.item.textHtml || loc.item.text || "");
+          const helpers = window.__editifyTextCtxHelpers;
+          if (!helpers) return null;
+          return {
+            bold: helpers.getFormatCoverageFromSanitizedHtml(html, "bold"),
+            italic: helpers.getFormatCoverageFromSanitizedHtml(html, "italic"),
+            underline: helpers.getFormatCoverageFromSanitizedHtml(html, "underline"),
+            textHtml: loc.item.textHtml || null,
+            text: loc.item.text || ""
+          };
+        } catch {
+          return null;
+        }
+      };
+      const undo = /** @type {() => void} */ (d.undo);
+      window.__maniE2E.undoForTest = () => {
+        try {
+          undo();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.applyPartialTextColorForTest = (annotationId, start, end, hex) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return false;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          state.selectedAnnotationId = id;
+          state.editingAnnotationId = id;
+          renderAnnotations();
+          const host = pagesContainer?.querySelector?.(`[data-id="${id}"]`);
+          const ed = host?.querySelector?.(".text-editor");
+          const helpers = window.__editifyTextCtxHelpers;
+          const htmlApi = window.__editifyTextHtml;
+          if (!ed || !helpers || !htmlApi) return false;
+          if (!helpers.setPlainSelectionInEditor(ed, start, end)) return false;
+          captureSnapshot(tab);
+          const sel = window.getSelection();
+          const savedRange =
+            sel && sel.rangeCount > 0 && !sel.isCollapsed ? sel.getRangeAt(0).cloneRange() : null;
+          if (
+            !helpers.applyTextColorInEditor(ed, hex, {
+              selectAllIfCollapsed: false,
+              savedRange
+            })
+          ) {
+            return false;
+          }
+          loc.item.textHtml = htmlApi.sanitizeTextHtml(ed.innerHTML);
+          const rng = document.createRange();
+          rng.selectNodeContents(ed);
+          loc.item.text = String(rng.toString() || "").replace(/\r\n/g, "\n");
+          delete loc.item._spellErrors;
+          state.editingAnnotationId = null;
+          renderAnnotations();
+          session.scheduleAutoSave();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.applyWholeTextColorForTest = (annotationId, hex) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return false;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          captureSnapshot(tab);
+          loc.item.textColor = String(hex || "#111111");
+          state.editingAnnotationId = null;
+          renderAnnotations();
+          session.scheduleAutoSave();
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      window.__maniE2E.typeInTextEditorForTest = (annotationId, text) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return null;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return null;
+          state.selectedAnnotationId = id;
+          state.editingAnnotationId = id;
+          renderAnnotations();
+          const host = pagesContainer?.querySelector?.(`[data-id="${id}"]`);
+          const ed = host?.querySelector?.(".text-editor");
+          if (!ed) return null;
+          ed.focus();
+          ed.textContent = "";
+          captureSnapshot(tab);
+          const chars = String(text || "");
+          for (const ch of chars) {
+            try {
+              document.execCommand("insertText", false, ch);
+            } catch {
+              ed.textContent += ch;
+            }
+            ed.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: ch }));
+          }
+          return loc.item.text || ed.innerText || "";
+        } catch {
+          return null;
+        }
+      };
+      window.__maniE2E.getTextEditorVirtualTailForTest = (annotationId) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return null;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return null;
+          const host = pagesContainer?.querySelector?.(`[data-id="${id}"]`);
+          const ed = host?.querySelector?.(".text-editor");
+          const tailPx = ed ? Number(ed.dataset.virtualTailPx || 0) : 0;
+          const paddingRight = ed
+            ? Number.parseFloat(window.getComputedStyle(ed).paddingRight || "0") || 0
+            : 0;
+          const fontSize = Math.max(8, Math.min(96, Number(loc.item.fontSize) || 14));
+          return {
+            editing: state.editingAnnotationId === id,
+            tailPx,
+            paddingRight,
+            fontSize,
+            text: loc.item.text || "",
+            textEndsWithSpace: /\s$/.test(String(loc.item.text || ""))
+          };
+        } catch {
+          return null;
+        }
+      };
+      window.__maniE2E.narrowTextAnnotationForTest = (annotationId, maxWidthPx) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return false;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          const zone = getSafeZoneSize();
+          const margin = Math.max(20, Number(maxWidthPx) || 80);
+          loc.item.x = Math.max(0, zone.width - margin);
+          loc.item.w = 20;
+          loc.item.h = 40;
+          renderAnnotations();
+          return true;
+        } catch {
+          return false;
+        }
+      };
       window.__maniE2E.injectImageForTest = (dataUrl) => {
         try {
           const tab = getActiveTab();

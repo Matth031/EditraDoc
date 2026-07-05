@@ -533,6 +533,31 @@ function measureLineWidthNoWrap(item, lineText) {
   return Math.ceil(m.scrollWidth || 0);
 }
 
+/**
+ * Largeur d'un espace virtuel en fin de ligne pendant l'édition (non persisté dans le texte).
+ * Proportionnel à la police courante de la fenêtre texte.
+ */
+function getVirtualTextTailWidth(item) {
+  if (!item || item.type !== "text") return 0;
+  const spaceW = measureLineWidthNoWrap(item, " ");
+  const fontSize = Math.max(8, Math.min(96, Number(item.fontSize) || 14));
+  return Math.max(1, spaceW || Math.ceil(fontSize * 0.28));
+}
+
+/** Réserve visuellement un « blanc » final pendant la saisie (padding, pas de caractère). */
+function applyTextEditorVirtualTail(ed, item) {
+  if (!ed || !item || item.type !== "text") return;
+  const tail = getVirtualTextTailWidth(item);
+  ed.style.paddingRight = tail > 0 ? `${tail}px` : "";
+  ed.dataset.virtualTailPx = String(tail);
+}
+
+function clearTextEditorVirtualTail(ed) {
+  if (!ed) return;
+  ed.style.paddingRight = "";
+  delete ed.dataset.virtualTailPx;
+}
+
 /** Largeur nécessaire pour afficher le texte sur une seule ligne (par ligne la plus longue). */
 function getRequiredTextWidth(item) {
   if (!item || item.type !== "text") return 20;
@@ -545,6 +570,29 @@ function getRequiredTextWidth(item) {
     maxW = Math.max(maxW, measureLineWidthNoWrap(item, line));
   }
   return maxW;
+}
+
+/**
+ * Largeur requise du contenu texte (sans le blanc virtuel final de saisie).
+ */
+function getTextContentRequiredWidth(item, ed) {
+  const minW = getDefaultTextBoxWidth(item);
+  const fromText = getRequiredTextWidth(item);
+  if (!ed) return fromText;
+  const pad = Math.max(0, Number(item.padding) || 6) * 2;
+  const tail = getVirtualTextTailWidth(item);
+  const scrollW = Math.ceil(ed.scrollWidth || 0);
+  const contentScrollW = Math.max(0, scrollW - tail);
+  const fromEditor = Math.max(minW, contentScrollW + pad);
+  return Math.max(fromText, fromEditor);
+}
+
+/**
+ * Largeur requise en édition : contenu + blanc virtuel final (non persisté).
+ */
+function getLiveRequiredTextWidth(item, ed) {
+  if (!ed) return getRequiredTextWidth(item);
+  return getTextContentRequiredWidth(item, ed) + getVirtualTextTailWidth(item);
 }
 
 function getInitialTextAnnotationSize(textStyle = {}) {
@@ -610,10 +658,11 @@ function getMinWidthToFitHeight(item, height, maxWidth) {
   return lo;
 }
 
-function getTextWrapState(item, zone) {
+function getTextWrapState(item, zone, ed = null) {
   if (item?.textWrapManual) return "manual";
   const maxW = Math.max(20, zone.width - (item?.x || 0));
-  if (getRequiredTextWidth(item) > maxW + 1) return "edge";
+  const requiredW = ed ? getTextContentRequiredWidth(item, ed) : getRequiredTextWidth(item);
+  if (requiredW > maxW) return "edge";
   return "auto";
 }
 
@@ -629,7 +678,7 @@ function finalizeTextAnnotationLayout(item) {
     return;
   }
   const rawRequiredW = getRequiredTextWidth(item);
-  if (rawRequiredW > maxW + 1) {
+  if (rawRequiredW > maxW) {
     item.w = maxW;
     item.h = clamp(getRequiredTextHeightForWidth(item, maxW, "pre-wrap"), 20, maxH);
   } else {
@@ -751,10 +800,25 @@ function applyTextEditorLayoutStyles(ed, wrapState) {
 
 function applyEditingTextAutoGrow(tab, item, node) {
   const zone = getSafeZoneSize();
-  const maxW = Math.max(20, zone.width - (item.x || 0));
+  const maxW = Math.max(20, zone.width - (item?.x || 0));
   const maxH = Math.max(20, zone.height - (item.y || 0));
   const ed = getAnnotationTextEditor(node);
-  const wrapState = getTextWrapState(item, zone);
+  const helpers = window.__editifyTextCtxHelpers;
+  /** @type {Range | null} */
+  let savedRange = null;
+  /** @type {{ start: number, end: number, collapsed: boolean } | null} */
+  let caret = null;
+  if (ed) {
+    if (helpers?.saveEditorSelectionRange) {
+      savedRange = helpers.saveEditorSelectionRange(ed);
+    }
+    if (helpers?.getPlainSelectionOffsetsInEditor) {
+      const o = helpers.getPlainSelectionOffsetsInEditor(ed);
+      caret = { start: o.start, end: o.end, collapsed: o.collapsed };
+    }
+    applyTextEditorVirtualTail(ed, item);
+  }
+  const wrapState = getTextWrapState(item, zone, ed);
   const minW = getDefaultTextBoxWidth(item);
   let nextW = item.w || minW;
   let nextH = item.h || 20;
@@ -773,10 +837,22 @@ function applyEditingTextAutoGrow(tab, item, node) {
       20,
       maxH
     );
+    if (ed) {
+      const liveH = Math.ceil(ed.scrollHeight || 0);
+      if (liveH > 0) {
+        nextH = clamp(Math.max(nextH, liveH), 20, maxH);
+      }
+    }
   } else {
-    const rawRequiredW = getRequiredTextWidth(item);
+    const rawRequiredW = getLiveRequiredTextWidth(item, ed);
     nextW = Math.max(minW, Math.min(rawRequiredW, maxW));
     nextH = clamp(getRequiredTextHeightForWidth(item, nextW, "pre"), 20, maxH);
+    if (ed) {
+      const liveH = Math.ceil(ed.scrollHeight || 0);
+      if (liveH > 0) {
+        nextH = clamp(Math.max(nextH, liveH), 20, maxH);
+      }
+    }
   }
 
   applyTextEditorLayoutStyles(ed, wrapState);
@@ -787,6 +863,32 @@ function applyEditingTextAutoGrow(tab, item, node) {
     ed.style.height = "auto";
     ed.style.minHeight = "1.2em";
     ed.style.height = `${Math.ceil(ed.scrollHeight)}px`;
+    const restoreCaret = () => {
+      if (!caret || !helpers?.setPlainSelectionInEditor) return false;
+      try {
+        return helpers.setPlainSelectionInEditor(
+          ed,
+          caret.start,
+          caret.collapsed ? caret.start : caret.end
+        );
+      } catch {
+        return false;
+      }
+    };
+    let restored = restoreCaret();
+    if (!restored && savedRange && helpers?.restoreEditorSelectionRange) {
+      restored = helpers.restoreEditorSelectionRange(ed, savedRange);
+    }
+    if (caret) {
+      requestAnimationFrame(() => {
+        try {
+          restoreCaret();
+          ed.focus();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
   }
 }
 
@@ -815,8 +917,25 @@ function wireTextEditorInteraction(tab, item, node, ed) {
   ed.addEventListener(
     "input",
     () => {
+      const helpers = window.__editifyTextCtxHelpers;
+      const caretBefore = helpers?.getPlainSelectionOffsetsInEditor
+        ? helpers.getPlainSelectionOffsetsInEditor(ed)
+        : null;
       syncTextFromEditor(item, ed);
       applyEditingTextAutoGrow(tab, item, node);
+      if (caretBefore && helpers?.setPlainSelectionInEditor) {
+        requestAnimationFrame(() => {
+          try {
+            helpers.setPlainSelectionInEditor(
+              ed,
+              caretBefore.start,
+              caretBefore.collapsed ? caretBefore.start : caretBefore.end
+            );
+          } catch {
+            /* ignore */
+          }
+        });
+      }
       session.scheduleAutoSave();
     },
     { capture: true }
@@ -1093,8 +1212,114 @@ function renderShapeVectorDOM(host, a) {
 function syncTextFromEditor(a, editorEl) {
   if (!a || !editorEl) return;
   a.textHtml = sanitizeTextHtml(editorEl.innerHTML);
-  a.text = editorEl.innerText || "";
+  const rng = document.createRange();
+  rng.selectNodeContents(editorEl);
+  a.text = String(rng.toString() || "").replace(/\r\n/g, "\n");
   delete a._spellErrors;
+}
+
+/**
+ * Clic sur nuancier / panneau couleur : ne pas quitter le mode édition texte.
+ * @param {EventTarget | null} target
+ */
+function shouldPreserveTextEditOnOutsideClick(target) {
+  if (!target || typeof target !== "object" || !("closest" in target)) return false;
+  const el = /** @type {Element} */ (target);
+  return Boolean(
+    el.closest("#maniColorModal") ||
+      el.closest("#textAnnotationCtxMenu") ||
+      el.closest("#propTextColorLabel, #validateTextColorBtn, [data-mani-color-for='propTextColor']") ||
+      el.closest("[data-mani-color-for='ctxTextColor'], #ctxValidateTextColorBtn")
+  );
+}
+
+/**
+ * Sauvegarde la sélection texte dans l'éditeur (avant clic nuancier / Valider).
+ * Ne remplace le backup que si une sélection non vide est trouvée.
+ */
+function captureTextColorSelectionBackup() {
+  try {
+    const item = getSelectedAnnotation();
+    if (!item || item.type !== "text" || state.editingAnnotationId !== item.id) return;
+    const host = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${item.id}"]`);
+    const ed = getAnnotationTextEditor(host);
+    if (!ed) return;
+    const { saveEditorSelectionRange } = window.__editifyTextCtxHelpers || {};
+    const saved = typeof saveEditorSelectionRange === "function" ? saveEditorSelectionRange(ed) : null;
+    if (saved && !saved.collapsed) {
+      globalThis.__maniTextColorRangeBackup = saved;
+      return;
+    }
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const range = sel.getRangeAt(0);
+      const node = range.commonAncestorContainer;
+      const ancestor = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      if (ancestor?.closest?.(".text-editor") === ed) {
+        globalThis.__maniTextColorRangeBackup = range.cloneRange();
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Couleur texte : sélection partielle en édition (comme gras/italique), sinon tout le bloc.
+ * @param {object} item annotation texte
+ * @param {string} color
+ */
+function applyTextColorToTextAnnotation(item, color) {
+  if (!item || item.type !== "text") return;
+  const hex = String(color || "#111111").trim() || "#111111";
+  const host = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${item.id}"]`);
+  const ed = getAnnotationTextEditor(host);
+  const { hasNonemptyTextSelectionInEditor, applyTextColorInEditor, restoreEditorSelectionRange } =
+    window.__editifyTextCtxHelpers;
+  if (ed && state.editingAnnotationId === item.id) {
+    let partial = hasNonemptyTextSelectionInEditor(ed);
+    /** @type {Range | null} */
+    let savedRange = globalThis.__maniTextColorRangeBackup || null;
+    if (!partial && savedRange) {
+      try {
+        if (
+          ed.contains(savedRange.startContainer) &&
+          ed.contains(savedRange.endContainer) &&
+          !savedRange.collapsed
+        ) {
+          partial = true;
+        } else {
+          savedRange = null;
+        }
+      } catch {
+        savedRange = null;
+      }
+    }
+    if (!partial && savedRange && restoreEditorSelectionRange) {
+      restoreEditorSelectionRange(ed, savedRange);
+      partial = hasNonemptyTextSelectionInEditor(ed);
+    }
+    const ok = applyTextColorInEditor(ed, hex, {
+      selectAllIfCollapsed: !partial,
+      savedRange: partial ? savedRange : null
+    });
+    if (ok) {
+      syncTextFromEditor(item, ed);
+      if (!partial) {
+        item.textColor = hex;
+      } else {
+        globalThis.__maniTextColorRangeBackup = null;
+      }
+      try {
+        ed.focus();
+      } catch {
+        /* ignore */
+      }
+    }
+    return;
+  }
+  globalThis.__maniTextColorRangeBackup = null;
+  item.textColor = hex;
 }
 
 function getAnnotationTextEditor(root) {
@@ -1628,6 +1853,7 @@ function renderAnnotations() {
           applyTextEditorLayoutStyles(ed, getTextWrapState(a, zone));
         }
         wireTextEditorInteraction(tab, a, node, ed);
+        applyTextEditorVirtualTail(ed, a);
         node.appendChild(ed);
         requestAnimationFrame(() => {
           try {
@@ -2386,6 +2612,8 @@ tcm.bind({
   },
   getAnnotationTextEditor,
   syncTextFromEditor,
+  applyTextColorToTextAnnotation,
+  captureTextColorSelectionBackup,
   getSpellcheckBcp47FromUiLang,
   t,
   propFontFamily,
@@ -2474,18 +2702,7 @@ function applySelectedProperties() {
   if (!tab || !item) return;
   captureSnapshot(tab);
   if (item.type === "text") {
-    const selection = window.getSelection();
-    const hasSelection =
-      selection &&
-      !selection.isCollapsed &&
-      selection.anchorNode &&
-      pdfLayerRef.annotationLayer.contains(selection.anchorNode);
-
-    // Couleur "Txt" = couleur du texte (toujours).
-    // (La couleur de fond est gérée uniquement via le champ "Fond".)
-    if (hasSelection || !hasSelection) {
-      item.textColor = propTextColor.value || "#111111";
-    }
+    applyTextColorToTextAnnotation(item, propTextColor.value || "#111111");
 
     // Le champ "Fond" reste un override explicite du fond du bloc.
     if (propBgColor.dataset.touched === "1") {
@@ -2740,6 +2957,14 @@ document.addEventListener("mani-color-open", (ev) => {
   globalThis.__maniColorSelectionBackup = state.selectedAnnotationId;
   globalThis.__maniCtxShapeBackup = sim.getShapeCtxMenuTargetId();
   globalThis.__maniCtxTextBackup = tcm.getTextCtxMenuTargetId();
+  const field = ev.detail?.inputId;
+  if (field === "propTextColor" || field === "ctxTextColor") {
+    if (!globalThis.__maniTextColorRangeBackup) {
+      captureTextColorSelectionBackup();
+    }
+  } else {
+    globalThis.__maniTextColorRangeBackup = null;
+  }
   logText("maniColorPickerOpen", {
     backup: globalThis.__maniColorSelectionBackup,
     shapeCtxBackup: globalThis.__maniCtxShapeBackup,
@@ -2748,7 +2973,15 @@ document.addEventListener("mani-color-open", (ev) => {
   });
 });
 
+document.addEventListener("mani-color-capture-text-selection", () => {
+  captureTextColorSelectionBackup();
+});
+
 globalThis.maniAfterColorCommit = applyManiColorAfterPicker;
+
+document.addEventListener("mani-color-close", () => {
+  globalThis.__maniTextColorRangeBackup = null;
+});
 
 function pageShift(delta) {
   const tab = getActiveTab();
@@ -2962,6 +3195,10 @@ deleteSelectedBtn?.addEventListener?.("click", deleteSelected);
 undoBtn?.addEventListener?.("click", undo);
 redoBtn?.addEventListener?.("click", redo);
 applyPropsBtn?.addEventListener?.("click", applySelectedProperties);
+validateTextColorBtn?.addEventListener?.("mousedown", (ev) => {
+  ev.preventDefault();
+  captureTextColorSelectionBackup();
+});
 validateTextColorBtn?.addEventListener?.("click", () => applySelectedProperties());
 applyBgBtn?.addEventListener?.("click", () => {
   try {
@@ -3052,6 +3289,7 @@ document.addEventListener("mousedown", (event) => {
     renderAnnotations();
     return;
   }
+  if (shouldPreserveTextEditOnOutsideClick(event.target)) return;
   const editingNode = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${state.editingAnnotationId}"]`);
   if (!editingNode) return;
   // IMPORTANT: si l'événement provient de l'annotation en édition (même avant rerender),
@@ -3399,6 +3637,7 @@ try {
     pasteClipboardIntoActivePage,
     clickManiColorValidateButtonForInputId,
     setLanguage,
+    undo,
     exportActivePdfToPath: pdfSave.exportActivePdfToPath
   });
 } catch {}

@@ -27,6 +27,32 @@
     return { start, end, collapsed: start === end };
   }
 
+  /** Sauvegarde la sélection DOM (fiable pour accents / reflow layout). */
+  function saveEditorSelectionRange(ed) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !ed?.contains(sel.anchorNode)) return null;
+    try {
+      return sel.getRangeAt(0).cloneRange();
+    } catch {
+      return null;
+    }
+  }
+
+  /** @param {HTMLElement} ed @param {Range} range */
+  function restoreEditorSelectionRange(ed, range) {
+    if (!ed || !range) return false;
+    if (!ed.contains(range.startContainer) || !ed.contains(range.endContainer)) return false;
+    try {
+      const sel = window.getSelection();
+      if (!sel) return false;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function textNodeFormatHit(textNode, ed, kind) {
     let el = textNode.parentElement;
     while (el && el !== ed) {
@@ -154,6 +180,123 @@
     return true;
   }
 
+  /** Sélection non vide entièrement dans l'éditeur contentEditable. */
+  function hasNonemptyTextSelectionInEditor(ed) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !ed) return false;
+    return ed.contains(sel.anchorNode) && ed.contains(sel.focusNode);
+  }
+
+  /**
+   * @param {HTMLElement} ed
+   * @param {number} start
+   * @param {number} end
+   */
+  function setPlainSelectionInEditor(ed, start, end) {
+    if (!ed || start < 0 || end < start) return false;
+    const a = getTextBoundaryInRoot(ed, start);
+    const b = getTextBoundaryInRoot(ed, end);
+    if (!a || !b) return false;
+    const range = document.createRange();
+    try {
+      range.setStart(a.node, a.offset);
+      range.setEnd(b.node, b.offset);
+    } catch {
+      return false;
+    }
+    const sel = window.getSelection();
+    if (!sel) return false;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  }
+
+  /**
+   * @param {string} color
+   */
+  function normalizeTextColorHex(color) {
+    const s = String(color || "#111111").trim() || "#111111";
+    if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+    const m = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m) {
+      const h = (n) => Number(n).toString(16).padStart(2, "0");
+      return `#${h(m[1])}${h(m[2])}${h(m[3])}`;
+    }
+    return "#111111";
+  }
+
+  /**
+   * @param {HTMLElement} ed
+   * @param {Range} range
+   * @param {string} color
+   */
+  function applyColorToRange(ed, range, color) {
+    if (!ed || !range || range.collapsed) return false;
+    if (!ed.contains(range.startContainer) || !ed.contains(range.endContainer)) return false;
+    const hex = normalizeTextColorHex(color);
+    const span = document.createElement("span");
+    span.style.color = hex;
+    try {
+      const work = range.cloneRange();
+      const frag = work.extractContents();
+      span.appendChild(frag);
+      work.insertNode(span);
+      const sel = window.getSelection();
+      if (sel) {
+        const after = document.createRange();
+        after.setStartAfter(span);
+        after.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(after);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Applique une couleur au texte sélectionné (ou tout le contenu si caret seul).
+   * @param {HTMLElement} ed
+   * @param {string} color
+   * @param {{ selectAllIfCollapsed?: boolean, savedRange?: Range | null }} [opts]
+   */
+  function applyTextColorInEditor(ed, color, opts = {}) {
+    if (!ed || !color) return false;
+    const selectAllIfCollapsed = opts.selectAllIfCollapsed !== false;
+    const savedRange = opts.savedRange || null;
+
+    if (savedRange && !savedRange.collapsed) {
+      return applyColorToRange(ed, savedRange, color);
+    }
+
+    ed.focus();
+    const sel = window.getSelection();
+    if (!sel) return false;
+    let range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (!range || !ed.contains(range.startContainer) || !ed.contains(range.endContainer)) {
+      if (!selectAllIfCollapsed) return false;
+      range = document.createRange();
+      range.selectNodeContents(ed);
+    }
+    if (range.collapsed) {
+      if (!selectAllIfCollapsed) return false;
+      range = document.createRange();
+      range.selectNodeContents(ed);
+    }
+    if (applyColorToRange(ed, range, color)) return true;
+    try {
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("styleWithCSS", false, "true");
+      document.execCommand("foreColor", false, normalizeTextColorHex(color));
+      document.execCommand("styleWithCSS", false, "false");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function replacePlainRangeInTextItem(item, start, end, replacement) {
     const plain = plainTextForAnnotationItem(item);
     if (start < 0 || end > plain.length) return false;
@@ -184,6 +327,13 @@
     getFormatCoverageFromSanitizedHtml,
     setFmtBtnState,
     replacePlainTextRangeInEditor,
-    replacePlainRangeInTextItem
+    replacePlainRangeInTextItem,
+    hasNonemptyTextSelectionInEditor,
+    setPlainSelectionInEditor,
+    applyTextColorInEditor,
+    applyColorToRange,
+    normalizeTextColorHex,
+    saveEditorSelectionRange,
+    restoreEditorSelectionRange
   };
 })();

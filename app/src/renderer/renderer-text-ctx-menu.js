@@ -87,7 +87,7 @@
     const bg = document.getElementById("ctxTextBg");
     if (font) item.fontFamily = font.value || item.fontFamily;
     if (size) item.fontSize = Math.max(8, Math.min(96, Number(size.value) || 14));
-    if (col) item.textColor = col.value || item.textColor;
+    if (col) d.applyTextColorToTextAnnotation(item, col.value || item.textColor);
     const rot = document.getElementById("ctxTextRotation");
     const op = document.getElementById("ctxTextOpacity");
     if (rot) item.rotation = Math.max(0, Math.min(360, Number(rot.value) || 0));
@@ -421,15 +421,15 @@
     } else if (!ed.contains(sel.anchorNode) || !ed.contains(sel.focusNode)) {
       return;
     }
-    try {
-      document.execCommand(cmd, false, null);
-    } catch {
-      /* ignore */
-    }
     const tab = d.getActiveTab();
     const loc = tab ? d.findAnnotationLocation(tab, tid) : null;
-    if (loc?.item) {
+    if (loc?.item && tab) {
       d.captureSnapshot(tab);
+      try {
+        document.execCommand(cmd, false, null);
+      } catch {
+        /* ignore */
+      }
       d.syncTextFromEditor(loc.item, ed);
       d.scheduleAutoSave();
     }
@@ -460,6 +460,10 @@
     bindLive("ctxTextOpacity", () => applyTextCtxMenuBoxProps());
     dst.addEventListener("change", () => applyTextCtxMenuBoxProps());
     size?.addEventListener?.("input", () => applyTextCtxMenuBoxProps());
+    validateColBtn?.addEventListener?.("mousedown", (ev) => {
+      ev.preventDefault();
+      d.captureTextColorSelectionBackup?.();
+    });
     validateColBtn?.addEventListener?.("click", () => applyTextCtxMenuBoxProps());
     validateBgBtn?.addEventListener?.("click", () => {
       try {
