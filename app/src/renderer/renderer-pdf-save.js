@@ -410,7 +410,10 @@
         }
       }
     } catch (error) {
-      logSave("export_abort", { reason: "image_encode_failed", error: String(error?.message || error) });
+      logSave("export_abort", {
+        reason: "image_encode_failed",
+        error: String(error?.message || error)
+      });
       return { ok: false, error: "image_encode_failed" };
     }
 
