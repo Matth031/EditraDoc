@@ -306,7 +306,14 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
     """
     Crée un nouveau PDF (output_path) en gardant l'original intact (input_path),
     en appliquant les annotations en surimpression (flatten via merge).
+    Le chemin de sortie peut être hors du dossier source (Enregistrer sous).
     """
+    from pdf_validation import validate_pdf_path
+
+    validation = validate_pdf_path(input_path)
+    if not validation.ok:
+        raise RuntimeError(validation.error or "PDF source invalide.")
+
     PdfReader, PdfWriter = _require_pypdf()
     _require_reportlab()
     from reportlab.pdfgen import canvas  # type: ignore

@@ -13,6 +13,7 @@ E_AUDIT_01_TEST_MODULES = (
     "test_pdf_service_token",
     "test_pdf_service_log_redaction",
     "test_pdf_ops_annotation_image_limit",
+    "test_pdf_ops_apply_annotations_input",
 )
 
 
