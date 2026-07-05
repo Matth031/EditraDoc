@@ -5,7 +5,7 @@ import globals from "globals";
 /**
  * Lint progressif : e2e, scripts, processus principal Electron (`src/main`),
  * modules renderer légers (+ `renderer-text-html.js`, etc.) - pas `renderer.js` / `renderer-i18n-data.js` (gros fichiers).
- * `renderer-pdf-viewer.js` : linté comme les autres modules renderer.
+ * `renderer-pdf-viewer.js` et `renderer-pdf-save.js` : lintés comme les autres modules renderer.
  */
 export default [
   js.configs.recommended,
