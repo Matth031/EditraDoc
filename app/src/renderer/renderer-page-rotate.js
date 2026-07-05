@@ -28,23 +28,6 @@
   let deps = null;
   let wired = false;
   let rotating = false;
-  /** @type {Map<string, () => void>} */
-  const shortcutRegistry = new Map();
-
-  /**
-   * Stub V1 : enregistre un raccourci sans binding clavier (FR-41).
-   * @param {string} id
-   * @param {() => void} handler
-   * @returns {() => void} désenregistrement
-   */
-  function registerShortcut(id, handler) {
-    const key = String(id || "").trim();
-    if (!key || typeof handler !== "function") return () => {};
-    shortcutRegistry.set(key, handler);
-    return () => {
-      shortcutRegistry.delete(key);
-    };
-  }
 
   function syncRotateButtonsState() {
     const d = requireDeps();
@@ -152,18 +135,11 @@
         }
       });
     });
-    registerShortcut("page-rotate-left", () => {
-      rotateCurrentPage("left").catch(() => {});
-    });
-    registerShortcut("page-rotate-right", () => {
-      rotateCurrentPage("right").catch(() => {});
-    });
   }
 
   window.__editifyPageRotate = {
     bind,
     rotateCurrentPage,
-    syncRotateButtonsState,
-    registerShortcut
+    syncRotateButtonsState
   };
 })();
