@@ -13,10 +13,14 @@ from pypdf import PdfReader, PdfWriter
 
 from pdf_service import Handler
 
+TEST_SERVICE_TOKEN = "test-audit-service-token"
+
 
 class TestPdfServiceRoutes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._prev_token = os.environ.get("MANI_PDF_SERVICE_TOKEN")
+        os.environ["MANI_PDF_SERVICE_TOKEN"] = TEST_SERVICE_TOKEN
         cls.server = HTTPServer(("127.0.0.1", 0), Handler)
         cls.host, cls.port = cls.server.server_address
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -27,11 +31,17 @@ class TestPdfServiceRoutes(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join(timeout=2)
+        if cls._prev_token is None:
+            os.environ.pop("MANI_PDF_SERVICE_TOKEN", None)
+        else:
+            os.environ["MANI_PDF_SERVICE_TOKEN"] = cls._prev_token
 
-    def request(self, method, route, payload=None):
+    def request(self, method, route, payload=None, *, token=TEST_SERVICE_TOKEN):
         conn = HTTPConnection(self.host, self.port, timeout=5)
         body = json.dumps(payload or {})
         headers = {"Content-Type": "application/json"}
+        if method == "POST" and token is not None:
+            headers["X-Mani-Pdf-Token"] = token
         conn.request(method, route, body=body if method == "POST" else None, headers=headers)
         resp = conn.getresponse()
         data = resp.read().decode("utf8")

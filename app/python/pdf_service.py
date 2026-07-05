@@ -45,6 +45,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _reject_unauthorized_post(self) -> bool:
+        """Refuse les POST sans token valide (header X-Mani-Pdf-Token). Retourne True si rejeté."""
+        expected = os.environ.get("MANI_PDF_SERVICE_TOKEN", "")
+        if not expected:
+            self._json_response(503, {"ok": False, "error": "Service non configuré (token manquant)."})
+            return True
+        got = self.headers.get("X-Mani-Pdf-Token", "")
+        if got != expected:
+            self._json_response(401, {"ok": False, "error": "Token d'authentification invalide."})
+            return True
+        return False
+
     def do_POST(self) -> None:  # noqa: N802
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -55,6 +67,8 @@ class Handler(BaseHTTPRequestHandler):
                 413,
                 {"ok": False, "error": "Corps de requête trop volumineux (max 64 Mo)."},
             )
+            return
+        if self._reject_unauthorized_post():
             return
         body = self.rfile.read(length).decode("utf-8")
         payload = json.loads(body or "{}")

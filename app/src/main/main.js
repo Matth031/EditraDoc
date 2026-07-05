@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron")
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawn, execSync } = require("node:child_process");
+const crypto = require("node:crypto");
 const http = require("node:http");
 const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
 const appSettings = require("./app-settings");
@@ -19,6 +20,8 @@ let uiLanguage = "fr";
 let autosaveInterval = null;
 let jobQueueIntervalId = null;
 let pythonProcess = null;
+/** Token partagé main ↔ service Python (header X-Mani-Pdf-Token sur chaque POST). */
+const pythonServiceToken = crypto.randomBytes(32).toString("hex");
 
 /**
  * Racine du dossier applicatif (dev: `app/`, prod: `resources/app.asar.unpacked/`).
@@ -57,7 +60,8 @@ function getPythonLaunchConfig() {
     PYTHONUNBUFFERED: "1",
     PYTHONPATH: pyDir,
     PYTHONUTF8: "1",
-    MANI_PDF_EXPORT_DEBUG: process.env.MANI_PDF_EXPORT_DEBUG || "0"
+    MANI_PDF_EXPORT_DEBUG: process.env.MANI_PDF_EXPORT_DEBUG || "0",
+    MANI_PDF_SERVICE_TOKEN: pythonServiceToken
   };
   if (app.isPackaged && process.platform === "win32") {
     const embedded = path.join(process.resourcesPath, "python-runtime", "python.exe");
@@ -606,6 +610,14 @@ function stopPythonService() {
   }
 }
 
+function getPythonPostHeaders(contentLength) {
+  return {
+    "Content-Type": "application/json",
+    "Content-Length": contentLength,
+    "X-Mani-Pdf-Token": pythonServiceToken
+  };
+}
+
 function validateWithPython(pdfPath) {
   return new Promise((resolve) => {
     const body = JSON.stringify({ path: pdfPath });
@@ -615,10 +627,7 @@ function validateWithPython(pdfPath) {
         port: 8765,
         path: "/validate",
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body)
-        },
+        headers: getPythonPostHeaders(Buffer.byteLength(body)),
         timeout: 1000
       },
       (res) => {
@@ -654,10 +663,7 @@ function postToPython(route, payload) {
         port: 8765,
         path: route,
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body)
-        },
+        headers: getPythonPostHeaders(Buffer.byteLength(body)),
         timeout: 60000
       },
       (res) => {
