@@ -15,6 +15,7 @@ const {
   isOpenPdfPath
 } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
+const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
 const { freeLocalPort } = require("./lib/free-local-port");
@@ -946,7 +947,12 @@ ipcMain.handle("convert:images-to-pdf", async (_, payload) => {
 
 ipcMain.handle("session:save", async (_, payload) => {
   try {
-    fs.writeFileSync(sessionStatePath, JSON.stringify(payload, null, 2), "utf8");
+    const prepared = prepareSessionSavePayload(payload);
+    if (!prepared.ok) {
+      logWarn("session:save", prepared.error, { errorCode: prepared.errorCode });
+      return prepared;
+    }
+    fs.writeFileSync(sessionStatePath, prepared.serialized, "utf8");
     return { ok: true };
   } catch (error) {
     logIpcFailure("session:save", error);

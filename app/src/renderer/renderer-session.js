@@ -61,10 +61,17 @@
         undoStack: Array.isArray(t.undoStack) ? cloneForSession(t.undoStack) : [],
         redoStack: Array.isArray(t.redoStack) ? cloneForSession(t.redoStack) : []
       }));
-      await window.maniPdfApi.saveSession({
+      const saveResult = await window.maniPdfApi.saveSession({
         tabs: tabsPayload,
         activeTabId: d.state.activeTabId
       });
+      if (saveResult && !saveResult.ok) {
+        const msg =
+          saveResult.errorCode === "SESSION_PAYLOAD_TOO_LARGE"
+            ? d.t("stSessionSaveTooLarge")
+            : saveResult.error || d.t("stSessionSaveFailed");
+        d.setStatus(msg);
+      }
     } catch (error) {
       try {
         globalThis.__editifyReportError?.("session:save", String(error?.message || error));

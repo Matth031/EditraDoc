@@ -202,6 +202,9 @@ window.__EDITIFY_I18N = {
     ttZoomIn: "Zoome le document. Raccourci : Ctrl + molette.",
     stLinkOpenFailed: "Impossible d'ouvrir le lien automatiquement. Copiez/collez l'URL.",
     stSessionRecovered: "Session reparee.",
+    stSessionSaveTooLarge:
+      "Sauvegarde session refusee : trop d'annotations (limite 50 Mo). Exportez ou retirez des elements.",
+    stSessionSaveFailed: "Sauvegarde session echouee.",
     stPythonUnavailable: "Service Python indisponible.",
     stValidationServiceUnavailable:
       "Service de validation indisponible — ouverture du PDF refusee.",
@@ -461,6 +464,9 @@ window.__EDITIFY_I18N = {
     ttZoomIn: "Zoom in. Shortcut: Ctrl + wheel.",
     stLinkOpenFailed: "Could not open the link automatically. Copy/paste the URL.",
     stSessionRecovered: "Session repaired.",
+    stSessionSaveTooLarge:
+      "Session save refused: too many annotations (50 MB limit). Export or remove items.",
+    stSessionSaveFailed: "Session save failed.",
     stPythonUnavailable: "Python service unavailable.",
     stValidationServiceUnavailable:
       "Validation service unavailable — PDF opening refused.",
@@ -720,6 +726,9 @@ window.__EDITIFY_I18N = {
     ttZoomIn: "Acerca. Atajo: Ctrl + rueda.",
     stLinkOpenFailed: "No se pudo abrir el enlace automaticamente. Copie/pega la URL.",
     stSessionRecovered: "Sesion reparada.",
+    stSessionSaveTooLarge:
+      "Guardado de sesion rechazado: demasiadas anotaciones (limite 50 Mo). Exporte o elimine elementos.",
+    stSessionSaveFailed: "Error al guardar la sesion.",
     stPythonUnavailable: "Servicio Python no disponible.",
     stValidationServiceUnavailable:
       "Servicio de validacion no disponible — se rechazo abrir el PDF.",
@@ -979,6 +988,9 @@ window.__EDITIFY_I18N = {
     ttZoomIn: "Aproxima. Atalho: Ctrl + roda.",
     stLinkOpenFailed: "Nao foi possivel abrir a ligacao automaticamente. Copie/cole o URL.",
     stSessionRecovered: "Sessao reparada.",
+    stSessionSaveTooLarge:
+      "Gravacao da sessao recusada: demasiadas anotacoes (limite 50 Mo). Exporte ou remova elementos.",
+    stSessionSaveFailed: "Falha ao gravar a sessao.",
     stPythonUnavailable: "Servico Python indisponivel.",
     stValidationServiceUnavailable:
       "Servico de validacao indisponivel — abertura do PDF recusada.",
