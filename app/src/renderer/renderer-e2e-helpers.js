@@ -126,30 +126,6 @@
           return false;
         }
       };
-      window.__maniE2E.cutSelected = () => {
-        try {
-          const tab = getActiveTab();
-          const annotations = tab ? currentPageAnnotations(tab) : null;
-          const item = getSelectedAnnotationFromActivePage(tab);
-          if (!tab || !annotations || !item) return false;
-          const cut = cloneForClipboard(item);
-          if (!cut) return false;
-          state.clipboard = cut;
-          const idx = annotations.findIndex((a) => a.id === item.id);
-          if (idx >= 0) {
-            captureSnapshot(tab);
-            annotations.splice(idx, 1);
-            state.selectedAnnotationId = null;
-            state.editingAnnotationId = null;
-            syncPropertyInputs();
-            renderAnnotations();
-            session.scheduleAutoSave();
-          }
-          return true;
-        } catch {
-          return false;
-        }
-      };
       window.__maniE2E.paste = () => {
         try {
           if (!state.clipboard) return false;
@@ -334,36 +310,6 @@
           } else {
             clickManiColorValidateButtonForInputId(inputId);
           }
-          return true;
-        } catch {
-          return false;
-        }
-      };
-      window.__maniE2E.setTextStyleForTest = (annotationId, style = {}) => {
-        try {
-          const tab = getActiveTab();
-          if (!tab || !annotationId) return false;
-          const loc = findAnnotationLocation(tab, annotationId);
-          if (!loc?.item || loc.item.type !== "text") return false;
-          captureSnapshot(tab);
-          const item = loc.item;
-          if (style.fontFamily != null) item.fontFamily = String(style.fontFamily);
-          if (style.fontSize != null) {
-            item.fontSize = Math.max(8, Math.min(96, Number(style.fontSize) || 14));
-          }
-          if (style.textColor != null) item.textColor = String(style.textColor);
-          if (style.padding != null) {
-            item.padding = Math.max(0, Math.min(64, Number(style.padding) || 0));
-          }
-          if (Object.prototype.hasOwnProperty.call(style, "bgColor")) {
-            item.bgColor = style.bgColor ? String(style.bgColor) : null;
-          }
-          const captureLastTextStyleFromItem = /** @type {(it: object) => void} */ (
-            d.captureLastTextStyleFromItem
-          );
-          captureLastTextStyleFromItem?.(item);
-          renderAnnotations();
-          session.scheduleAutoSave();
           return true;
         } catch {
           return false;

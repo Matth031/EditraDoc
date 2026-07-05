@@ -86,7 +86,7 @@ def _enter_canvas_space(c, a, rot_a: float = 0.0) -> tuple[float, float]:
     return cw, ch
 
 
-def _merge_overlay_page(page, overlay_page, rotation: int, page_w: float, page_h: float) -> None:
+def _merge_overlay_page(page, overlay_page) -> None:
     # Fusion directe : l'overlay est dessiné dans le repère user de la page (mediabox).
     page.merge_page(overlay_page)
 
@@ -715,7 +715,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
         buf.seek(0)
 
         overlay = PdfReader(buf)
-        _merge_overlay_page(page, overlay.pages[0], rot, page_w, page_h)
+        _merge_overlay_page(page, overlay.pages[0])
         writer.add_page(page)
 
     _atomic_write_pdf(writer, output_path)

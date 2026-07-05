@@ -98,21 +98,9 @@ const SHAPE_TYPE_KEYS = i18nApply.SHAPE_TYPE_KEYS;
 const e2eHelpers = window.__editifyE2eHelpers;
 const {
   sanitizeTextHtml,
-  stripTagsForPlain,
   plainTextForAnnotationItem,
-  getTextBoundaryInRoot,
-  wrapSpellMisspellingsInDisplayRoot,
   applySpellHighlightsToTextDisplayNode
 } = window.__editifyTextHtml;
-const {
-  getPlainSelectionOffsetsInEditor,
-  textNodeFormatHit,
-  getFormatCoverage,
-  getFormatCoverageFromSanitizedHtml,
-  setFmtBtnState,
-  replacePlainTextRangeInEditor,
-  replacePlainRangeInTextItem
-} = window.__editifyTextCtxHelpers;
 const { logText, newAnnotationId, deepClone, cloneForClipboard, pathsEqual } = window.__editifyUtils;
 const { ensureToastRoot, dismissToast, showToast } = window.__editifyToast;
 const tcm = window.__editifyTextCtxMenu;

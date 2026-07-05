@@ -78,12 +78,6 @@
   globalThis.__editifyReportError = (scope, message, data) => {
     report("error", scope, message, data);
   };
-  globalThis.__editifyReportWarn = (scope, message, data) => {
-    report("warn", scope, message, data);
-  };
-  globalThis.__editifyReportInfo = (scope, message, data) => {
-    report("info", scope, message, data);
-  };
 
   globalThis.addEventListener(
     "error",
