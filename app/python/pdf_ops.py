@@ -722,9 +722,13 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
     return output_path
 
 def merge_pdfs(inputs: Iterable[str], output_path: str) -> str:
+    input_list = [str(p) for p in inputs if p]
+    if not input_list:
+        raise RuntimeError("Fusion : au moins un fichier PDF requis.")
+    _assert_output_in_same_directory_as_input(input_list[0], output_path)
     PdfReader, PdfWriter = _require_pypdf()
     writer = PdfWriter()
-    for pdf in inputs:
+    for pdf in input_list:
         reader = PdfReader(pdf)
         for page in reader.pages:
             writer.add_page(page)
@@ -734,6 +738,7 @@ def merge_pdfs(inputs: Iterable[str], output_path: str) -> str:
 
 
 def split_pdf(input_path: str, from_page: int, to_page: int, output_path: str) -> str:
+    _assert_output_in_same_directory_as_input(input_path, output_path)
     PdfReader, PdfWriter = _require_pypdf()
     reader = PdfReader(input_path)
     writer = PdfWriter()
@@ -787,6 +792,7 @@ def split_pdf_groups(input_path: str, groups: list[dict]) -> list[str]:
 
 
 def compress_pdf(input_path: str, output_path: str) -> str:
+    _assert_output_in_same_directory_as_input(input_path, output_path)
     PdfReader, PdfWriter = _require_pypdf()
     reader = PdfReader(input_path)
     writer = PdfWriter()
@@ -802,6 +808,7 @@ def compress_pdf(input_path: str, output_path: str) -> str:
 def protect_pdf(input_path: str, output_path: str, password: str) -> str:
     if not password:
         raise RuntimeError("Mot de passe requis.")
+    _assert_output_in_same_directory_as_input(input_path, output_path)
     PdfReader, PdfWriter = _require_pypdf()
     reader = PdfReader(input_path)
     writer = PdfWriter()
@@ -814,6 +821,7 @@ def protect_pdf(input_path: str, output_path: str, password: str) -> str:
 
 
 def unprotect_pdf(input_path: str, output_path: str, password: str) -> str:
+    _assert_output_in_same_directory_as_input(input_path, output_path)
     PdfReader, PdfWriter = _require_pypdf()
     reader = PdfReader(input_path)
     if reader.is_encrypted:
