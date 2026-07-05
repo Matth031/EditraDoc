@@ -1631,6 +1631,7 @@ function removeTab(tabId) {
   pdfv.updateViewer();
   updateWelcomeVisibility();
   session.scheduleAutoSave();
+  syncOpenPdfPathsToMain().catch(() => {});
 
   // E7-S1: toast "PDF retiré" + Annuler (5-8s)
   pendingTabUndo = {
@@ -1658,6 +1659,7 @@ function removeTab(tabId) {
       pdfv.updateViewer();
       updateWelcomeVisibility();
       session.scheduleAutoSave();
+      syncOpenPdfPathsToMain().catch(() => {});
     },
     timeoutMs: 6500
   });
@@ -1666,6 +1668,17 @@ function removeTab(tabId) {
     if (pendingTabUndo?.toastId !== toastId) return;
     pendingTabUndo = null;
   }, 7000);
+}
+
+/** Informe le main des chemins PDF des onglets ouverts (garde pdf:read-bytes). */
+async function syncOpenPdfPathsToMain() {
+  try {
+    if (!window.maniPdfApi?.syncOpenPdfPaths) return;
+    const paths = state.tabs.map((t) => t.path).filter(Boolean);
+    await window.maniPdfApi.syncOpenPdfPaths(paths);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Message utilisateur pour un échec IPC `pdf:open` (codes stables côté main). */
@@ -1700,6 +1713,7 @@ async function addPdfTab(filePath, fileName) {
   state.tabs.push(tab);
   state.activeTabId = tab.id;
   renderTabs();
+  await syncOpenPdfPathsToMain();
   pdfv.updateViewer();
   updateWelcomeVisibility();
   setStatus(tr("stPdfLoadedNamed", { name: fileName }));
@@ -2579,7 +2593,8 @@ session.bind({
   updateViewer: pdfv.updateViewer,
   updateWelcomeVisibility,
   syncPropertyInputs,
-  scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate
+  scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate,
+  syncOpenPdfPathsToMain
 });
 sim.bind({
   state,

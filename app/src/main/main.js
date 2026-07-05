@@ -9,6 +9,12 @@ const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
 const { evaluatePdfOpen } = require("./lib/pdf-open");
+const {
+  registerOpenPdfPath,
+  syncOpenPdfPaths,
+  isOpenPdfPath
+} = require("./lib/open-pdf-registry");
+const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
 const { freeLocalPort } = require("./lib/free-local-port");
@@ -828,6 +834,7 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
       logWarn("pdf:open", result.error || "Ouverture PDF refusée", { pdfPath, errorCode: result.errorCode });
       return result;
     }
+    registerOpenPdfPath(pdfPath);
     addRecentPdf(pdfPath);
     return result;
   } catch (error) {
@@ -838,17 +845,32 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
 
 ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   try {
-    if (!pdfPath || !fs.existsSync(pdfPath)) {
-      const error = "Le fichier PDF n'existe pas.";
-      logWarn("pdf:read-bytes", error, { pdfPath });
-      return { ok: false, error };
+    const exists = Boolean(pdfPath && fs.existsSync(pdfPath));
+    const fileSize = exists ? fs.statSync(pdfPath).size : 0;
+    const guard = validatePdfReadBytesRequest(pdfPath, {
+      exists,
+      fileSize,
+      isOpenPath: isOpenPdfPath(pdfPath)
+    });
+    if (!guard.ok) {
+      logWarn("pdf:read-bytes", guard.error, { pdfPath, errorCode: guard.errorCode });
+      return guard;
     }
     const buf = fs.readFileSync(pdfPath);
-    // Renvoi base64 pour éviter les soucis de sérialisation Buffer via IPC.
     return { ok: true, base64: buf.toString("base64") };
   } catch (error) {
     logIpcFailure("pdf:read-bytes", error, { pdfPath });
     return { ok: false, error: `Lecture PDF impossible: ${error.message}` };
+  }
+});
+
+ipcMain.handle("pdf:sync-open-paths", async (_, paths) => {
+  try {
+    syncOpenPdfPaths(Array.isArray(paths) ? paths : []);
+    return { ok: true };
+  } catch (error) {
+    logIpcFailure("pdf:sync-open-paths", error);
+    return { ok: false, error: "Synchronisation des chemins ouverts impossible." };
   }
 });
 
