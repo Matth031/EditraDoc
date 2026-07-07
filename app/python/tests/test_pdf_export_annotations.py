@@ -180,6 +180,181 @@ class TestPdfExportAnnotations(unittest.TestCase):
             rot = int(reader.pages[0].get("/Rotate", 0) or 0) % 360
             self.assertEqual(rot, 180)
 
+    def test_apply_annotations_text_narrow_width_wrap_height(self):
+        """Régression : texte ~17 car. à w≈162 ne doit pas disparaître (zone fils morte ReportLab)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src, width=760, height=1074)
+
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 760, "h": 1074, "rotation": 0}},
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 80,
+                            "y": 80,
+                            "w": 162,
+                            "h": 33,
+                            "text": "UI_OVERWRITE_TEST",
+                            "textHtml": "UI_OVERWRITE_TEST",
+                            "fontFamily": "Arial",
+                            "fontSize": 14,
+                            "padding": 6,
+                            "textColor": "#111111",
+                        }
+                    ]
+                },
+            )
+
+            reader = PdfReader(out)
+            text = (reader.pages[0].extract_text() or "").replace("\n", " ")
+            self.assertIn("UI_OVERWRITE_TEST", text)
+
+
+    def test_apply_annotations_text_multiline_html_format(self):
+        """Régression : 2 lignes + gras/italique/souligné/couleur conservés à l'export."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src, width=760, height=1074)
+            html = (
+                "<div><i>on ajoute</i> <u>un texte</u> <b><u>voir</u></b></div>"
+                "<div><b><u>si</u></b> ça marche <font color=\"#00aa00\">encore !</font></div>"
+            )
+            plain = "on ajoute un texte voir\nsi ça marche encore !"
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 760, "h": 1074, "rotation": 0}},
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 80,
+                            "y": 80,
+                            "w": 320,
+                            "h": 80,
+                            "text": plain,
+                            "textHtml": html,
+                            "fontFamily": "Arial",
+                            "fontSize": 14,
+                            "padding": 6,
+                            "textColor": "#e87c7c",
+                        }
+                    ]
+                },
+            )
+            raw = self._pdf_bytes(out).decode("latin1", errors="ignore")
+            reader = PdfReader(out)
+            text = (reader.pages[0].extract_text() or "").replace("\n", " ")
+            self.assertIn("on ajoute", text)
+            self.assertIn("encore", text)
+            self.assertTrue("Helvetica-Bold" in raw or re.search(r"/[A-Z]+\+Helvetica-Bold", raw))
+            self.assertTrue("Helvetica-Oblique" in raw or re.search(r"/[A-Z]+\+Helvetica-Oblique", raw))
+
+    def test_apply_annotations_text_soft_wrap_br_narrow_width(self):
+        """Régression : <br> issu du soft-wrap UI ne doit pas être aplati sur une seule ligne."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src, width=760, height=1074)
+            html = (
+                "<div><i>on ajoute</i> <u>un texte</u> <b><u>voir si</u></b><br>"
+                "<b>ça marche </b><font color=\"#00aa00\"><b>encore</b> !</font></div>"
+            )
+            plain = "on ajoute un texte voir si\nça marche encore !"
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 760, "h": 1074, "rotation": 0}},
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 80,
+                            "y": 80,
+                            "w": 200,
+                            "h": 60,
+                            "text": plain,
+                            "textHtml": html,
+                            "fontFamily": "Arial",
+                            "fontSize": 14,
+                            "padding": 6,
+                            "textColor": "#e87c7c",
+                        }
+                    ]
+                },
+            )
+            reader = PdfReader(out)
+            text = (reader.pages[0].extract_text() or "").replace("\n", " ")
+            self.assertIn("voir si", text)
+            self.assertIn("encore", text)
+            self.assertIn("!", text)
+            self.assertNotRegex(text, r"encore\s*!$")
+
+    def test_apply_annotations_text_multipage_page1_and_page4(self):
+        """Régression : annotations texte sur pages 1 et 4 exportées toutes les deux."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            writer = PdfWriter()
+            for _ in range(4):
+                writer.add_blank_page(width=760, height=1074)
+            with open(src, "wb") as f:
+                writer.write(f)
+
+            apply_annotations(
+                src,
+                out,
+                {
+                    "1": {"w": 760, "h": 1074, "rotation": 0},
+                    "4": {"w": 760, "h": 1074, "rotation": 0},
+                },
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 80,
+                            "y": 80,
+                            "w": 220,
+                            "h": 40,
+                            "text": "TEXTE_EXPORT_PAGE_1",
+                            "textHtml": "TEXTE_EXPORT_PAGE_1",
+                            "fontFamily": "Arial",
+                            "fontSize": 14,
+                            "padding": 6,
+                            "textColor": "#111111",
+                        }
+                    ],
+                    "4": [
+                        {
+                            "type": "text",
+                            "x": 80,
+                            "y": 120,
+                            "w": 220,
+                            "h": 40,
+                            "text": "TEXTE_EXPORT_PAGE_4",
+                            "textHtml": "TEXTE_EXPORT_PAGE_4",
+                            "fontFamily": "Arial",
+                            "fontSize": 14,
+                            "padding": 6,
+                            "textColor": "#111111",
+                        }
+                    ],
+                },
+            )
+
+            reader = PdfReader(out)
+            self.assertGreaterEqual(len(reader.pages), 4)
+            all_text = " ".join(
+                (p.extract_text() or "").replace("\n", " ") for p in reader.pages
+            )
+            self.assertIn("TEXTE_EXPORT_PAGE_1", all_text)
+            self.assertIn("TEXTE_EXPORT_PAGE_4", all_text)
 
 if __name__ == "__main__":
     unittest.main()

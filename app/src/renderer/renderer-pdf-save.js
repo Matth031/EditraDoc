@@ -31,6 +31,10 @@
    * @property {(root: Element) => HTMLElement | null} getAnnotationTextEditor
    * @property {(item: Record<string, unknown>, editorEl: HTMLElement) => void} syncTextFromEditor
    * @property {(item: Record<string, unknown>) => string} plainTextForAnnotationItem
+   * @property {(html: string) => string} sanitizeTextHtml
+   * @property {(root: HTMLElement) => string} buildExportTextHtmlForPdf
+   * @property {(tab: unknown, canvases?: Record<string, { w?: number, h?: number }>) => void} ensureTextAnnotationsSizedForExport
+   * @property {() => Promise<void>} [syncOpenPdfPathsToMain]
    * @property {(tab: unknown, zone: { width: number, height: number }, pageKey: string) => boolean} scaleAnnotationsForPage
    * @property {Set<string>} SHAPE_TYPES
    * @property {(a: Record<string, unknown>) => void} mergeShapeStyleFields
@@ -114,6 +118,56 @@
     }
   }
 
+  /** Journal export multi-pages — niveau warn → toujours écrit dans logs.txt */
+  function logExportAudit(step, payload = {}) {
+    const data = { step, ...payload };
+    try {
+      window.maniPdfApi?.logEvent?.({
+        level: "warn",
+        scope: "export-audit",
+        message: String(step),
+        data
+      });
+    } catch (error) {
+      try {
+        globalThis.__editifyReportError?.("save:export-audit", String(error), { step });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  function summarizeTextAnnotation(a) {
+    if (!a || a.type !== "text") return null;
+    return {
+      id: a.id,
+      x: Math.round(Number(a.x) || 0),
+      y: Math.round(Number(a.y) || 0),
+      w: Math.round(Number(a.w) || 0),
+      h: Math.round(Number(a.h) || 0),
+      textLen: String(a.text || "").length,
+      textPreview: String(a.text || "").slice(0, 64),
+      htmlLen: String(a.textHtml || "").length,
+      coords_space: a.coords_space || null,
+      hasPdfEx: Array.isArray(a.pdf_ex)
+    };
+  }
+
+  function summarizeAnnotationsByPage(map, canvases) {
+    const out = {};
+    Object.keys(map || {}).forEach((pageKey) => {
+      const arr = map[pageKey] || [];
+      out[pageKey] = {
+        count: arr.length,
+        canvas: canvases?.[pageKey] || null,
+        items: arr.map((a) =>
+          a?.type === "text" ? summarizeTextAnnotation(a) : { id: a.id, type: a.type }
+        )
+      };
+    });
+    return out;
+  }
+
   async function waitForPythonService(maxWaitMs = 5000) {
     const started = Date.now();
     let attempt = 0;
@@ -169,12 +223,10 @@
           d.syncTextFromEditor(item, ed);
           return;
         }
-        const plain = String(node.textContent || "").trim();
-        if (plain) {
-          item.text = plain;
-          if (!item.textHtml || !String(item.textHtml).trim()) {
-            item.textHtml = plain;
-          }
+        const html = String(node.innerHTML || "").trim();
+        if (html) {
+          item.textHtml = d.sanitizeTextHtml(html);
+          item.text = d.plainTextForAnnotationItem(item);
         }
       });
     } catch (error) {
@@ -209,20 +261,14 @@
     }
   }
 
-  function logExportGeometryAudit(tab, canvases) {
-    const verbose = globalThis.process?.env?.MANI_PDF_EXPORT_VERBOSE === "1";
-    if (!verbose) return;
-    const pageKey = String(tab?.currentPage || 1);
-    logSave("geom_summary", {
-      pageKey,
-      canvasPx: canvases?.[pageKey] || null,
-      annos: (tab?.annotationsByPage?.[pageKey] || []).map((a) => ({
-        id: a.id,
-        type: a.type,
-        x: Math.round(a.x),
-        y: Math.round(a.y),
-        text: a.type === "text" ? String(a.text || "").slice(0, 40) : undefined
-      }))
+  function logExportGeometryAudit(tab, canvases, annotationsByPage) {
+    logExportAudit("geometry_full", {
+      currentPage: tab?.currentPage || 1,
+      pageCount: tab?.pageCount || null,
+      canvasPages: Object.keys(canvases || {}),
+      annotationPages: Object.keys(tab?.annotationsByPage || {}),
+      payloadPages: Object.keys(annotationsByPage || {}),
+      detail: summarizeAnnotationsByPage(annotationsByPage || tab?.annotationsByPage, canvases)
     });
   }
 
@@ -297,10 +343,19 @@
 
     for (const pageKey of Object.keys(annotationsByPage || {})) {
       const meta = canvases?.[pageKey];
-      if (!meta?.w || !meta?.h) continue;
+      if (!meta?.w || !meta?.h) {
+        logExportAudit("pdf_coords_skip_page", {
+          pageKey,
+          reason: "missing_canvas_meta",
+          meta: meta || null,
+          annoCount: (annotationsByPage[pageKey] || []).length
+        });
+        continue;
+      }
       const pageNum = Number(pageKey) || 1;
       const arr = annotationsByPage[pageKey] || [];
       for (const a of arr) {
+        const before = summarizeTextAnnotation(a);
         try {
           const pdfRect = await d.convertCanvasRectToPdfUser(
             pdfPath,
@@ -316,7 +371,30 @@
           a.pdf_ex = pdfRect.pdf_ex;
           a.pdf_ey = pdfRect.pdf_ey;
           a.coords_space = "pdf_user";
+          logExportAudit("pdf_coords_ok", {
+            pageKey,
+            pageNum,
+            id: a.id,
+            type: a.type,
+            before,
+            after: {
+              x: Math.round(Number(a.x) || 0),
+              y: Math.round(Number(a.y) || 0),
+              canvas_w: a.canvas_w,
+              canvas_h: a.canvas_h,
+              pdf_ex: a.pdf_ex,
+              pdf_ey: a.pdf_ey
+            }
+          });
         } catch (error) {
+          logExportAudit("pdf_coords_fail", {
+            pageKey,
+            pageNum,
+            id: a.id,
+            type: a.type,
+            before,
+            error: String(error?.message || error)
+          });
           logSave("pdf_coords_warn", {
             pageKey,
             id: a.id,
@@ -324,6 +402,127 @@
           });
         }
       }
+    }
+  }
+
+  function resolveExportTextHtmlForClone(d, item) {
+    const fallback = d.sanitizeTextHtml(String(item.textHtml || item.text || ""));
+    const id = String(item.id || "");
+    if (!id) return fallback;
+    const node = d.layerRef.annotationLayer?.querySelector?.(`[data-id="${id.replace(/"/g, '\\"')}"]`);
+    if (!node) return fallback;
+    const ed = d.getAnnotationTextEditor(node);
+    const root = ed || node;
+    if (typeof d.buildExportTextHtmlForPdf === "function") {
+      return d.buildExportTextHtmlForPdf(root);
+    }
+    return fallback;
+  }
+
+  async function prepareExportPayload(tab) {
+    const d = requireDeps();
+    logExportAudit("prepare_start", {
+      currentPage: tab?.currentPage || 1,
+      tabPages: Object.keys(tab?.annotationsByPage || {}),
+      before: summarizeAnnotationsByPage(tab?.annotationsByPage, null)
+    });
+    flushAllTextAnnotationsForExport(tab);
+
+    const canvases = {};
+    try {
+      d.pagesContainer?.querySelectorAll?.(".pdf-page").forEach((node) => {
+        const page = Number(node.dataset.page) || 1;
+        const c = node.querySelector("canvas.pdf-canvas");
+        if (!c) return;
+        canvases[String(page)] = {
+          w: c.width || 0,
+          h: c.height || 0,
+          rotation: Number(node.dataset.rotation) || 0
+        };
+      });
+    } catch (error) {
+      logSave("canvases_warn", { error: String(error?.message || error) });
+    }
+
+    logExportAudit("canvases_collected", {
+      pages: canvases,
+      domPageNodes: d.pagesContainer?.querySelectorAll?.(".pdf-page")?.length || 0
+    });
+
+    resyncAllPagesForExport(tab, canvases);
+
+    try {
+      d.ensureTextAnnotationsSizedForExport?.(tab, canvases);
+    } catch (error) {
+      logSave("text_size_export_warn", { error: String(error?.message || error) });
+    }
+
+    logExportAudit("after_text_size", {
+      tabPages: summarizeAnnotationsByPage(tab?.annotationsByPage, canvases)
+    });
+
+    const annotationsByPage = {};
+    try {
+      Object.keys(tab.annotationsByPage || {}).forEach((k) => {
+        const arr = tab.annotationsByPage[k] || [];
+        annotationsByPage[k] = arr.map((a) => {
+          const c = { ...a };
+          delete c._spellErrors;
+          if (d.SHAPE_TYPES.has(c.type)) d.mergeShapeStyleFields(c);
+          if (c.type === "text") {
+            c.textHtml = resolveExportTextHtmlForClone(d, a);
+            c.text = d.plainTextForAnnotationItem(c);
+            if (!c.textHtml && c.text) c.textHtml = String(c.text);
+          }
+          return c;
+        });
+      });
+    } catch (error) {
+      logSave("annotations_map_error", { error: String(error?.message || error) });
+      throw new Error("Impossible de preparer les annotations pour l'export.");
+    }
+
+    try {
+      await convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases);
+    } catch (error) {
+      logSave("pdf_coords_error", { error: String(error?.message || error) });
+    }
+
+    logExportGeometryAudit(tab, canvases, annotationsByPage);
+
+    try {
+      for (const pageKey of Object.keys(annotationsByPage)) {
+        const arr = annotationsByPage[pageKey] || [];
+        for (const a of arr) {
+          await encodeImageForExport(a, pageKey);
+        }
+      }
+    } catch (error) {
+      logSave("export_abort", {
+        reason: "image_encode_failed",
+        error: String(error?.message || error)
+      });
+      throw new Error("image_encode_failed");
+    }
+
+    return { canvases, annotationsByPage };
+  }
+
+  /** Prépare le payload d'export sans IPC (tests E2E / diagnostic). */
+  async function peekExportPayloadForTest() {
+    const d = requireDeps();
+    const tab = d.getActiveTab();
+    if (!tab?.path) return { ok: false, error: "no_active_pdf" };
+    try {
+      const { canvases, annotationsByPage } = await prepareExportPayload(tab);
+      return {
+        ok: true,
+        inputPath: tab.path,
+        canvases,
+        annotationsByPage
+      };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
     }
   }
 
@@ -355,66 +554,22 @@
       return { ok: false, error: pythonReady?.error || "Service Python indisponible." };
     }
 
-    flushAllTextAnnotationsForExport(tab);
-
-    const canvases = {};
     try {
-      d.pagesContainer?.querySelectorAll?.(".pdf-page").forEach((node) => {
-        const page = Number(node.dataset.page) || 1;
-        const c = node.querySelector("canvas.pdf-canvas");
-        if (!c) return;
-        canvases[String(page)] = {
-          w: c.width || 0,
-          h: c.height || 0,
-          rotation: Number(node.dataset.rotation) || 0
-        };
-      });
-    } catch (error) {
-      logSave("canvases_warn", { error: String(error?.message || error) });
+      await d.syncOpenPdfPathsToMain?.();
+    } catch {
+      /* ignore */
     }
 
-    resyncAllPagesForExport(tab, canvases);
-    logExportGeometryAudit(tab, canvases);
-
-    const annotationsByPage = {};
+    let canvases;
+    let annotationsByPage;
     try {
-      Object.keys(tab.annotationsByPage || {}).forEach((k) => {
-        const arr = tab.annotationsByPage[k] || [];
-        annotationsByPage[k] = arr.map((a) => {
-          const c = { ...a };
-          delete c._spellErrors;
-          if (d.SHAPE_TYPES.has(c.type)) d.mergeShapeStyleFields(c);
-          if (c.type === "text") {
-            c.text = d.plainTextForAnnotationItem(c);
-            if (!c.textHtml && c.text) c.textHtml = String(c.text);
-          }
-          return c;
-        });
-      });
+      ({ canvases, annotationsByPage } = await prepareExportPayload(tab));
     } catch (error) {
-      logSave("annotations_map_error", { error: String(error?.message || error) });
-      return { ok: false, error: "Impossible de preparer les annotations pour l'export." };
-    }
-
-    try {
-      await convertAnnotationsToPdfUserSpace(tab, annotationsByPage, canvases);
-    } catch (error) {
-      logSave("pdf_coords_error", { error: String(error?.message || error) });
-    }
-
-    try {
-      for (const pageKey of Object.keys(annotationsByPage)) {
-        const arr = annotationsByPage[pageKey] || [];
-        for (const a of arr) {
-          await encodeImageForExport(a, pageKey);
-        }
+      const msg = String(error?.message || error);
+      if (msg === "image_encode_failed") {
+        return { ok: false, error: "image_encode_failed" };
       }
-    } catch (error) {
-      logSave("export_abort", {
-        reason: "image_encode_failed",
-        error: String(error?.message || error)
-      });
-      return { ok: false, error: "image_encode_failed" };
+      return { ok: false, error: msg };
     }
 
     logSave("export_ipc", {
@@ -505,7 +660,9 @@
     bind,
     savePdfAs,
     exportActivePdfToPath,
+    peekExportPayloadForTest,
     readImageFileAsBase64,
-    logSave
+    logSave,
+    logExportAudit
   };
 })();

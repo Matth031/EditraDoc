@@ -14,6 +14,27 @@ logger = logging.getLogger(__name__)
 _EXPORT_DEBUG = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
 
 
+def _export_audit_log(message: str, data: dict | None = None) -> None:
+    """Append audit ligne dans EDITRADOC_LOG_PATH / MANI_PDF_LOG_PATH si défini."""
+    log_path = os.environ.get("EDITRADOC_LOG_PATH") or os.environ.get("MANI_PDF_LOG_PATH")
+    if not log_path:
+        return
+    try:
+        import json
+        from datetime import datetime, timezone
+
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        suffix = ""
+        if data is not None:
+            suffix = " | " + json.dumps(data, ensure_ascii=False)[:12000]
+        line = f"[{ts}] [WARN] [python:export-audit] {message}{suffix}\n"
+        os.makedirs(os.path.dirname(os.path.abspath(log_path)) or ".", exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+
 def _page_rotation_deg(page) -> int:
     try:
         return int(page.get("/Rotate", 0) or 0) % 360
@@ -116,8 +137,21 @@ def _html_to_plain(raw: str) -> str:
         return ""
     s = unescape(str(raw))
     s = re.sub(r"(?i)<\s*br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</\s*(div|p|li|h[1-6])\s*>", "\n", s)
     s = re.sub(r"<[^>]+>", "", s)
     return s.replace("\r\n", "\n").strip()
+
+
+def _html_has_line_breaks(raw_html: str | None) -> bool:
+    raw = str(raw_html or "")
+    return bool(re.search(r"<\s*(br|div|p|li|h[1-6])\b", raw, re.I))
+
+
+def _plain_to_paragraph_fragment(plain: str) -> str:
+    p = str(plain or "").replace("\r\n", "\n")
+    if "\n" in p:
+        return "<br/>".join(escape(line) for line in p.split("\n"))
+    return escape(unescape(p))
 
 
 def _num(v, default: float) -> float:
@@ -127,6 +161,37 @@ def _num(v, default: float) -> float:
         return float(v)
     except (TypeError, ValueError):
         return float(default)
+
+
+def _expand_text_box_for_paragraph(
+    w: float, h: float, padding: float, para, plain: str = "", font_name: str = "Helvetica", font_size: float = 14.0
+) -> tuple[float, float, float, float]:
+    """
+    Ajuste largeur/hauteur du cadre pour que le paragraphe ReportLab soit visible.
+    Évite les zones « fils mortes » (ex. w≈162, ~17 caractères, retour à la ligne silencieux).
+    """
+    fw = max(1.0, w - 2 * padding)
+    fh = max(1.0, h - 2 * padding)
+    # Ne pas élargir w : respecter la largeur du cadre (soft-wrap WYSIWYG).
+    try:
+        _pw, ph = para.wrap(fw, fh)
+    except Exception:
+        return w, h, fw, fh
+    if ph > fh + 0.5:
+        h += ph - fh
+        fh = ph
+    return w, h, fw, fh
+
+
+def _plain_text_fits_one_line(plain: str, font_name: str, font_size: float, fw: float) -> bool:
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    if not plain or "\n" in plain:
+        return False
+    try:
+        return stringWidth(plain, font_name, font_size) <= fw + 1.0
+    except Exception:
+        return False
 
 
 def _normalize_rl_color(val: str) -> str:
@@ -259,10 +324,13 @@ def _rl_font_name(font_family: str) -> str:
 def _text_has_markup(raw_html: str | None, plain: str) -> bool:
     raw = str(raw_html or "").strip()
     if not raw:
-        return False
+        return bool(re.search(r"[\n\r]", str(plain or "")))
     if raw != plain and "<" in raw:
         return True
-    return bool(re.search(r"<\s*(b|strong|i|em|u|font|span|br)\b", raw, re.I))
+    return bool(
+        re.search(r"<\s*(b|strong|i|em|u|font|span|br|div|p)\b", raw, re.I)
+        or re.search(r"[\n\r]", str(plain or ""))
+    )
 
 
 def _html_to_paragraph_markup(html: str) -> str:
@@ -327,6 +395,19 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
     reader = PdfReader(input_path)
     writer = PdfWriter()
     _dbg = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
+    _export_audit_log(
+        "apply_start",
+        {
+            "input": input_path,
+            "output": output_path,
+            "pdf_page_count": len(reader.pages),
+            "canvas_pages": list((canvases_px_by_page or {}).keys()),
+            "annotation_pages": list((annotations_by_page or {}).keys()),
+            "annotation_counts": {
+                str(k): len(v or []) for k, v in (annotations_by_page or {}).items()
+            },
+        },
+    )
     if _dbg:
         logger.info(
             "apply_annotations input=%s pages=%s keys=%s",
@@ -453,6 +534,22 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
         c = canvas.Canvas(buf, pagesize=(page_w, page_h))
 
         annos = annotations_by_page.get(str(idx)) or annotations_by_page.get(idx) or []
+        if annos:
+            _export_audit_log(
+                "page_begin",
+                {
+                    "page": idx,
+                    "anno_count": len(annos),
+                    "cw": cw,
+                    "ch": ch,
+                    "page_w": page_w,
+                    "page_h": page_h,
+                    "rot": rot,
+                    "page_sx": page_sx,
+                    "page_sy": page_sy,
+                    "types": [str(a.get("type")) for a in annos],
+                },
+            )
         if annos and _EXPORT_DEBUG:
             logger.info(
                 "export page=%s rot=%s disp=%sx%s canvas=%sx%s scale=%.4f,%.4f annos=%s",
@@ -521,15 +618,6 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                         padding = _num(a.get("padding"), 6.0) * draw_sx
                         font_size = max(6.0, _num(a.get("fontSize"), 14.0) * draw_sx)
                     text_color = _color(str(a.get("textColor") or "#111111")) or HexColor("#111111")
-                    bg = a.get("bgColor")
-                    if bg and str(bg).strip() and str(bg).lower() not in ("transparent", "none"):
-                        bgc = _color(str(bg))
-                        if bgc is not None:
-                            c.setFillColor(bgc)
-                            if use_canvas_space:
-                                c.rect(0, 0, w, h, stroke=0, fill=1)
-                            else:
-                                c.rect(x, y, w, h, stroke=0, fill=1)
                     raw_html = a.get("textHtml")
                     plain = str(a.get("text") or "").strip()
                     if not plain:
@@ -540,7 +628,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                     if has_markup and raw_html and str(raw_html).strip():
                         frag = _html_to_paragraph_markup(str(raw_html))
                     if not frag.strip():
-                        frag = escape(unescape(plain))
+                        frag = _plain_to_paragraph_fragment(plain)
                     if not frag.strip():
                         frag = escape(plain or " ")
                     style = ParagraphStyle(
@@ -553,45 +641,108 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                     try:
                         para = Paragraph(frag, style)
                     except Exception:
-                        frag = escape(plain or " ")
+                        frag = _plain_to_paragraph_fragment(plain or " ")
                         para = Paragraph(frag, style)
-                    fw = max(1.0, w - 2 * padding)
-                    fh = max(1.0, h - 2 * padding)
-                    if use_canvas_space:
-                        frame = Frame(
-                            padding,
-                            padding,
-                            fw,
-                            fh,
-                            leftPadding=0,
-                            rightPadding=0,
-                            topPadding=0,
-                            bottomPadding=0,
-                            showBoundary=0,
+                    w, h, fw, fh = _expand_text_box_for_paragraph(
+                        w, h, padding, para, plain=plain, font_name=font_name, font_size=font_size
+                    )
+                    draw_path = (
+                        "drawString"
+                        if (
+                            not has_markup
+                            and not _html_has_line_breaks(raw_html)
+                            and "\n" not in plain
+                            and _plain_text_fits_one_line(plain, font_name, font_size, fw)
                         )
-                    else:
-                        frame = Frame(
-                            x + padding,
-                            y + padding,
-                            fw,
-                            fh,
-                            leftPadding=0,
-                            rightPadding=0,
-                            topPadding=0,
-                            bottomPadding=0,
-                            showBoundary=0,
-                        )
-                    try:
-                        frame.addFromList([para], c)
-                    except Exception:
-                        if _EXPORT_DEBUG:
-                            logger.info("export text fallback drawString page=%s", idx)
+                        else "paragraph"
+                    )
+                    _export_audit_log(
+                        "text_draw",
+                        {
+                            "page": idx,
+                            "id": a.get("id"),
+                            "plain_len": len(plain),
+                            "plain_preview": plain[:64],
+                            "x": round(x, 2),
+                            "y": round(y, 2),
+                            "w": round(w, 2),
+                            "h": round(h, 2),
+                            "fw": round(fw, 2),
+                            "fh": round(fh, 2),
+                            "use_canvas_space": use_canvas_space,
+                            "coords_pdf_user": coords_pdf_user,
+                            "draw_path": draw_path,
+                        },
+                    )
+                    bg = a.get("bgColor")
+                    if bg and str(bg).strip() and str(bg).lower() not in ("transparent", "none"):
+                        bgc = _color(str(bg))
+                        if bgc is not None:
+                            c.setFillColor(bgc)
+                            if use_canvas_space:
+                                c.rect(0, 0, w, h, stroke=0, fill=1)
+                            else:
+                                c.rect(x, y, w, h, stroke=0, fill=1)
+                    if (
+                        not has_markup
+                        and not _html_has_line_breaks(raw_html)
+                        and "\n" not in plain
+                        and _plain_text_fits_one_line(plain, font_name, font_size, fw)
+                    ):
                         c.setFillColor(text_color)
                         c.setFont(font_name, font_size)
                         if use_canvas_space:
                             c.drawString(padding, h - padding - font_size, plain[:2000])
                         else:
                             c.drawString(x + padding, y + h - padding - font_size, plain[:2000])
+                    else:
+                        if use_canvas_space:
+                            frame = Frame(
+                                padding,
+                                padding,
+                                fw,
+                                fh,
+                                leftPadding=0,
+                                rightPadding=0,
+                                topPadding=0,
+                                bottomPadding=0,
+                                showBoundary=0,
+                            )
+                        else:
+                            frame = Frame(
+                                x + padding,
+                                y + padding,
+                                fw,
+                                fh,
+                                leftPadding=0,
+                                rightPadding=0,
+                                topPadding=0,
+                                bottomPadding=0,
+                                showBoundary=0,
+                            )
+                        try:
+                            frame.addFromList([para], c)
+                        except Exception:
+                            if _EXPORT_DEBUG:
+                                logger.info("export text fallback drawString page=%s", idx)
+                            c.setFillColor(text_color)
+                            c.setFont(font_name, font_size)
+                            fallback_frag = _plain_to_paragraph_fragment(plain or " ")
+                            if "\n" in plain or "<br/>" in fallback_frag:
+                                try:
+                                    fb_para = Paragraph(fallback_frag, style)
+                                    frame.addFromList([fb_para], c)
+                                except Exception:
+                                    if use_canvas_space:
+                                        c.drawString(padding, h - padding - font_size, plain[:2000])
+                                    else:
+                                        c.drawString(
+                                            x + padding, y + h - padding - font_size, plain[:2000]
+                                        )
+                            elif use_canvas_space:
+                                c.drawString(padding, h - padding - font_size, plain[:2000])
+                            else:
+                                c.drawString(x + padding, y + h - padding - font_size, plain[:2000])
                 elif a_kind == "image":
                     b64 = a.get("src_base64")
                     if b64:

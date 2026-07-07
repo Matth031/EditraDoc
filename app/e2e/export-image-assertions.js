@@ -53,6 +53,20 @@ function assertPdfHasEmbeddedImageXObjects(pdfPath, minCount = 1) {
   expect(n, "au moins une ressource /Subtype /Image").toBeGreaterThanOrEqual(minCount);
 }
 
+function extractPdfTextAllPages(pdfPath) {
+  const script =
+    "import sys; from pypdf import PdfReader; r=PdfReader(sys.argv[1]); print(' '.join((p.extract_text() or '').replace(chr(10),' ') for p in r.pages))";
+  return runPythonInline(script, [pdfPath]).trim();
+}
+
+function assertPdfContainsTextAnywhere(pdfPath, text) {
+  const needle = String(text || "");
+  const buf = fs.readFileSync(pdfPath);
+  if (buf.includes(Buffer.from(needle))) return;
+  const extracted = extractPdfTextAllPages(pdfPath);
+  expect(extracted).toContain(needle);
+}
+
 function assertPdfContainsText(pdfPath, text) {
   const needle = String(text || "");
   const buf = fs.readFileSync(pdfPath);
@@ -77,6 +91,7 @@ module.exports = {
   countBufferOccurrences,
   assertPdfHasEmbeddedImageXObjects,
   assertPdfContainsText,
+  assertPdfContainsTextAnywhere,
   assertPdfUsesBaseFont,
   assertPdfHasFontSizeTf,
   extractPdfTextFirstPage

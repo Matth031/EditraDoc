@@ -690,7 +690,7 @@ async function exportPdfWithAnnotationsMain(payload) {
     } catch {
       /* ignore */
     }
-    log("export", message, data ?? null);
+    logWarn("export", message, data ?? null);
   };
   audit("start", { input_path, output_path });
 
@@ -724,7 +724,24 @@ async function exportPdfWithAnnotationsMain(payload) {
     input_path,
     output_path,
     annotationCount,
-    pageKeys: Object.keys(payload?.canvases_px_by_page || {}).slice(0, 20)
+    pageKeys: Object.keys(payload?.canvases_px_by_page || {}).slice(0, 20),
+    annotationsByPage: Object.fromEntries(
+      Object.entries(payload?.annotations_by_page || {}).map(([k, arr]) => [
+        k,
+        (Array.isArray(arr) ? arr : []).map((a) => ({
+          id: a?.id,
+          type: a?.type,
+          x: a?.x,
+          y: a?.y,
+          w: a?.w,
+          h: a?.h,
+          textLen: a?.type === "text" ? String(a?.text || "").length : undefined,
+          textPreview: a?.type === "text" ? String(a?.text || "").slice(0, 48) : undefined,
+          coords_space: a?.coords_space,
+          hasPdfEx: Array.isArray(a?.pdf_ex)
+        }))
+      ])
+    )
   });
 
   const result = await postToPython("/apply-annotations", payload);

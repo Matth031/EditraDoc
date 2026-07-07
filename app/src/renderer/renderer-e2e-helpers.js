@@ -64,6 +64,8 @@
         /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
           d.exportActivePdfToPath
         );
+      const peekExportPayloadForTest =
+        /** @type {() => Promise<Record<string, unknown>>} */ (d.peekExportPayloadForTest);
 
       window.__maniE2E.resetUiState = () => {
         try {
@@ -151,6 +153,14 @@
           return null;
         }
       };
+      window.__maniE2E.injectTextOnPageForTest = (pageNum, opts = {}) => {
+        try {
+          if (!window.__maniE2E.setCurrentPageForTest?.(pageNum)) return null;
+          return window.__maniE2E.injectTextForTest(opts);
+        } catch {
+          return null;
+        }
+      };
       window.__maniE2E.injectTextForTest = (opts = {}) => {
         try {
           const tab = getActiveTab();
@@ -165,8 +175,8 @@
             type: "text",
             x: 100,
             y: 100,
-            w: 260,
-            h: 100,
+            w: Math.max(40, Number(opts.w) || 260),
+            h: Math.max(24, Number(opts.h) || 100),
             rotation: 0,
             opacity: 100,
             textColor: opts.textColor != null ? String(opts.textColor) : "#111111",
@@ -175,6 +185,7 @@
             fontFamily: opts.fontFamily != null ? String(opts.fontFamily) : "Arial",
             fontSize: Math.max(8, Math.min(96, Number(opts.fontSize) || 14)),
             text: plain,
+            ...(opts.textWrapManual ? { textWrapManual: true } : {}),
             ...(html ? { textHtml: html } : {})
           };
           annotations.push(ann);
@@ -469,6 +480,8 @@
             type: a.type,
             rotation: a.rotation,
             opacity: a.opacity,
+            x: a.x,
+            y: a.y,
             w: a.w,
             h: a.h
           };
@@ -632,6 +645,26 @@
         }
       };
       window.__maniE2E.exportActivePdfToPathForTest = (p) => exportActivePdfToPath(String(p || ""));
+      window.__maniE2E.peekExportPayloadForTest = () => peekExportPayloadForTest();
+      window.__maniE2E.debugTextExportCaptureForTest = (annotationId) => {
+        try {
+          const htmlApi = window.__editifyTextHtml;
+          if (!htmlApi?.buildExportTextHtmlForPdf) return { ok: false, error: "no_api" };
+          const host = pagesContainer?.querySelector?.(`[data-id="${annotationId}"]`);
+          if (!host) return { ok: false, error: "no_node" };
+          const ed = host.querySelector?.(".text-editor");
+          const root = ed || host;
+          return {
+            ok: true,
+            clientWidth: host.clientWidth,
+            wrapDisplay: host.classList.contains("wrap-display"),
+            offsets: htmlApi.getVisualLineBreakOffsets?.(root) || [],
+            captured: htmlApi.buildExportTextHtmlForPdf(root)
+          };
+        } catch (error) {
+          return { ok: false, error: String(error?.message || error) };
+        }
+      };
       window.__maniE2E.overwriteActivePdfForTest = async () => {
         try {
           const tab = getActiveTab();

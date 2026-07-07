@@ -26,16 +26,250 @@
     return div.innerHTML;
   }
 
+  function plainTextFromHtmlRoot(root) {
+    if (!root) return "";
+    try {
+      const t = String(root.innerText ?? root.textContent ?? "");
+      return t.replace(/\r\n/g, "\n");
+    } catch {
+      return stripTagsForPlain(root.innerHTML || "");
+    }
+  }
+
   function plainTextForAnnotationItem(item) {
     if (!item || item.type !== "text") return "";
     if (item.textHtml && String(item.textHtml).trim()) {
       const div = document.createElement("div");
       div.innerHTML = sanitizeTextHtml(item.textHtml);
-      const rng = document.createRange();
-      rng.selectNodeContents(div);
-      return String(rng.toString() || "").replace(/\r\n/g, "\n");
+      return plainTextFromHtmlRoot(div);
     }
-    return String(item.text || "");
+    return String(item.text || "").replace(/\r\n/g, "\n");
+  }
+
+  function plainTextFromEditorElement(editorEl) {
+    if (!editorEl) return "";
+    return plainTextFromHtmlRoot(editorEl);
+  }
+
+  /**
+   * Repère les positions (texte brut) où le navigateur passe à une nouvelle ligne visuelle (soft-wrap).
+   * @param {HTMLElement} root
+   */
+  function plainTextIndexFromRoot(root) {
+    if (!root) return "";
+    try {
+      const r = document.createRange();
+      r.selectNodeContents(root);
+      return String(r.toString() || "").replace(/\r\n/g, "\n");
+    } catch {
+      return plainTextFromHtmlRoot(root);
+    }
+  }
+
+  function getVisualLineBreakOffsets(root) {
+    if (!root || typeof document === "undefined") return [];
+    const plain = plainTextIndexFromRoot(root);
+    const offsets = [];
+    let lastTop = null;
+    const range = document.createRange();
+    const lineHeight =
+      parseFloat(getComputedStyle(root).lineHeight) ||
+      parseFloat(getComputedStyle(root).fontSize) * 1.2 ||
+      16;
+    const threshold = Math.max(2, lineHeight * 0.45);
+
+    for (let i = 0; i < plain.length; i++) {
+      if (plain[i] === "\n") {
+        lastTop = null;
+        continue;
+      }
+      const boundary = getTextBoundaryInRoot(root, i);
+      if (!boundary || boundary.node.nodeType !== Node.TEXT_NODE) continue;
+      try {
+        range.setStart(boundary.node, boundary.offset);
+        range.setEnd(boundary.node, boundary.offset + 1);
+        const top = range.getBoundingClientRect().top;
+        if (lastTop !== null && top > lastTop + threshold) {
+          offsets.push(i);
+        }
+        lastTop = top;
+      } catch {
+        /* ignore */
+      }
+    }
+    return offsets;
+  }
+
+  /** Insère un <br> dans root au décalage texte brut donné (modifie root). */
+  function insertBreakAtPlainOffset(root, offset) {
+    const boundary = getTextBoundaryInRoot(root, offset);
+    if (!boundary) return false;
+    const br = document.createElement("br");
+    try {
+      const { node, offset: off } = boundary;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue || "";
+        const before = text.slice(0, off);
+        const after = text.slice(off);
+        node.nodeValue = before;
+        const afterNode = document.createTextNode(after);
+        const parent = node.parentNode;
+        if (!parent) return false;
+        parent.insertBefore(br, node.nextSibling);
+        parent.insertBefore(afterNode, br.nextSibling);
+        return true;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        node.insertBefore(br, node.childNodes[off] || null);
+        return true;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  function stripSpellHighlightMarkup(root) {
+    if (!root?.querySelectorAll) return;
+    root.querySelectorAll(".mani-spell-miss").forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+    });
+  }
+
+  function getTextExportMeasureContext(displayRoot) {
+    const annotationEl = displayRoot?.classList?.contains?.("annotation")
+      ? displayRoot
+      : displayRoot?.closest?.(".annotation.text");
+    const contentEl =
+      displayRoot?.classList?.contains?.("text-editor") ? displayRoot : annotationEl || displayRoot;
+    if (!contentEl) return null;
+    const styleSource = annotationEl || contentEl;
+    const cs = getComputedStyle(styleSource);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+    const boxW = Math.floor((annotationEl || contentEl).clientWidth || 0);
+    const contentWidth = Math.max(20, boxW - padL - padR);
+    return { annotationEl: styleSource, contentEl, contentWidth };
+  }
+
+  function createExportMeasureRoot(displayRoot) {
+    const ctx = getTextExportMeasureContext(displayRoot);
+    if (!ctx?.contentEl || ctx.contentWidth < 1) return null;
+    const { annotationEl, contentEl, contentWidth } = ctx;
+    const cs = getComputedStyle(annotationEl);
+
+    const shell = document.createElement("div");
+    shell.setAttribute("aria-hidden", "true");
+    Object.assign(shell.style, {
+      position: "fixed",
+      left: "0",
+      top: "0",
+      opacity: "0",
+      pointerEvents: "none",
+      overflow: "hidden",
+      margin: "0",
+      border: "none",
+      boxSizing: "border-box",
+      zIndex: "-1",
+      width: `${contentWidth}px`,
+      fontFamily: cs.fontFamily,
+      fontSize: cs.fontSize,
+      fontWeight: cs.fontWeight,
+      fontStyle: cs.fontStyle,
+      lineHeight: cs.lineHeight,
+      letterSpacing: cs.letterSpacing,
+      color: cs.color,
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      overflowWrap: "break-word",
+      padding: "0"
+    });
+
+    const content = contentEl.cloneNode(true);
+    stripSpellHighlightMarkup(content);
+    content.querySelectorAll?.(".resize-handle")?.forEach((h) => h.remove());
+    shell.appendChild(content);
+    return shell;
+  }
+
+  function htmlHasExplicitLineBreaks(root) {
+    if (!root) return false;
+    const plain = plainTextIndexFromRoot(root);
+    if (/\n/.test(plain)) return true;
+    const html = String(root.innerHTML || "");
+    if (/<\s*br\b/i.test(html)) return true;
+    try {
+      if (root.querySelectorAll("div, p, li").length > 1) return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  function filterSoftWrapOffsets(plain, offsets) {
+    return (offsets || []).filter((i) => {
+      if (i <= 0 || i >= plain.length) return false;
+      if (plain[i] === "\n" || plain[i - 1] === "\n") return false;
+      // Ne jamais couper un mot : coupure soft-wrap uniquement après un espace.
+      return /\s/.test(plain[i - 1]);
+    });
+  }
+
+  /**
+   * Figé les retours à la ligne visuels (soft-wrap) en <br> pour l'export PDF uniquement.
+   * @param {HTMLElement} displayRoot
+   */
+  function injectVisualLineBreaksIntoHtml(displayRoot) {
+    if (!displayRoot) return "";
+    if (htmlHasExplicitLineBreaks(displayRoot)) {
+      return displayRoot.innerHTML || "";
+    }
+    const plain = plainTextIndexFromRoot(displayRoot);
+    const offsets = filterSoftWrapOffsets(plain, getVisualLineBreakOffsets(displayRoot));
+    if (!offsets.length) return displayRoot.innerHTML || "";
+
+    const clone = displayRoot.cloneNode(true);
+    stripSpellHighlightMarkup(clone);
+    clone.querySelectorAll?.(".resize-handle")?.forEach((h) => h.remove());
+    [...offsets].sort((a, b) => b - a).forEach((o) => insertBreakAtPlainOffset(clone, o));
+    return clone.innerHTML || "";
+  }
+
+  /**
+   * HTML prêt pour l'export PDF (ne modifie pas le modèle / l'UI).
+   * Sauts explicites conservés ; soft-wrap figé en <br> seulement sans retour manuel.
+   */
+  function buildExportTextHtmlForPdf(displayRoot) {
+    if (!displayRoot) return "";
+    if (htmlHasExplicitLineBreaks(displayRoot)) {
+      return sanitizeTextHtml(displayRoot.innerHTML || "");
+    }
+
+    const measureRoot = createExportMeasureRoot(displayRoot);
+    if (measureRoot) {
+      document.body.appendChild(measureRoot);
+      try {
+        void measureRoot.offsetHeight;
+        const contentEl = measureRoot.firstElementChild;
+        if (contentEl) {
+          const html = injectVisualLineBreaksIntoHtml(contentEl);
+          if (html) return sanitizeTextHtml(html);
+        }
+      } finally {
+        measureRoot.remove();
+      }
+    }
+
+    const html = injectVisualLineBreaksIntoHtml(displayRoot);
+    return sanitizeTextHtml(html || displayRoot.innerHTML || "");
+  }
+
+  /** @deprecated Utiliser buildExportTextHtmlForPdf — conservé pour les tests E2E. */
+  function captureExportTextHtml(displayRoot) {
+    return buildExportTextHtmlForPdf(displayRoot);
   }
 
   /**
@@ -140,8 +374,13 @@
   window.__editifyTextHtml = {
     stripTagsForPlain,
     sanitizeTextHtml,
+    plainTextFromHtmlRoot,
+    plainTextFromEditorElement,
     plainTextForAnnotationItem,
+    buildExportTextHtmlForPdf,
+    captureExportTextHtml,
     getTextBoundaryInRoot,
+    getVisualLineBreakOffsets,
     wrapSpellMisspellingsInDisplayRoot,
     applySpellHighlightsToTextDisplayNode
   };

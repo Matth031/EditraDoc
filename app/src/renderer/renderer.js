@@ -666,9 +666,9 @@ function getTextWrapState(item, zone, ed = null) {
   return "auto";
 }
 
-function finalizeTextAnnotationLayout(item) {
+function finalizeTextAnnotationLayout(item, zoneOpt) {
   if (!item || item.type !== "text") return;
-  const zone = getSafeZoneSize();
+  const zone = zoneOpt?.width > 0 && zoneOpt?.height > 0 ? zoneOpt : getSafeZoneSize();
   const maxW = Math.max(20, zone.width - (item.x || 0));
   const maxH = Math.max(20, zone.height - (item.y || 0));
   const minW = getDefaultTextBoxWidth(item);
@@ -684,6 +684,87 @@ function finalizeTextAnnotationLayout(item) {
   } else {
     item.w = Math.max(minW, rawRequiredW);
     item.h = clamp(getRequiredTextHeightForWidth(item, item.w, "pre"), 20, maxH);
+  }
+}
+
+/** Ajuste largeur/hauteur des textes avant export (métriques ReportLab ≠ écran). */
+function annotationHasExplicitLineBreaks(item) {
+  if (!item || item.type !== "text") return false;
+  const plain = plainTextForAnnotationItem(item).replace(/\r\n/g, "\n");
+  if (/\n/.test(plain)) return true;
+  const html = String(item.textHtml || "");
+  if (/<\s*br\b/i.test(html)) return true;
+  try {
+    const div = document.createElement("div");
+    div.innerHTML = sanitizeTextHtml(html);
+    if (div.querySelectorAll("div, p, li").length > 1) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function ensureTextAnnotationsSizedForExport(tab, canvases) {
+  if (!tab?.annotationsByPage) return;
+  for (const pageKey of Object.keys(tab.annotationsByPage)) {
+    const zone = getSafeZoneSizeForPage(tab, pageKey, canvases);
+    if (!zone.width || !zone.height) {
+      window.__editifyPdfSave?.logExportAudit?.("text_size_skip_page", {
+        pageKey,
+        reason: "no_zone",
+        zone
+      });
+      continue;
+    }
+    for (const item of tab.annotationsByPage[pageKey] || []) {
+      if (item?.type !== "text") continue;
+      const before = {
+        id: item.id,
+        x: Math.round(item.x || 0),
+        y: Math.round(item.y || 0),
+        w: Math.round(item.w || 0),
+        h: Math.round(item.h || 0),
+        textLen: String(item.text || "").length
+      };
+      if (item.textWrapManual || annotationHasExplicitLineBreaks(item)) {
+        const w = Math.max(20, Math.floor(item.w || 20));
+        item.h = Math.max(
+          item.h || 20,
+          getRequiredTextHeightForWidth(item, w, "pre-wrap")
+        );
+        fitAnnotationToSafeZone(item, zone);
+        window.__editifyPdfSave?.logExportAudit?.("text_size_manual", {
+          pageKey,
+          zone,
+          before,
+          after: {
+            x: Math.round(item.x || 0),
+            y: Math.round(item.y || 0),
+            w: Math.round(item.w || 0),
+            h: Math.round(item.h || 0)
+          }
+        });
+        continue;
+      }
+      finalizeTextAnnotationLayout(item, zone);
+      const w = Math.max(20, Math.floor(item.w || 20));
+      item.h = Math.max(
+        item.h || 20,
+        getRequiredTextHeightForWidth(item, w, "pre-wrap")
+      );
+      fitAnnotationToSafeZone(item, zone);
+      window.__editifyPdfSave?.logExportAudit?.("text_size_auto", {
+        pageKey,
+        zone,
+        before,
+        after: {
+          x: Math.round(item.x || 0),
+          y: Math.round(item.y || 0),
+          w: Math.round(item.w || 0),
+          h: Math.round(item.h || 0)
+        }
+      });
+    }
   }
 }
 
@@ -1211,10 +1292,9 @@ function renderShapeVectorDOM(host, a) {
 
 function syncTextFromEditor(a, editorEl) {
   if (!a || !editorEl) return;
-  a.textHtml = sanitizeTextHtml(editorEl.innerHTML);
-  const rng = document.createRange();
-  rng.selectNodeContents(editorEl);
-  a.text = String(rng.toString() || "").replace(/\r\n/g, "\n");
+  const htmlApi = window.__editifyTextHtml;
+  a.textHtml = htmlApi.sanitizeTextHtml(editorEl.innerHTML);
+  a.text = htmlApi.plainTextFromEditorElement(editorEl);
   delete a._spellErrors;
 }
 
@@ -1413,6 +1493,25 @@ function getSafeZoneSize() {
     width: Math.max(0, Math.floor(rect.width)),
     height: Math.max(0, Math.floor(rect.height))
   };
+}
+
+/** Zone canvas d'une page précise (export multi-pages — ne pas utiliser la page active). */
+function getSafeZoneSizeForPage(tab, pageKey, canvases) {
+  const key = String(pageKey || 1);
+  const meta = canvases?.[key];
+  if (meta?.w > 0 && meta?.h > 0) {
+    return { width: meta.w, height: meta.h };
+  }
+  const vp = tab?.viewportByPage?.[key];
+  if (vp?.width > 0 && vp?.height > 0) {
+    return { width: vp.width, height: vp.height };
+  }
+  const pageNode = pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
+  const canvas = pageNode?.querySelector?.("canvas.pdf-canvas");
+  if (canvas?.width > 0 && canvas?.height > 0) {
+    return { width: canvas.width, height: canvas.height };
+  }
+  return getSafeZoneSize();
 }
 
 /** Lit la géométrie DOM d'une annotation (repère canvas interne) — diagnostic export. */
@@ -2575,6 +2674,10 @@ pdfSave.bind({
   getAnnotationTextEditor,
   syncTextFromEditor,
   plainTextForAnnotationItem,
+  sanitizeTextHtml: window.__editifyTextHtml.sanitizeTextHtml,
+  buildExportTextHtmlForPdf: window.__editifyTextHtml.buildExportTextHtmlForPdf,
+  ensureTextAnnotationsSizedForExport,
+  syncOpenPdfPathsToMain,
   scaleAnnotationsForPage,
   SHAPE_TYPES,
   mergeShapeStyleFields,
@@ -3661,6 +3764,7 @@ try {
     clickManiColorValidateButtonForInputId,
     setLanguage,
     undo,
-    exportActivePdfToPath: pdfSave.exportActivePdfToPath
+    exportActivePdfToPath: pdfSave.exportActivePdfToPath,
+    peekExportPayloadForTest: pdfSave.peekExportPayloadForTest
   });
 } catch {}
