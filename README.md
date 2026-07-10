@@ -368,7 +368,7 @@ Commands in `app/package.json`:
 | `npm run test:verify-assets` | `index.html` / i18n consistency |
 | `npm run format` / `format:check` | Prettier |
 | `npm run lint` | ESLint |
-| `npm run test:node` | Node tests (`node-tests/**/*.test.js`) |
+| `npm run test:node` | Node tests (`scripts/run-node-tests.mjs`, cross-plateforme) |
 | `npm run test:coverage` | c8 with thresholds in `package.json` |
 | `npm run test:audit` | `npm audit --audit-level=high` |
 | `npm test` | Python unittest (`python/tests`) |
