@@ -1,11 +1,12 @@
 const fs = require("node:fs");
+const { normalizeUpdateSettings } = require("../lib/update-manifest");
 const path = require("node:path");
 const { app } = require("electron");
 const { normalizeAndValidateLogFilePath } = require("../lib/log-path-validation");
 const { getInstallRoot } = require("./install-path");
 
 let settingsFilePath = null;
-/** @type {{ logFilePath: string | null } | null} */
+/** @type {{ logFilePath: string | null, exportAuditEnabled: boolean, checkUpdatesOnStartup: boolean, lastUpdateCheckAt: string | null } | null} */
 let cached = null;
 
 function getSettingsFilePath() {
@@ -20,17 +21,31 @@ function getSettingsFilePath() {
  */
 function loadSettings(force = false) {
   if (cached && !force) return cached;
-  cached = { logFilePath: null };
+  cached = {
+    logFilePath: null,
+    exportAuditEnabled: true,
+    checkUpdatesOnStartup: false,
+    lastUpdateCheckAt: null
+  };
   try {
     const filePath = getSettingsFilePath();
     if (!fs.existsSync(filePath)) return cached;
     const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
     if (parsed && typeof parsed === "object") {
       const custom = typeof parsed.logFilePath === "string" ? parsed.logFilePath.trim() : "";
+      const update = normalizeUpdateSettings(parsed);
       cached.logFilePath = custom || null;
+      cached.exportAuditEnabled = parsed.exportAuditEnabled !== false;
+      cached.checkUpdatesOnStartup = update.checkUpdatesOnStartup;
+      cached.lastUpdateCheckAt = update.lastUpdateCheckAt;
     }
   } catch {
-    cached = { logFilePath: null };
+    cached = {
+      logFilePath: null,
+      exportAuditEnabled: true,
+      checkUpdatesOnStartup: false,
+      lastUpdateCheckAt: null
+    };
   }
   return cached;
 }
@@ -95,6 +110,43 @@ function getLogFileSettingsInfo(getEffectiveLogFilePath) {
   };
 }
 
+function getUpdateSettings() {
+  const s = loadSettings();
+  return {
+    checkUpdatesOnStartup: Boolean(s.checkUpdatesOnStartup),
+    lastUpdateCheckAt: s.lastUpdateCheckAt || null
+  };
+}
+
+/**
+ * @param {boolean} enabled
+ */
+function setCheckUpdatesOnStartup(enabled) {
+  saveSettings({ checkUpdatesOnStartup: Boolean(enabled) });
+  return { ok: true, checkUpdatesOnStartup: Boolean(enabled) };
+}
+
+/**
+ * @param {string} iso
+ */
+function setLastUpdateCheckAt(iso) {
+  const value = String(iso || "").trim();
+  saveSettings({ lastUpdateCheckAt: value || null });
+}
+
+function getExportAuditSettings() {
+  const s = loadSettings();
+  return { exportAuditEnabled: s.exportAuditEnabled !== false };
+}
+
+/**
+ * @param {boolean} enabled
+ */
+function setExportAuditEnabled(enabled) {
+  saveSettings({ exportAuditEnabled: Boolean(enabled) });
+  return { ok: true, exportAuditEnabled: Boolean(enabled) };
+}
+
 module.exports = {
   loadSettings,
   getCustomLogFilePath,
@@ -102,5 +154,10 @@ module.exports = {
   getDefaultLogFilePath,
   getEnvLogOverride,
   getLogFileSettingsInfo,
+  getExportAuditSettings,
+  setExportAuditEnabled,
+  getUpdateSettings,
+  setCheckUpdatesOnStartup,
+  setLastUpdateCheckAt,
   normalizeAndValidateLogFilePath
 };

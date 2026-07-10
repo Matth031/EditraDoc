@@ -23,6 +23,17 @@
         <button type="button" id="welcomeOpenPdfBtn" class="welcome-open-pdf-btn" data-tooltip="Ouvre un fichier PDF."></button>
       </div>
     </section>
+    <div
+      id="updateAvailableBanner"
+      class="update-available-banner hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <span id="updateBannerText" class="update-banner-text"></span>
+      <button type="button" id="updateBannerDownloadBtn" class="update-banner-download"></button>
+      <button type="button" id="updateBannerDismissBtn" class="update-banner-dismiss" aria-label="Fermer">✕</button>
+    </div>
     <div id="appToolbar" class="app-toolbar hidden" role="navigation" aria-label="Barre d'outils application">
       <div class="toolbar-left">
         <div class="toolbar-menu-wrap">
@@ -56,6 +67,19 @@
             </button>
             <button type="button" id="toolbarLogFileMenuItem" role="menuitem" data-tooltip="">
               📁 Fichier journal d'erreurs…
+            </button>
+            <div class="menu-section-label" id="menuUpdatesLabel" role="presentation">Mises à jour</div>
+            <button type="button" id="toolbarCheckUpdatesMenuItem" role="menuitem" data-tooltip="">
+              🔄 Vérifier les mises à jour
+            </button>
+            <button
+              type="button"
+              id="toolbarCheckUpdatesStartupBtn"
+              role="menuitemcheckbox"
+              aria-checked="false"
+              data-tooltip=""
+            >
+              ☑ Vérifier au démarrage
             </button>
             <button type="button" id="toolbarAboutMenuItem" role="menuitem" data-tooltip="Informations sur EditraDoc.">❔ À propos</button>
           </div>
@@ -455,6 +479,7 @@
     <script src="./renderer-session-log.js"></script>
     <script src="./renderer-session-log-ui.js"></script>
     <script src="./renderer-log-settings-ui.js"></script>
+    <script src="./renderer-update-ui.js"></script>
     <script src="./renderer-sidebars.js"></script>
     <script src="./renderer-text-ctx-menu.js"></script>
     <script src="./renderer-shape-image-ctx-menu.js"></script>

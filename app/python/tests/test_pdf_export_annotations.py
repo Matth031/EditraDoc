@@ -214,6 +214,44 @@ class TestPdfExportAnnotations(unittest.TestCase):
             text = (reader.pages[0].extract_text() or "").replace("\n", " ")
             self.assertIn("UI_OVERWRITE_TEST", text)
 
+    def test_apply_annotations_text_fractional_padding_pdf_user(self):
+        """Régression : padding canvas→PDF fractionnel ne doit pas rogner tout le texte (Duncan p.1 rot 270°)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "rot270.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src, width=1415.0, height=2002.0, rotate=270)
+
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 1415, "h": 2002, "rotation": 270}},
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 818.78,
+                            "y": 347.52,
+                            "w": 237,
+                            "h": 104,
+                            "canvas_w": 237,
+                            "canvas_h": 104,
+                            "pdf_ex": [0.0, -99.71],
+                            "pdf_ey": [-43.75, 0.0],
+                            "coords_space": "pdf_user",
+                            "text": "Nouvel essai sur 2 lignes !",
+                            "textHtml": 'Nouvel essai <span style="color: rgb(241, 15, 15);">sur 2 lignes</span> !',
+                            "fontFamily": "Arial",
+                            "fontSize": 34,
+                            "padding": 6.12051349066971,
+                            "textColor": "#111111",
+                        }
+                    ]
+                },
+            )
+
+            text = (PdfReader(out).pages[0].extract_text() or "").replace("\n", " ")
+            self.assertIn("Nouvel essai", text)
+            self.assertIn("sur 2 lignes", text)
 
     def test_apply_annotations_text_multiline_html_format(self):
         """Régression : 2 lignes + gras/italique/souligné/couleur conservés à l'export."""

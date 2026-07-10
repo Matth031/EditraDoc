@@ -1,9 +1,9 @@
 # EditraDoc
 
-**Local-first PDF editor and toolkit** — version **1.1.0**.  
+**Local-first PDF editor and toolkit** — version **1.1.1**.  
 Your files stay on your machine; no cloud upload is required for core PDF work.
 
-**Éditeur et boîte à outils PDF 100 % locale** — version **1.1.0**.  
+**Éditeur et boîte à outils PDF 100 % locale** — version **1.1.1**.  
 Vos fichiers restent sur votre machine ; aucun envoi vers le cloud n’est requis pour le cœur métier.
 
 ---
@@ -31,6 +31,32 @@ Double-cliquez sur le fichier et suivez l’assistant d’installation.
 - Pas besoin d’installer Node.js ou Python
 
 L’outil n’est pas encore signé numériquement : Windows peut afficher un avertissement. Cela ne signifie pas que l’application est dangereuse. Téléchargez EditraDoc **uniquement** depuis ce dépôt GitHub officiel ; le code source est public ; vos PDF ne sont pas envoyés sur un service en ligne.
+
+---
+
+## Version check (optional)
+
+EditraDoc **1.1.1** can compare your installed version with the official GitHub release:
+
+- **Options** (toolbar, **F10**) → **Check for updates** — manual check anytime
+- **Check on startup** — opt-in (off by default); at most **one** check per 24 h when enabled
+- If a newer version exists: banner + download button opens  
+  `https://github.com/Matth031/EditraDoc/releases/latest/download/EditraDoc-Setup.exe`
+- Manifest: `https://github.com/Matth031/EditraDoc/releases/latest/download/latest.json` (semver + SHA256)
+- **Privacy:** no PDF paths, no user files, no machine ID — HTTPS GET to `github.com` only (main process, not the renderer)
+- Offline or invalid manifest: silent failure; app keeps working
+
+**About** dialog shows the embedded version from `public/build-info.json` (generated at build).
+
+---
+
+**Français — Vérification de version (optionnelle)**
+
+- Menu **Options** → **Vérifier les mises à jour** (manuel)
+- **Vérifier au démarrage** : opt-in (désactivé par défaut), max 1 fois / 24 h
+- Mise à jour disponible → bandeau + lien vers l’installateur officiel GitHub
+- Aucune donnée utilisateur envoyée ; échec silencieux hors ligne
+- **À propos** affiche la version embarquée réelle (`build-info.json`)
 
 ---
 
@@ -437,7 +463,7 @@ No command line needed: single **`.exe`** installer (PDF engine included, no sep
 | Location | When |
 |----------|------|
 | **`EditraDoc-Setup.exe` at repo root** | After `npm run dist:win` in `app/` (auto-copied by `copy-installer-to-root.mjs`) |
-| **GitHub Releases / Actions artifacts** | Download `EditraDoc-Setup.exe` from **Releases** (tag e.g. `v1.1.0`) or artifact **`editify-windows-setup`** |
+| **GitHub Releases / Actions artifacts** | Download `EditraDoc-Setup.exe` from **Releases** (tag e.g. `v1.1.1`) or artifact **`editify-windows-setup`** |
 
 `EditraDoc-Setup.exe` at root is **gitignored** (large binary). If missing, build locally or download from Releases.
 
@@ -445,7 +471,7 @@ Releases are produced by workflow **Release Windows installer** (`.github/workfl
 
 ---
 
-**Français —** Installateur **`.exe`** unique, sans Node/Python sur le PC cible. Fichier **`EditraDoc-Setup.exe`** à la racine après `npm run dist:win`, ou téléchargement via **Releases** GitHub (tag `v1.1.0`). Fichier gitignored si build locale. Workflow CI **Release Windows installer** avec tests de régression packagés.
+**Français —** Installateur **`.exe`** unique, sans Node/Python sur le PC cible. Fichier **`EditraDoc-Setup.exe`** à la racine après `npm run dist:win`, ou téléchargement via **Releases** GitHub (tag `v1.1.1`). Fichier gitignored si build locale. Workflow CI **Release Windows installer** avec tests de régression packagés.
 
 ---
 

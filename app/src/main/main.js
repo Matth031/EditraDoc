@@ -4,9 +4,10 @@ const path = require("node:path");
 const { spawn, execSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const http = require("node:http");
-const { log, logError, logWarn, logInfo, logDebug, logExportAudit, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
-const { isExportAuditEnabled } = require("../lib/app-log-core");
+const { log, logError, logWarn, logInfo, logDebug, logExportAudit, logStartupBanner, getLogFilePath, reloadLogConfiguration, isExportAuditEnabledEffective } = require("./logger");
 const appSettings = require("./app-settings");
+const { getBuildInfoPayload } = require("./lib/build-info");
+const { checkForUpdates, getUpdateStatus } = require("./lib/update-check");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
 const { evaluatePdfOpen } = require("./lib/pdf-open");
@@ -65,13 +66,16 @@ function getPythonLaunchConfig() {
   const pyDir = path.join(appRoot, "python");
   const scriptPath = path.join(pyDir, "pdf_service.py");
   const cwd = pyDir;
+  const logPath = getLogFilePath();
   const env = {
     ...process.env,
     PYTHONUNBUFFERED: "1",
     PYTHONPATH: pyDir,
     PYTHONUTF8: "1",
     MANI_PDF_EXPORT_DEBUG: process.env.MANI_PDF_EXPORT_DEBUG || "0",
-    EDITRADOC_EXPORT_AUDIT: process.env.EDITRADOC_EXPORT_AUDIT || "0",
+    EDITRADOC_EXPORT_AUDIT: isExportAuditEnabledEffective() ? "1" : "0",
+    EDITRADOC_LOG_PATH: logPath,
+    MANI_PDF_LOG_PATH: logPath,
     MANI_PDF_SERVICE_TOKEN: pythonServiceToken
   };
   if (app.isPackaged && process.platform === "win32") {
@@ -622,10 +626,13 @@ function stopPythonService() {
 }
 
 function getPythonPostHeaders(contentLength) {
+  const logPath = getLogFilePath();
   return {
     "Content-Type": "application/json",
     "Content-Length": contentLength,
-    "X-Mani-Pdf-Token": pythonServiceToken
+    "X-Mani-Pdf-Token": pythonServiceToken,
+    "X-Editradoc-Log-Path": logPath,
+    "X-Editradoc-Export-Audit": isExportAuditEnabledEffective() ? "1" : "0"
   };
 }
 
@@ -1110,6 +1117,55 @@ ipcMain.handle("app:notify-ui-language", async (_, lang) => {
   return { ok: true, language: uiLanguage };
 });
 
+function notifyUpdateStatus(status) {
+  try {
+    mainWindow?.webContents?.send?.("update:status-changed", status ?? null);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function scheduleStartupUpdateCheck() {
+  const settings = appSettings.getUpdateSettings();
+  if (!settings.checkUpdatesOnStartup) return;
+  try {
+    const status = await checkForUpdates({ force: false });
+    notifyUpdateStatus(status);
+  } catch (error) {
+    logWarn("update", "startup_check_failed", { error: error?.message || String(error) });
+  }
+}
+
+ipcMain.handle("app:get-build-info", async () => getBuildInfoPayload());
+
+ipcMain.handle("update:get-status", async () => ({ ok: true, status: getUpdateStatus() }));
+
+ipcMain.handle("update:check-now", async () => {
+  try {
+    const status = await checkForUpdates({ force: true });
+    notifyUpdateStatus(status);
+    return { ok: true, status };
+  } catch (error) {
+    const msg = error?.message || String(error);
+    logWarn("update", "manual_check_failed", { error: msg });
+    return { ok: false, error: msg };
+  }
+});
+
+ipcMain.handle("update:get-settings", async () => ({
+  ok: true,
+  settings: appSettings.getUpdateSettings()
+}));
+
+ipcMain.handle("update:set-settings", async (_, payload) => {
+  const enabled = Boolean(payload?.checkUpdatesOnStartup);
+  appSettings.setCheckUpdatesOnStartup(enabled);
+  if (enabled) {
+    scheduleStartupUpdateCheck().catch(() => {});
+  }
+  return { ok: true, settings: appSettings.getUpdateSettings() };
+});
+
 ipcMain.handle("settings:get-log-file", async () => appSettings.getLogFileSettingsInfo(getLogFilePath));
 
 ipcMain.handle("settings:set-log-file", async (_, payload) => {
@@ -1161,7 +1217,7 @@ function handleLogEventPayload(payload) {
   const message = String(payload?.message || "event");
   const rawData = payload?.data ?? null;
   if (scope === "export-audit") {
-    if (!isExportAuditEnabled()) return;
+    if (!isExportAuditEnabledEffective()) return;
     logExportAudit(scope, message, rawData);
     return;
   }
@@ -1332,6 +1388,7 @@ app.whenReady().then(() => {
     logError("python:start", err?.message || String(err));
   });
   jobQueueIntervalId = setInterval(processJobQueue, 500);
+  scheduleStartupUpdateCheck().catch(() => {});
 });
 
 app.on("before-quit", () => {

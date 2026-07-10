@@ -89,7 +89,7 @@ function rotateAnnotationThroughDeltas(item, deltasDeg, canvasW, canvasH) {
   return current;
 }
 
-module.exports = {
+const pageRotateMathApi = {
   normalizeRotation,
   rotateAnnotationBox,
   rotateAnnotationsOnPage,
@@ -97,5 +97,9 @@ module.exports = {
 };
 
 if (typeof window !== "undefined") {
-  window.__editifyPageRotateMath = module.exports;
+  window.__editifyPageRotateMath = pageRotateMathApi;
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = pageRotateMathApi;
 }

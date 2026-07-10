@@ -8,10 +8,11 @@ test("sanitizeData redacte les champs sensibles", () => {
   assert.equal(out.step, "ok");
 });
 
-test("isExportAuditEnabled : desactive par defaut", () => {
-  assert.equal(isExportAuditEnabled({}), false);
+test("isExportAuditEnabled : active par defaut", () => {
+  assert.equal(isExportAuditEnabled({}), true);
   assert.equal(isExportAuditEnabled({ EDITRADOC_EXPORT_AUDIT: "0" }), false);
   assert.equal(isExportAuditEnabled({ EDITRADOC_EXPORT_AUDIT: "1" }), true);
+  assert.equal(isExportAuditEnabled({}, { exportAuditEnabled: false }), false);
 });
 
 test("redactTextPreviewForLog : metadonnees sans contenu lisible", () => {
@@ -41,6 +42,13 @@ test("shouldLogLevel journalise toujours error et warn", () => {
   assert.equal(shouldLogLevel("warn", false), true);
   assert.equal(shouldLogLevel("info", false), false);
   assert.equal(shouldLogLevel("info", true), true);
+});
+
+test("shouldLogLevel journalise les scopes operationnels sans verbose", () => {
+  assert.equal(shouldLogLevel("info", false, "save"), true);
+  assert.equal(shouldLogLevel("info", false, "export-audit"), true);
+  assert.equal(shouldLogLevel("info", false, "annotation"), true);
+  assert.equal(shouldLogLevel("info", false, "renderer"), false);
 });
 
 test("formatLogLine produit une ligne lisible", () => {

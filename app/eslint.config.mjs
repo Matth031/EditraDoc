@@ -100,6 +100,8 @@ export default [
       "src/renderer/renderer-toast.js",
       "src/renderer/renderer-session-log.js",
       "src/renderer/renderer-session-log-ui.js",
+      "src/renderer/renderer-log-settings-ui.js",
+      "src/renderer/renderer-update-ui.js",
       "src/renderer/renderer-i18n-apply.js",
       "src/renderer/renderer-e2e-helpers.js",
       "src/renderer/renderer-sidebars.js",

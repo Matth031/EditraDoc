@@ -109,6 +109,25 @@
       d.enforceSafeZoneForActiveTab();
       d.renderAnnotations();
       d.scheduleSidebarUpdate();
+      try {
+        const intrinsic = Number(pageNode?.dataset?.intrinsicRotation) || 0;
+        window.maniPdfApi?.logEvent?.({
+          level: "info",
+          scope: "annotation",
+          message: "page_rotate",
+          data: {
+            action: "page_rotate",
+            page: pageKey,
+            direction,
+            delta,
+            userPageRotation: tab.pageRotationsByPage[pageKey],
+            intrinsicPageRotation: intrinsic,
+            annotationCount: (tab.annotationsByPage?.[pageKey] || []).length
+          }
+        });
+      } catch {
+        /* ignore */
+      }
       d.session.scheduleAutoSave();
     } finally {
       rotating = false;

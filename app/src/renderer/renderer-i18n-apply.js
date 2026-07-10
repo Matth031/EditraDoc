@@ -60,6 +60,8 @@
     toolbarAboutMenuItem: "ttAboutMenu",
     toolbarSessionLogMenuItem: "ttSessionLog",
     toolbarLogFileMenuItem: "ttLogFileSettings",
+    toolbarCheckUpdatesMenuItem: "ttCheckUpdates",
+    toolbarCheckUpdatesStartupBtn: "ttCheckUpdatesStartup",
     toolbarAboutBtn: "ttAboutBtn",
     toolbarCloseBtn: "ttCloseApp",
     addTextBtn: "ttAddText",
@@ -183,6 +185,9 @@
       toolbarAboutMenuItem,
       toolbarSessionLogMenuItem,
       toolbarLogFileMenuItem,
+      menuUpdatesLabel,
+      toolbarCheckUpdatesMenuItem,
+      toolbarCheckUpdatesStartupBtn,
       sessionLogTitleEl,
       sessionLogHint,
       logFileSettingsTitleEl,
@@ -244,6 +249,11 @@
     if (toolbarAboutMenuItem) toolbarAboutMenuItem.textContent = t("about");
     if (toolbarSessionLogMenuItem) toolbarSessionLogMenuItem.textContent = t("menuSessionLog");
     if (toolbarLogFileMenuItem) toolbarLogFileMenuItem.textContent = t("menuLogFile");
+    if (menuUpdatesLabel) menuUpdatesLabel.textContent = t("menuUpdatesLabel");
+    if (toolbarCheckUpdatesMenuItem)
+      toolbarCheckUpdatesMenuItem.textContent = t("menuCheckUpdatesNow");
+    if (toolbarCheckUpdatesStartupBtn)
+      toolbarCheckUpdatesStartupBtn.textContent = t("menuCheckUpdatesStartup");
     if (sessionLogTitleEl) sessionLogTitleEl.textContent = t("sessionLogTitle");
     if (sessionLogHint) sessionLogHint.textContent = t("sessionLogHint");
     if (logFileSettingsTitleEl) logFileSettingsTitleEl.textContent = t("logFileSettingsTitle");

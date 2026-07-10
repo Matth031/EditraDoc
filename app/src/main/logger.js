@@ -1,7 +1,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { app } = require("electron");
-const { formatLogLine, shouldLogLevel, isExportAuditEnabled, sanitizeExportAuditData } = require("../lib/app-log-core");
+const {
+  formatLogLine,
+  shouldLogLevel,
+  isExportAuditEnabled,
+  sanitizeExportAuditData
+} = require("../lib/app-log-core");
 const { getInstallRoot } = require("./install-path");
 
 let appSettings = null;
@@ -16,6 +21,27 @@ const VERBOSE = process.env.MANI_PDF_LOG_VERBOSE === "1";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 
 let logFilePath = null;
+
+function canWriteToDirectory(dirPath) {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    const probe = path.join(dirPath, `.editradoc-log-probe-${process.pid}`);
+    fs.writeFileSync(probe, "ok", "utf8");
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getUserDataLogFilePath() {
+  try {
+    return path.join(app.getPath("userData"), "logs.txt");
+  } catch {
+    return null;
+  }
+}
+
 function getLogFilePath() {
   if (process.env.EDITRADOC_LOG_PATH) return process.env.EDITRADOC_LOG_PATH;
   if (process.env.MANI_PDF_LOG_PATH) return process.env.MANI_PDF_LOG_PATH;
@@ -25,7 +51,19 @@ function getLogFilePath() {
   } catch {
     /* ignore avant app ready */
   }
-  return path.join(getInstallRoot(), "logs.txt");
+  const installLog = path.join(getInstallRoot(), "logs.txt");
+  if (canWriteToDirectory(path.dirname(installLog))) return installLog;
+  const userDataLog = getUserDataLogFilePath();
+  if (userDataLog && canWriteToDirectory(path.dirname(userDataLog))) return userDataLog;
+  return userDataLog || installLog;
+}
+
+function isExportAuditEnabledEffective() {
+  try {
+    return isExportAuditEnabled(process.env, getAppSettings().loadSettings());
+  } catch {
+    return isExportAuditEnabled(process.env, null);
+  }
 }
 
 function resetLogFileCache() {
@@ -41,21 +79,25 @@ function reloadLogConfiguration() {
   resetLogFileCache();
 }
 
+function writeLineToFile(filePath, line) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  rotateIfNeeded(filePath);
+  fs.appendFileSync(filePath, `${line}\n`, "utf8");
+}
+
 function ensureLogFile() {
   if (!logFilePath) {
     logFilePath = getLogFilePath();
-    fs.mkdirSync(path.dirname(logFilePath), { recursive: true });
     if (!fs.existsSync(logFilePath)) {
-      fs.writeFileSync(
+      writeLineToFile(
         logFilePath,
-        `${formatLogLine({
+        formatLogLine({
           level: "info",
           scope: "app",
           message: "Journal EditraDoc initialisé",
           data: { path: logFilePath },
           pid: process.pid
-        })}\n`,
-        "utf8"
+        })
       );
     }
   }
@@ -64,6 +106,7 @@ function ensureLogFile() {
 
 function rotateIfNeeded(filePath) {
   try {
+    if (!fs.existsSync(filePath)) return;
     const stat = fs.statSync(filePath);
     if (stat.size <= MAX_LOG_BYTES) return;
     const rotated = `${filePath}.1`;
@@ -84,6 +127,21 @@ function rotateIfNeeded(filePath) {
   }
 }
 
+function appendLineWithFallback(line) {
+  try {
+    const filePath = ensureLogFile();
+    writeLineToFile(filePath, line);
+    return filePath;
+  } catch {
+    logFilePath = null;
+    const fallback = getUserDataLogFilePath();
+    if (!fallback) throw new Error("no_log_path");
+    logFilePath = fallback;
+    writeLineToFile(fallback, line);
+    return fallback;
+  }
+}
+
 /**
  * @param {string} level
  * @param {string} scope
@@ -91,7 +149,7 @@ function rotateIfNeeded(filePath) {
  * @param {unknown} [data]
  */
 function appendLog(level, scope, message, data) {
-  if (!shouldLogLevel(level, VERBOSE)) return;
+  if (!shouldLogLevel(level, VERBOSE, scope)) return;
   const line = formatLogLine({
     level,
     scope,
@@ -100,9 +158,7 @@ function appendLog(level, scope, message, data) {
     pid: process.pid
   });
   try {
-    const filePath = ensureLogFile();
-    rotateIfNeeded(filePath);
-    fs.appendFileSync(filePath, `${line}\n`, "utf8");
+    appendLineWithFallback(line);
   } catch {
     /* ignore */
   }
@@ -132,25 +188,23 @@ function logDebug(scope, message, data) {
 }
 
 /**
- * Journal diagnostic export (EDITRADOC_EXPORT_AUDIT=1 uniquement).
+ * Journal diagnostic export (activé par défaut ; désactiver via EDITRADOC_EXPORT_AUDIT=0).
  * @param {string} scope
  * @param {string} message
  * @param {unknown} [data]
  */
 function logExportAudit(scope, message, data) {
-  if (!isExportAuditEnabled()) return;
+  if (!isExportAuditEnabledEffective()) return;
   const safeData = data == null ? null : sanitizeExportAuditData(data);
   const line = formatLogLine({
     level: "debug",
-    scope,
+    scope: scope || "export-audit",
     message,
     data: safeData,
     pid: process.pid
   });
   try {
-    const filePath = ensureLogFile();
-    rotateIfNeeded(filePath);
-    fs.appendFileSync(filePath, `${line}\n`, "utf8");
+    appendLineWithFallback(line);
   } catch {
     /* ignore */
   }
@@ -181,6 +235,7 @@ function logStartupBanner() {
     packaged: app.isPackaged,
     installRoot: getInstallRoot(),
     logFile: getLogFilePath(),
+    exportAudit: isExportAuditEnabledEffective(),
     platform: process.platform,
     arch: process.arch
   });
@@ -189,6 +244,7 @@ function logStartupBanner() {
 module.exports = {
   getInstallRoot,
   getLogFilePath,
+  isExportAuditEnabledEffective,
   resetLogFileCache,
   reloadLogConfiguration,
   log,

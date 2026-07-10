@@ -56,6 +56,17 @@ def _redact_payload_for_log(payload: object) -> object:
     return redacted
 
 
+def _sync_log_env_from_headers(handler: BaseHTTPRequestHandler) -> None:
+    """Aligne le journal Python sur le chemin effectif du processus Electron (requête courante)."""
+    log_path = str(handler.headers.get("X-Editradoc-Log-Path") or "").strip()
+    if log_path:
+        os.environ["EDITRADOC_LOG_PATH"] = log_path
+        os.environ["MANI_PDF_LOG_PATH"] = log_path
+    audit = str(handler.headers.get("X-Editradoc-Export-Audit") or "").strip()
+    if audit in ("0", "1"):
+        os.environ["EDITRADOC_EXPORT_AUDIT"] = audit
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [pdf_service] %(message)s")
 
 
@@ -167,6 +178,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if self.path == "/apply-annotations":
+                _sync_log_env_from_headers(self)
                 input_path = str(payload.get("input_path", "") or "")
                 output_path = str(payload.get("output_path", "") or "")
                 ann = payload.get("annotations_by_page", {}) or {}

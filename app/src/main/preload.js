@@ -31,9 +31,11 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   },
   isExportAuditEnabled: () => {
     try {
-      return process?.env?.EDITRADOC_EXPORT_AUDIT === "1";
+      if (process?.env?.EDITRADOC_EXPORT_AUDIT === "1") return true;
+      if (process?.env?.EDITRADOC_EXPORT_AUDIT === "0") return false;
+      return true;
     } catch {
-      return false;
+      return true;
     }
   },
   openPdf: (path) => ipcRenderer.invoke("pdf:open", path),
@@ -91,6 +93,12 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   chooseLogFileDialog: (currentPath, title) =>
     ipcRenderer.invoke("dialog:chooseLogFile", { currentPath, title }),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+  getBuildInfo: () => ipcRenderer.invoke("app:get-build-info"),
+  getUpdateStatus: () => ipcRenderer.invoke("update:get-status"),
+  checkForUpdatesNow: () => ipcRenderer.invoke("update:check-now"),
+  getUpdateSettings: () => ipcRenderer.invoke("update:get-settings"),
+  setUpdateSettings: (payload) => ipcRenderer.invoke("update:set-settings", payload),
+  onUpdateStatusChanged: (cb) => ipcRenderer.on("update:status-changed", (_, status) => cb(status)),
   setSpellcheckLanguages: (langs) => ipcRenderer.invoke("spellcheck:set-languages", langs),
   spellcheckAnalyze: (payload) => ipcRenderer.invoke("spellcheck:analyze", payload),
   spellcheckAddWord: (word) => ipcRenderer.invoke("spellcheck:add-word", { word }),

@@ -47,7 +47,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: EditraDoc-Setup.exe
+          files: |
+            EditraDoc-Setup.exe
+            latest.json
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

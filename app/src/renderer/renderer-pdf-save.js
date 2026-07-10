@@ -118,7 +118,7 @@
     }
   }
 
-  /** Journal export multi-pages — EDITRADOC_EXPORT_AUDIT=1 uniquement (aligné app-log-core.js). */
+  /** Journal export multi-pages (activé par défaut côté main ; voir app-log-core.js). */
   function redactTextPreviewForLog(text) {
     const s = String(text ?? "");
     const lines = s ? s.split(/\r?\n/).length : 0;
@@ -128,7 +128,6 @@
 
   function logExportAudit(step, payload = {}) {
     try {
-      if (!window.maniPdfApi?.isExportAuditEnabled?.()) return;
       const data = { step, ...payload };
       window.maniPdfApi?.logEvent?.({
         level: "debug",
@@ -145,20 +144,95 @@
     }
   }
 
+  function summarizeShapeAnnotation(a) {
+    if (!a || a.type === "text" || a.type === "image") return null;
+    return {
+      id: a.id,
+      type: a.type,
+      x: Math.round(Number(a.x) || 0),
+      y: Math.round(Number(a.y) || 0),
+      w: Math.round(Number(a.w) || 0),
+      h: Math.round(Number(a.h) || 0),
+      rotation: Number(a.rotation) || 0,
+      fillColor: a.fillColor || null,
+      strokeColor: a.strokeColor || null,
+      strokeWidth: a.strokeWidth ?? null,
+      coords_space: a.coords_space || null,
+      hasPdfEx: Array.isArray(a.pdf_ex)
+    };
+  }
+
+  function summarizeImageAnnotation(a) {
+    if (!a || a.type !== "image") return null;
+    return {
+      id: a.id,
+      type: "image",
+      x: Math.round(Number(a.x) || 0),
+      y: Math.round(Number(a.y) || 0),
+      w: Math.round(Number(a.w) || 0),
+      h: Math.round(Number(a.h) || 0),
+      rotation: Number(a.rotation) || 0,
+      hasSrc: Boolean(a.src),
+      hasBase64: Boolean(a.src_base64),
+      coords_space: a.coords_space || null,
+      hasPdfEx: Array.isArray(a.pdf_ex)
+    };
+  }
+
+  function summarizeAnnotationForAudit(a) {
+    if (!a) return null;
+    if (a.type === "text") return summarizeTextAnnotation(a);
+    if (a.type === "image") return summarizeImageAnnotation(a);
+    return summarizeShapeAnnotation(a);
+  }
+
+  function collectPageRotationAudit(tab, canvases) {
+    const pages = {};
+    const allKeys = new Set([
+      ...Object.keys(tab?.pageRotationsByPage || {}),
+      ...Object.keys(canvases || {}),
+      ...Object.keys(tab?.annotationsByPage || {})
+    ]);
+    allKeys.forEach((pageKey) => {
+      const canvas = canvases?.[pageKey] || null;
+      const pageNode = requireDeps().pagesContainer?.querySelector?.(
+        `.pdf-page[data-page="${pageKey}"]`
+      );
+      pages[pageKey] = {
+        userRotation: tab?.pageRotationsByPage?.[pageKey] ?? 0,
+        userTouched: Boolean(tab?.pageRotationsUserTouched?.[pageKey]),
+        intrinsicRotation: Number(pageNode?.dataset?.intrinsicRotation) || 0,
+        canvasRotation: canvas?.rotation ?? null,
+        canvasW: canvas?.w ?? null,
+        canvasH: canvas?.h ?? null
+      };
+    });
+    return pages;
+  }
+
   function summarizeTextAnnotation(a) {
     if (!a || a.type !== "text") return null;
     const plain = String(a.text || "");
     return {
       id: a.id,
+      type: "text",
       x: Math.round(Number(a.x) || 0),
       y: Math.round(Number(a.y) || 0),
       w: Math.round(Number(a.w) || 0),
       h: Math.round(Number(a.h) || 0),
+      rotation: Number(a.rotation) || 0,
+      fontSize: Number(a.fontSize) || null,
+      fontFamily: a.fontFamily || null,
+      padding: Number(a.padding) || null,
+      textColor: a.textColor || null,
+      bgColor: a.bgColor || null,
+      textWrapManual: Boolean(a.textWrapManual),
       textLen: plain.length,
       textPreview: redactTextPreviewForLog(plain),
       htmlLen: String(a.textHtml || "").length,
       coords_space: a.coords_space || null,
-      hasPdfEx: Array.isArray(a.pdf_ex)
+      hasPdfEx: Array.isArray(a.pdf_ex),
+      hasPdfEy: Array.isArray(a.pdf_ey)
     };
   }
 
@@ -169,9 +243,7 @@
       out[pageKey] = {
         count: arr.length,
         canvas: canvases?.[pageKey] || null,
-        items: arr.map((a) =>
-          a?.type === "text" ? summarizeTextAnnotation(a) : { id: a.id, type: a.type }
-        )
+        items: arr.map((a) => summarizeAnnotationForAudit(a)).filter(Boolean)
       };
     });
     return out;
@@ -455,7 +527,8 @@
 
     logExportAudit("canvases_collected", {
       pages: canvases,
-      domPageNodes: d.pagesContainer?.querySelectorAll?.(".pdf-page")?.length || 0
+      domPageNodes: d.pagesContainer?.querySelectorAll?.(".pdf-page")?.length || 0,
+      pageRotations: collectPageRotationAudit(tab, canvases)
     });
 
     resyncAllPagesForExport(tab, canvases);
@@ -482,6 +555,7 @@
             c.textHtml = resolveExportTextHtmlForClone(d, a);
             c.text = d.plainTextForAnnotationItem(c);
             if (!c.textHtml && c.text) c.textHtml = String(c.text);
+            c.padding = Math.round((Number(c.padding) || 6) * 10) / 10;
           }
           return c;
         });
@@ -554,7 +628,9 @@
     logSave("export_start", {
       inputPath: tab.path,
       outputPath,
-      annotationCount: countAnnotationsByPage(tab.annotationsByPage)
+      annotationCount: countAnnotationsByPage(tab.annotationsByPage),
+      pageRotations: tab.pageRotationsByPage || {},
+      currentPage: tab.currentPage || 1
     });
 
     const pythonReady = await waitForPythonService();

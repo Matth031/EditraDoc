@@ -9,15 +9,29 @@ const LEVEL_RANK = Object.freeze({
   debug: 3
 });
 
+/** Scopes toujours journalisés (même sans MANI_PDF_LOG_VERBOSE). */
+const ALWAYS_LOG_SCOPES = new Set([
+  "save",
+  "renderer:save",
+  "export",
+  "export-audit",
+  "annotation",
+  "python:export-audit"
+]);
+
 const SENSITIVE_KEY = /password|token|secret|authorization|api[_-]?key|credential/i;
 const EXPORT_AUDIT_PATH_KEY = /^(input_path|output_path|input|output|path)$/i;
 const EXPORT_AUDIT_PREVIEW_KEY = /^(textPreview|plain_preview|textHtml)$/i;
 
 /**
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {{ exportAuditEnabled?: boolean } | null} [settings]
  */
-function isExportAuditEnabled(env = process.env) {
-  return env?.EDITRADOC_EXPORT_AUDIT === "1";
+function isExportAuditEnabled(env = process.env, settings = null) {
+  if (env?.EDITRADOC_EXPORT_AUDIT === "1") return true;
+  if (env?.EDITRADOC_EXPORT_AUDIT === "0") return false;
+  if (settings && settings.exportAuditEnabled === false) return false;
+  return true;
 }
 
 /**
@@ -123,10 +137,12 @@ function sanitizeData(data, depth = 0) {
 /**
  * @param {string} level
  * @param {boolean} verbose
+ * @param {string} [scope]
  */
-function shouldLogLevel(level, verbose) {
+function shouldLogLevel(level, verbose, scope) {
   const rank = LEVEL_RANK[level] ?? LEVEL_RANK.info;
   if (rank <= LEVEL_RANK.warn) return true;
+  if (scope && ALWAYS_LOG_SCOPES.has(scope)) return true;
   return verbose;
 }
 
@@ -146,6 +162,7 @@ function formatLogLine(row) {
 
 module.exports = {
   LEVEL_RANK,
+  ALWAYS_LOG_SCOPES,
   isExportAuditEnabled,
   redactPathForLog,
   redactTextPreviewForLog,

@@ -14,6 +14,51 @@ body {
   display: none !important;
 }
 
+.update-available-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #e8f4fd 0%, #f0f7ff 100%);
+  border-bottom: 1px solid #b8d4ee;
+  color: #1a3a5c;
+  flex-shrink: 0;
+  z-index: 12400;
+}
+
+.update-banner-text {
+  flex: 1;
+  font-size: 14px;
+}
+
+.update-banner-download {
+  padding: 4px 12px;
+  border: 1px solid #2b6cb0;
+  border-radius: 4px;
+  background: #3182ce;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.update-banner-download:hover {
+  background: #2b6cb0;
+}
+
+.update-banner-dismiss {
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: #4a5568;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.update-banner-dismiss:hover {
+  color: #1a202c;
+}
+
 /* Barre d'outils custom (Fichier / Options / fermer) - complète le menu natif Electron */
 .app-toolbar {
   display: flex;

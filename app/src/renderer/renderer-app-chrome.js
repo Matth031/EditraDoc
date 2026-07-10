@@ -137,14 +137,26 @@
     });
   }
 
-  function showAboutPopover() {
+  async function refreshAboutVersionLabel() {
     const d = requireDeps();
-    if (!d.aboutPopover || !d.toolbarAboutBtn) return;
+    if (!d.aboutVersion) return;
     try {
-      if (d.aboutVersion) d.aboutVersion.textContent = "v1.0.0";
+      const info = await window.maniPdfApi?.getBuildInfo?.();
+      const version = String(info?.version || "").trim();
+      if (version) {
+        d.aboutVersion.textContent = `v${version}`;
+        return;
+      }
     } catch {
       /* ignore */
     }
+    d.aboutVersion.textContent = "v?";
+  }
+
+  function showAboutPopover() {
+    const d = requireDeps();
+    if (!d.aboutPopover || !d.toolbarAboutBtn) return;
+    refreshAboutVersionLabel();
     closeAllFlyoutMenus();
     const r = d.toolbarAboutBtn.getBoundingClientRect();
     const margin = 10;
@@ -159,11 +171,7 @@
   function showAboutPopoverNearOptions() {
     const d = requireDeps();
     if (!d.aboutPopover || !d.toolbarOptionsBtn) return;
-    try {
-      if (d.aboutVersion) d.aboutVersion.textContent = "v1.0.0";
-    } catch {
-      /* ignore */
-    }
+    refreshAboutVersionLabel();
     closeAllFlyoutMenus();
     const r = d.toolbarOptionsBtn.getBoundingClientRect();
     const margin = 10;

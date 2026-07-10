@@ -15,7 +15,12 @@ _EXPORT_DEBUG = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
 
 
 def _export_audit_enabled() -> bool:
-    return os.environ.get("EDITRADOC_EXPORT_AUDIT") == "1"
+    v = os.environ.get("EDITRADOC_EXPORT_AUDIT")
+    if v == "1":
+        return True
+    if v == "0":
+        return False
+    return True
 
 _EXPORT_AUDIT_PREVIEW_KEYS = frozenset({"textPreview", "plain_preview", "textHtml"})
 _EXPORT_AUDIT_PATH_KEYS = frozenset({"input_path", "output_path", "input", "output", "path"})
@@ -213,6 +218,19 @@ def _num(v, default: float) -> float:
         return float(default)
 
 
+def _normalize_text_padding(padding: float, coords_pdf_user: bool, use_canvas_space: bool) -> float:
+    """
+    Padding issu du zoom canvas : les valeurs fractionnelles peuvent créer des zones
+    mortes ReportLab sur pages à rotation (régression Duncan p.1 rot 270°).
+    """
+    p = max(0.0, _num(padding, 6.0))
+    if coords_pdf_user and use_canvas_space:
+        return round(p, 1)
+    if coords_pdf_user:
+        return round(p, 2)
+    return p
+
+
 def _expand_text_box_for_paragraph(
     w: float, h: float, padding: float, para, plain: str = "", font_name: str = "Helvetica", font_size: float = 14.0
 ) -> tuple[float, float, float, float]:
@@ -224,10 +242,11 @@ def _expand_text_box_for_paragraph(
     fh = max(1.0, h - 2 * padding)
     # Ne pas élargir w : respecter la largeur du cadre (soft-wrap WYSIWYG).
     try:
-        _pw, ph = para.wrap(fw, fh)
+        _pw, ph = para.wrap(fw, 1e6)
     except Exception:
         return w, h, fw, fh
-    if ph > fh + 0.5:
+    # Padding canvas→PDF fractionnel : ph peut dépasser fh de quelques centièmes → texte rogné.
+    if ph > fh + 1e-3:
         h += ph - fh
         fh = ph
     return w, h, fw, fh
@@ -662,7 +681,9 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
 
                 if a_kind == "text":
                     if coords_pdf_user:
-                        padding = _num(a.get("padding"), 6.0)
+                        padding = _normalize_text_padding(
+                            _num(a.get("padding"), 6.0), True, use_canvas_space
+                        )
                         font_size = max(6.0, _num(a.get("fontSize"), 14.0))
                     else:
                         padding = _num(a.get("padding"), 6.0) * draw_sx

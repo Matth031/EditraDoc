@@ -35,6 +35,27 @@ class ExportAuditLogTests(unittest.TestCase):
                 else:
                     os.environ["EDITRADOC_LOG_PATH"] = prev_log
 
+    def test_export_audit_log_writes_by_default_when_log_path_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = os.path.join(tmp, "audit_default.log")
+            prev_audit = os.environ.get("EDITRADOC_EXPORT_AUDIT")
+            prev_log = os.environ.get("EDITRADOC_LOG_PATH")
+            try:
+                os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)
+                os.environ["EDITRADOC_LOG_PATH"] = log_path
+                _export_audit_log("default_on", {"page": 2})
+                self.assertTrue(os.path.exists(log_path))
+                self.assertIn("default_on", open(log_path, encoding="utf-8").read())
+            finally:
+                if prev_audit is None:
+                    os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)
+                else:
+                    os.environ["EDITRADOC_EXPORT_AUDIT"] = prev_audit
+                if prev_log is None:
+                    os.environ.pop("EDITRADOC_LOG_PATH", None)
+                else:
+                    os.environ["EDITRADOC_LOG_PATH"] = prev_log
+
     def test_export_audit_log_writes_when_flag_on(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             log_path = os.path.join(tmp, "audit.log")

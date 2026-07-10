@@ -82,6 +82,9 @@ if (!window.__editifySessionLogUi) {
 if (!window.__editifyLogFileSettingsUi) {
   throw new Error("[editify] Charger renderer-log-settings-ui.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyUpdateUi) {
+  throw new Error("[editify] Charger renderer-update-ui.js avant renderer.js (voir index.html).");
+}
 if (!window.__editifyI18nApply) {
   throw new Error("[editify] Charger renderer-i18n-apply.js avant renderer.js (voir index.html).");
 }
@@ -93,6 +96,7 @@ const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
 const sessionLogUi = window.__editifySessionLogUi;
 const logFileSettingsUi = window.__editifyLogFileSettingsUi;
+const updateUi = window.__editifyUpdateUi;
 const i18nApply = window.__editifyI18nApply;
 const SHAPE_TYPE_KEYS = i18nApply.SHAPE_TYPE_KEYS;
 const e2eHelpers = window.__editifyE2eHelpers;
@@ -193,6 +197,13 @@ const toolbarOptionsMenu = document.getElementById("toolbarOptionsMenu");
 const toolbarAboutMenuItem = document.getElementById("toolbarAboutMenuItem");
 const toolbarSessionLogMenuItem = document.getElementById("toolbarSessionLogMenuItem");
 const toolbarLogFileMenuItem = document.getElementById("toolbarLogFileMenuItem");
+const menuUpdatesLabel = document.getElementById("menuUpdatesLabel");
+const toolbarCheckUpdatesMenuItem = document.getElementById("toolbarCheckUpdatesMenuItem");
+const toolbarCheckUpdatesStartupBtn = document.getElementById("toolbarCheckUpdatesStartupBtn");
+const updateAvailableBanner = document.getElementById("updateAvailableBanner");
+const updateBannerText = document.getElementById("updateBannerText");
+const updateBannerDownloadBtn = document.getElementById("updateBannerDownloadBtn");
+const updateBannerDismissBtn = document.getElementById("updateBannerDismissBtn");
 const sessionLogModal = document.getElementById("sessionLogModal");
 const sessionLogBody = document.getElementById("sessionLogBody");
 const sessionLogCloseBtn = document.getElementById("sessionLogCloseBtn");
@@ -2416,6 +2427,44 @@ function computeInsertPositionForNewAnnotation(tab, annotation, zone) {
   annotation.y = cy - (annotation.h || 20) / 2;
 }
 
+function logAnnotationAudit(action, tab, item, pageKey) {
+  try {
+    const key = String(pageKey || tab?.currentPage || 1);
+    const pageNode = pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
+    window.maniPdfApi?.logEvent?.({
+      level: "info",
+      scope: "annotation",
+      message: String(action),
+      data: {
+        action,
+        page: key,
+        type: item?.type,
+        id: item?.id,
+        x: Math.round(Number(item?.x) || 0),
+        y: Math.round(Number(item?.y) || 0),
+        w: Math.round(Number(item?.w) || 0),
+        h: Math.round(Number(item?.h) || 0),
+        rotation: Number(item?.rotation) || 0,
+        userPageRotation: tab?.pageRotationsByPage?.[key] ?? 0,
+        intrinsicPageRotation: Number(pageNode?.dataset?.intrinsicRotation) || 0,
+        ...(item?.type === "text"
+          ? {
+              fontSize: item.fontSize,
+              padding: item.padding,
+              textLen: String(item.text || "").length
+            }
+          : {}),
+        ...(item?.type === "image" ? { hasSrc: Boolean(item.src) } : {}),
+        ...(SHAPE_TYPES.has(item?.type)
+          ? { fillColor: item.fillColor, strokeColor: item.strokeColor }
+          : {})
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 function addAnnotation(type, extra = {}) {
   const tab = getActiveTab();
   if (!tab) return;
@@ -2466,6 +2515,7 @@ function addAnnotation(type, extra = {}) {
   if (type === "text") {
     focusTextAnnotationEditor(id);
   }
+  logAnnotationAudit("add", tab, annotation, pageKey);
   session.scheduleAutoSave();
 }
 
@@ -2495,6 +2545,7 @@ function pasteClipboardIntoActivePage() {
   state.editingAnnotationId = null;
   syncPropertyInputs();
   renderAnnotations();
+  logAnnotationAudit("paste", tab, data, targetPage);
   session.scheduleAutoSave();
 }
 
@@ -3199,6 +3250,18 @@ logFileSettingsUi.bind({
   chrome
 });
 
+updateUi.bind({
+  updateAvailableBanner,
+  updateBannerText,
+  updateBannerDownloadBtn,
+  updateBannerDismissBtn,
+  toolbarCheckUpdatesMenuItem,
+  toolbarCheckUpdatesStartupBtn,
+  t,
+  setStatus,
+  chrome
+});
+
 i18nApply.bind({
   t,
   getActiveTab,
@@ -3235,6 +3298,9 @@ i18nApply.bind({
   toolbarAboutMenuItem,
   toolbarSessionLogMenuItem,
   toolbarLogFileMenuItem,
+  menuUpdatesLabel,
+  toolbarCheckUpdatesMenuItem,
+  toolbarCheckUpdatesStartupBtn,
   sessionLogTitleEl,
   sessionLogHint,
   logFileSettingsTitleEl,
@@ -3658,6 +3724,7 @@ try {
 }
 i18nApply.applyLanguage();
 applySpellcheckLanguageBestEffort();
+void updateUi.init();
 try {
   window.maniPdfApi?.notifyUiLanguage?.(state.language);
 } catch {
