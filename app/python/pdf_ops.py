@@ -14,8 +14,57 @@ logger = logging.getLogger(__name__)
 _EXPORT_DEBUG = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
 
 
+def _export_audit_enabled() -> bool:
+    return os.environ.get("EDITRADOC_EXPORT_AUDIT") == "1"
+
+_EXPORT_AUDIT_PREVIEW_KEYS = frozenset({"textPreview", "plain_preview", "textHtml"})
+_EXPORT_AUDIT_PATH_KEYS = frozenset({"input_path", "output_path", "input", "output", "path"})
+
+
+def _redact_path_for_log(file_path: object) -> str:
+    normalized = str(file_path or "").replace("\\", "/").strip()
+    if not normalized:
+        return ""
+    parts = [p for p in normalized.split("/") if p]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    return f".../{parts[-2]}/{parts[-1]}"
+
+
+def _redact_text_preview_for_log(text: object) -> str:
+    s = str(text or "")
+    lines = len(s.splitlines()) if s else 0
+    words = len(s.split()) if s.strip() else 0
+    return f"[len={len(s)} lines={lines} words={words}]"
+
+
+def _redact_export_audit_data(data: object) -> object:
+    if not isinstance(data, dict):
+        return data
+    redacted: dict = {}
+    for key, value in data.items():
+        key_s = str(key)
+        if key_s in _EXPORT_AUDIT_PREVIEW_KEYS:
+            redacted[key] = _redact_text_preview_for_log(value)
+        elif key_s in _EXPORT_AUDIT_PATH_KEYS and isinstance(value, str):
+            redacted[key] = _redact_path_for_log(value)
+        elif isinstance(value, dict):
+            redacted[key] = _redact_export_audit_data(value)
+        elif isinstance(value, list):
+            redacted[key] = [
+                _redact_export_audit_data(item) if isinstance(item, dict) else item for item in value
+            ]
+        else:
+            redacted[key] = value
+    return redacted
+
+
 def _export_audit_log(message: str, data: dict | None = None) -> None:
-    """Append audit ligne dans EDITRADOC_LOG_PATH / MANI_PDF_LOG_PATH si défini."""
+    """Append audit ligne dans EDITRADOC_LOG_PATH si EDITRADOC_EXPORT_AUDIT=1."""
+    if not _export_audit_enabled():
+        return
     log_path = os.environ.get("EDITRADOC_LOG_PATH") or os.environ.get("MANI_PDF_LOG_PATH")
     if not log_path:
         return
@@ -26,8 +75,9 @@ def _export_audit_log(message: str, data: dict | None = None) -> None:
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         suffix = ""
         if data is not None:
-            suffix = " | " + json.dumps(data, ensure_ascii=False)[:12000]
-        line = f"[{ts}] [WARN] [python:export-audit] {message}{suffix}\n"
+            safe = _redact_export_audit_data(data)
+            suffix = " | " + json.dumps(safe, ensure_ascii=False)[:12000]
+        line = f"[{ts}] [DEBUG] [python:export-audit] {message}{suffix}\n"
         os.makedirs(os.path.dirname(os.path.abspath(log_path)) or ".", exist_ok=True)
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(line)
@@ -662,7 +712,7 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                             "page": idx,
                             "id": a.get("id"),
                             "plain_len": len(plain),
-                            "plain_preview": plain[:64],
+                            "plain_preview": _redact_text_preview_for_log(plain),
                             "x": round(x, 2),
                             "y": round(y, 2),
                             "w": round(w, 2),

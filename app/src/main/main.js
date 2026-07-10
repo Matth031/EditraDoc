@@ -4,7 +4,8 @@ const path = require("node:path");
 const { spawn, execSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const http = require("node:http");
-const { log, logError, logWarn, logInfo, logDebug, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
+const { log, logError, logWarn, logInfo, logDebug, logExportAudit, logStartupBanner, getLogFilePath, reloadLogConfiguration } = require("./logger");
+const { isExportAuditEnabled } = require("../lib/app-log-core");
 const appSettings = require("./app-settings");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
@@ -70,6 +71,7 @@ function getPythonLaunchConfig() {
     PYTHONPATH: pyDir,
     PYTHONUTF8: "1",
     MANI_PDF_EXPORT_DEBUG: process.env.MANI_PDF_EXPORT_DEBUG || "0",
+    EDITRADOC_EXPORT_AUDIT: process.env.EDITRADOC_EXPORT_AUDIT || "0",
     MANI_PDF_SERVICE_TOKEN: pythonServiceToken
   };
   if (app.isPackaged && process.platform === "win32") {
@@ -685,12 +687,7 @@ async function exportPdfWithAnnotationsMain(payload) {
   const input_path = String(payload?.input_path || "").trim();
   const output_path = String(payload?.output_path || "").trim();
   const audit = (message, data) => {
-    try {
-      console.log(`[EditraDoc:export] ${message}`, data || "");
-    } catch {
-      /* ignore */
-    }
-    logWarn("export", message, data ?? null);
+    logExportAudit("export", message, data ?? null);
   };
   audit("start", { input_path, output_path });
 
@@ -1162,7 +1159,13 @@ function handleLogEventPayload(payload) {
   const level = String(payload?.level || "info").toLowerCase();
   const scope = String(payload?.scope || "renderer");
   const message = String(payload?.message || "event");
-  const data = payload?.data ?? null;
+  const rawData = payload?.data ?? null;
+  if (scope === "export-audit") {
+    if (!isExportAuditEnabled()) return;
+    logExportAudit(scope, message, rawData);
+    return;
+  }
+  const data = rawData;
   if (level === "error") logError(scope, message, data);
   else if (level === "warn") logWarn(scope, message, data);
   else if (level === "debug") logDebug(scope, message, data);

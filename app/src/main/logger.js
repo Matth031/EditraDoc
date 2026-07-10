@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { app } = require("electron");
-const { formatLogLine, shouldLogLevel } = require("../lib/app-log-core");
+const { formatLogLine, shouldLogLevel, isExportAuditEnabled, sanitizeExportAuditData } = require("../lib/app-log-core");
 const { getInstallRoot } = require("./install-path");
 
 let appSettings = null;
@@ -131,6 +131,34 @@ function logDebug(scope, message, data) {
   appendLog("debug", scope, message, data);
 }
 
+/**
+ * Journal diagnostic export (EDITRADOC_EXPORT_AUDIT=1 uniquement).
+ * @param {string} scope
+ * @param {string} message
+ * @param {unknown} [data]
+ */
+function logExportAudit(scope, message, data) {
+  if (!isExportAuditEnabled()) return;
+  const safeData = data == null ? null : sanitizeExportAuditData(data);
+  const line = formatLogLine({
+    level: "debug",
+    scope,
+    message,
+    data: safeData,
+    pid: process.pid
+  });
+  try {
+    const filePath = ensureLogFile();
+    rotateIfNeeded(filePath);
+    fs.appendFileSync(filePath, `${line}\n`, "utf8");
+  } catch {
+    /* ignore */
+  }
+  if (VERBOSE) {
+    console.log(line);
+  }
+}
+
 /** Compatibilité historique : niveau info (verbose uniquement sauf erreurs explicites). */
 function log(scope, message, data) {
   logInfo(scope, message, data);
@@ -168,5 +196,6 @@ module.exports = {
   logWarn,
   logInfo,
   logDebug,
+  logExportAudit,
   logStartupBanner
 };

@@ -118,12 +118,20 @@
     }
   }
 
-  /** Journal export multi-pages — niveau warn → toujours écrit dans logs.txt */
+  /** Journal export multi-pages — EDITRADOC_EXPORT_AUDIT=1 uniquement (aligné app-log-core.js). */
+  function redactTextPreviewForLog(text) {
+    const s = String(text ?? "");
+    const lines = s ? s.split(/\r?\n/).length : 0;
+    const words = s.trim() ? s.trim().split(/\s+/).length : 0;
+    return `[len=${s.length} lines=${lines} words=${words}]`;
+  }
+
   function logExportAudit(step, payload = {}) {
-    const data = { step, ...payload };
     try {
+      if (!window.maniPdfApi?.isExportAuditEnabled?.()) return;
+      const data = { step, ...payload };
       window.maniPdfApi?.logEvent?.({
-        level: "warn",
+        level: "debug",
         scope: "export-audit",
         message: String(step),
         data
@@ -139,14 +147,15 @@
 
   function summarizeTextAnnotation(a) {
     if (!a || a.type !== "text") return null;
+    const plain = String(a.text || "");
     return {
       id: a.id,
       x: Math.round(Number(a.x) || 0),
       y: Math.round(Number(a.y) || 0),
       w: Math.round(Number(a.w) || 0),
       h: Math.round(Number(a.h) || 0),
-      textLen: String(a.text || "").length,
-      textPreview: String(a.text || "").slice(0, 64),
+      textLen: plain.length,
+      textPreview: redactTextPreviewForLog(plain),
       htmlLen: String(a.textHtml || "").length,
       coords_space: a.coords_space || null,
       hasPdfEx: Array.isArray(a.pdf_ex)

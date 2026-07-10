@@ -1,11 +1,39 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { sanitizeData, shouldLogLevel, formatLogLine } = require("../src/lib/app-log-core");
+const { sanitizeData, shouldLogLevel, formatLogLine, isExportAuditEnabled, redactTextPreviewForLog, redactPathForLog, sanitizeExportAuditData } = require("../src/lib/app-log-core");
 
 test("sanitizeData redacte les champs sensibles", () => {
   const out = sanitizeData({ password: "secret", step: "ok" });
   assert.equal(out.password, "[redacted]");
   assert.equal(out.step, "ok");
+});
+
+test("isExportAuditEnabled : desactive par defaut", () => {
+  assert.equal(isExportAuditEnabled({}), false);
+  assert.equal(isExportAuditEnabled({ EDITRADOC_EXPORT_AUDIT: "0" }), false);
+  assert.equal(isExportAuditEnabled({ EDITRADOC_EXPORT_AUDIT: "1" }), true);
+});
+
+test("redactTextPreviewForLog : metadonnees sans contenu lisible", () => {
+  const out = redactTextPreviewForLog("Bonjour monde\nligne deux");
+  assert.match(out, /len=24/);
+  assert.match(out, /lines=2/);
+  assert.doesNotMatch(out, /Bonjour/);
+});
+
+test("redactPathForLog : dossier parent + fichier", () => {
+  assert.equal(redactPathForLog("C:\\Users\\me\\docs\\secret.pdf"), ".../docs/secret.pdf");
+});
+
+test("sanitizeExportAuditData : textPreview et chemins", () => {
+  const out = sanitizeExportAuditData({
+    textPreview: "contenu confidentiel",
+    input_path: "C:/data/rapport.pdf",
+    annotationCount: 3
+  });
+  assert.doesNotMatch(String(out.textPreview), /confidentiel/);
+  assert.equal(out.input_path, ".../data/rapport.pdf");
+  assert.equal(out.annotationCount, 3);
 });
 
 test("shouldLogLevel journalise toujours error et warn", () => {

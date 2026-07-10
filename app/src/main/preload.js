@@ -29,6 +29,13 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
       return false;
     }
   },
+  isExportAuditEnabled: () => {
+    try {
+      return process?.env?.EDITRADOC_EXPORT_AUDIT === "1";
+    } catch {
+      return false;
+    }
+  },
   openPdf: (path) => ipcRenderer.invoke("pdf:open", path),
   readPdfBytes: (path) => ipcRenderer.invoke("pdf:read-bytes", path),
   syncOpenPdfPaths: (paths) => ipcRenderer.invoke("pdf:sync-open-paths", paths),
