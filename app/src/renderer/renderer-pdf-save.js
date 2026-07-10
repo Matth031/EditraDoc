@@ -118,7 +118,7 @@
     }
   }
 
-  /** Journal export multi-pages (activé par défaut côté main ; voir app-log-core.js). */
+  /** Journal export multi-pages — EDITRADOC_EXPORT_AUDIT=1 uniquement (S19 opt-in). */
   function redactTextPreviewForLog(text) {
     const s = String(text ?? "");
     const lines = s ? s.split(/\r?\n/).length : 0;
@@ -128,6 +128,7 @@
 
   function logExportAudit(step, payload = {}) {
     try {
+      if (!window.maniPdfApi?.isExportAuditEnabled?.()) return;
       const data = { step, ...payload };
       window.maniPdfApi?.logEvent?.({
         level: "debug",

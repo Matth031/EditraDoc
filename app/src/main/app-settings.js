@@ -6,7 +6,7 @@ const { normalizeAndValidateLogFilePath } = require("../lib/log-path-validation"
 const { getInstallRoot } = require("./install-path");
 
 let settingsFilePath = null;
-/** @type {{ logFilePath: string | null, exportAuditEnabled: boolean, checkUpdatesOnStartup: boolean, lastUpdateCheckAt: string | null } | null} */
+/** @type {{ logFilePath: string | null, checkUpdatesOnStartup: boolean, lastUpdateCheckAt: string | null } | null} */
 let cached = null;
 
 function getSettingsFilePath() {
@@ -21,12 +21,7 @@ function getSettingsFilePath() {
  */
 function loadSettings(force = false) {
   if (cached && !force) return cached;
-  cached = {
-    logFilePath: null,
-    exportAuditEnabled: true,
-    checkUpdatesOnStartup: false,
-    lastUpdateCheckAt: null
-  };
+  cached = { logFilePath: null, checkUpdatesOnStartup: false, lastUpdateCheckAt: null };
   try {
     const filePath = getSettingsFilePath();
     if (!fs.existsSync(filePath)) return cached;
@@ -35,17 +30,11 @@ function loadSettings(force = false) {
       const custom = typeof parsed.logFilePath === "string" ? parsed.logFilePath.trim() : "";
       const update = normalizeUpdateSettings(parsed);
       cached.logFilePath = custom || null;
-      cached.exportAuditEnabled = parsed.exportAuditEnabled !== false;
       cached.checkUpdatesOnStartup = update.checkUpdatesOnStartup;
       cached.lastUpdateCheckAt = update.lastUpdateCheckAt;
     }
   } catch {
-    cached = {
-      logFilePath: null,
-      exportAuditEnabled: true,
-      checkUpdatesOnStartup: false,
-      lastUpdateCheckAt: null
-    };
+    cached = { logFilePath: null, checkUpdatesOnStartup: false, lastUpdateCheckAt: null };
   }
   return cached;
 }
@@ -134,19 +123,6 @@ function setLastUpdateCheckAt(iso) {
   saveSettings({ lastUpdateCheckAt: value || null });
 }
 
-function getExportAuditSettings() {
-  const s = loadSettings();
-  return { exportAuditEnabled: s.exportAuditEnabled !== false };
-}
-
-/**
- * @param {boolean} enabled
- */
-function setExportAuditEnabled(enabled) {
-  saveSettings({ exportAuditEnabled: Boolean(enabled) });
-  return { ok: true, exportAuditEnabled: Boolean(enabled) };
-}
-
 module.exports = {
   loadSettings,
   getCustomLogFilePath,
@@ -154,8 +130,6 @@ module.exports = {
   getDefaultLogFilePath,
   getEnvLogOverride,
   getLogFileSettingsInfo,
-  getExportAuditSettings,
-  setExportAuditEnabled,
   getUpdateSettings,
   setCheckUpdatesOnStartup,
   setLastUpdateCheckAt,

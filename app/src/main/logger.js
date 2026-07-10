@@ -59,11 +59,7 @@ function getLogFilePath() {
 }
 
 function isExportAuditEnabledEffective() {
-  try {
-    return isExportAuditEnabled(process.env, getAppSettings().loadSettings());
-  } catch {
-    return isExportAuditEnabled(process.env, null);
-  }
+  return isExportAuditEnabled(process.env);
 }
 
 function resetLogFileCache() {

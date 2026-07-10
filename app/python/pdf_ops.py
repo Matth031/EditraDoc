@@ -15,12 +15,7 @@ _EXPORT_DEBUG = os.environ.get("MANI_PDF_EXPORT_DEBUG") == "1"
 
 
 def _export_audit_enabled() -> bool:
-    v = os.environ.get("EDITRADOC_EXPORT_AUDIT")
-    if v == "1":
-        return True
-    if v == "0":
-        return False
-    return True
+    return os.environ.get("EDITRADOC_EXPORT_AUDIT") == "1"
 
 _EXPORT_AUDIT_PREVIEW_KEYS = frozenset({"textPreview", "plain_preview", "textHtml"})
 _EXPORT_AUDIT_PATH_KEYS = frozenset({"input_path", "output_path", "input", "output", "path"})

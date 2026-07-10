@@ -35,17 +35,17 @@ class ExportAuditLogTests(unittest.TestCase):
                 else:
                     os.environ["EDITRADOC_LOG_PATH"] = prev_log
 
-    def test_export_audit_log_writes_by_default_when_log_path_set(self) -> None:
+    def test_export_audit_log_no_write_when_flag_unset(self) -> None:
+        """Régression S19 : sans EDITRADOC_EXPORT_AUDIT=1, aucune ligne audit."""
         with tempfile.TemporaryDirectory() as tmp:
-            log_path = os.path.join(tmp, "audit_default.log")
+            log_path = os.path.join(tmp, "audit_unset.log")
             prev_audit = os.environ.get("EDITRADOC_EXPORT_AUDIT")
             prev_log = os.environ.get("EDITRADOC_LOG_PATH")
             try:
                 os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)
                 os.environ["EDITRADOC_LOG_PATH"] = log_path
-                _export_audit_log("default_on", {"page": 2})
-                self.assertTrue(os.path.exists(log_path))
-                self.assertIn("default_on", open(log_path, encoding="utf-8").read())
+                _export_audit_log("must_not_write", {"page": 1})
+                self.assertFalse(os.path.exists(log_path))
             finally:
                 if prev_audit is None:
                     os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)

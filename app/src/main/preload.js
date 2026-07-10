@@ -31,11 +31,9 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   },
   isExportAuditEnabled: () => {
     try {
-      if (process?.env?.EDITRADOC_EXPORT_AUDIT === "1") return true;
-      if (process?.env?.EDITRADOC_EXPORT_AUDIT === "0") return false;
-      return true;
+      return process?.env?.EDITRADOC_EXPORT_AUDIT === "1";
     } catch {
-      return true;
+      return false;
     }
   },
   openPdf: (path) => ipcRenderer.invoke("pdf:open", path),
