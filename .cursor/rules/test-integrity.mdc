@@ -1,0 +1,75 @@
+---
+description: Interdiction de modifier les tests pour les faire passer — corriger le code, pas les assertions
+alwaysApply: true
+---
+
+# Tests — ne jamais affaiblir pour faire passer
+
+## Règle par défaut
+
+Si un test échoue → **corriger le CODE**, jamais le test.
+
+**Interdit sans validation explicite préalable de Matt :**
+- assertion affaiblie
+- cas de test supprimé
+- seuil élargi
+- mock changé pour contourner une vérification
+- skip / todo ajouté pour masquer un échec
+
+## Test réellement incorrect ou obsolète
+
+Si le test a tort (pas seulement « gênant ») :
+1. **S'arrêter**
+2. **Expliquer** pourquoi le test est incorrect ou obsolète
+3. **Attendre le go** avant de toucher le fichier de test
+
+Ne jamais modifier un test **et** le code qu'il vérifie dans le **même commit** sans le signaler explicitement.
+
+## Présentation des diffs
+
+Tout diff touchant un fichier de test (`*.test.js`, `test_*.py`, `*.spec.js`) doit être montré **SÉPARÉMENT** du diff de code produit.
+
+Pour **chaque** changement d'assertion, documenter :
+- l'**ancienne** valeur
+- la **nouvelle** valeur
+- la **raison**
+
+## Fichiers concernés
+
+- `app/node-tests/**/*.test.js`
+- `app/python/tests/test_*.py`
+- `app/e2e/**/*.spec.js`
+- tout autre `*.test.js` / `*.spec.js` du projet EditraDoc
+
+## Suite `security-lock.test.js` — verrou renforcé
+
+`app/node-tests/security-lock.test.js` est **verrouillée comme les invariants eux-mêmes** (voir `security-invariants.mdc`).
+
+Toute modification → message dédié **AVANT** le diff, en-tête obligatoire :
+
+```
+JE MODIFIE LA SUITE DE VERROUS DE SÉCURITÉ
+```
+
+Commit **isolé**, jamais noyé dans un commit plus large.
+
+## Reporting obligatoire avant demande de go commit
+
+Après **chaque lot de travail**, avant de demander le go commit, afficher **en tête du message** :
+
+```
+Fichiers de test modifiés dans ce lot :
+- aucun
+```
+
+ou, si applicable :
+
+```
+Fichiers de test modifiés dans ce lot :
+- chemin/vers/fichier.test.js
+- ...
+```
+
+Si la liste **n'est pas vide** : accompagner **chaque** fichier de son **diff isolé** (un diff par fichier), **même si Matt ne l'a pas demandé**.
+
+Patterns concernés : `*.test.js`, `test_*.py`, `*.spec.js`, et `security-lock.test.js` (verrou renforcé).

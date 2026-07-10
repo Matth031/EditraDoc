@@ -1,0 +1,64 @@
+---
+description: Invariants de sécurité EditraDoc verrouillés (E-AUDIT) — ne jamais modifier sans validation explicite de Matt
+alwaysApply: true
+---
+
+# Invariants de sécurité — VERROUILLÉS
+
+Référence : `docs/90-Audit.md` § Invariants verrouillés.
+
+Ces comportements sont **validés par audit**. Toute modification — y compris effet de bord d’un autre sujet — doit être **signalée explicitement AVANT le commit**, dans un message séparé, **avant que le code soit écrit**. Pas de découverte a posteriori.
+
+## Invariants
+
+| ID | Invariant | Fichiers concernés |
+|----|-----------|-------------------|
+| **S19** | `EDITRADOC_EXPORT_AUDIT` et flags logging diagnostic : **opt-in strict, désactivé par défaut**. Aucune écriture sans activation explicite. | `app-log-core.js`, `logger.js`, `preload.js`, `renderer-pdf-save.js`, `pdf_ops.py`, `app-settings.js` (si flags audit) |
+| **S2** | Service Python : **token obligatoire** sur toutes les routes POST. Exception : `/health` uniquement. | `pdf_service.py`, routes/handlers associés |
+| **S6** | `pdf:read-bytes` : `.pdf` uniquement, whitelist onglets ouverts, plafond taille. Ne jamais élargir sans validation. | `pdf-read-bytes-guard.js`, `main.js` (handler IPC) |
+| **S7** | **CSP** : `connect-src` ne doit **jamais** réintégrer `127.0.0.1` / `localhost` sans justification + validation explicite. | `index.html` |
+| **S1** | **Co-localisation** chemins PDF sortie : ne jamais retirer/contourner `path-guard.js` / `_assert_output_in_same_directory_as_input`. | `path-guard.js`, `pdf_ops.py`, handlers export |
+| **S4** | **validatePdfWithPython** : comportement **fail-closed** (refus si service indisponible). Ne jamais redevenir fail-open. | `python-validation.js`, `main.js` |
+
+## Règle d’arbitrage
+
+Si un besoin légitime (debug, feature, fix) entre en **tension** avec un invariant :
+
+1. **S’arrêter**
+2. **Demander l’arbitrage à Matt AVANT de coder** — même si la solution semble évidente ou temporaire
+3. « Temporaire » a déjà cassé S19 ; ça ne doit plus arriver
+
+## Message de commit obligatoire
+
+Avant **chaque commit** touchant un fichier listé ci-dessus, ajouter une ligne explicite dans le corps du message :
+
+```
+INVARIANT CHECK: [nom] — inchangé
+```
+
+ou, si modification validée :
+
+```
+INVARIANT CHECK: [nom] — modifié, validé par Matt le [date]
+```
+
+Lister **tous** les invariants concernés par les fichiers modifiés (plusieurs lignes si besoin).
+
+## Tests automatiques — suite VERROUILLÉE
+
+Fichier : **`app/node-tests/security-lock.test.js`**
+
+Cette suite est **verrouillée au même titre que les invariants** qu'elle vérifie. Un échec = invariant cassé → corriger le **code** (voir `test-integrity.mdc`), pas affaiblir la suite sans validation.
+
+**Toute modification** de ce fichier — y compris renommage, refactor de présentation, réorganisation — exige :
+
+1. Un **message dédié AVANT le diff** (pas noyé dans un commit plus large)
+2. En-tête obligatoire en première ligne :
+
+```
+JE MODIFIE LA SUITE DE VERROUS DE SÉCURITÉ
+```
+
+3. Commit **isolé** : uniquement `security-lock.test.js` (et doc associée si nécessaire), jamais bundlé avec du code produit ou d'autres sujets.
+
+Si un invariant évolue (validation Matt) : modifier la suite **après** arbitrage explicite, avec l'en-tête ci-dessus et justification test par test (ancienne assertion / nouvelle / raison).
