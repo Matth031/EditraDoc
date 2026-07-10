@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pypdf import PdfReader, PdfWriter
 
-from pdf_ops import _rl_font_name, _text_has_markup, apply_annotations
+from pdf_ops import _rl_font_name, _should_draw_plain_string, _text_has_markup, apply_annotations
 
 
 class TestPdfExportAnnotations(unittest.TestCase):
@@ -33,6 +33,50 @@ class TestPdfExportAnnotations(unittest.TestCase):
         self.assertTrue(_text_has_markup("<b>x</b>", "x"))
         self.assertFalse(_text_has_markup("simple", "simple"))
         self.assertTrue(_text_has_markup('<span style="font-weight:bold">x</span>', "x"))
+
+    def test_should_draw_plain_string_single_token_narrow_frame(self):
+        """Régression STYLE_EXPORT : token sans espace → drawString, pas coupure Paragraph."""
+        self.assertTrue(
+            _should_draw_plain_string("STYLE_EXPORT", False, None, "Times-Roman", 28.0, 200.0)
+        )
+        self.assertFalse(
+            _should_draw_plain_string("STYLE EXPORT", False, None, "Times-Roman", 28.0, 200.0)
+        )
+
+    def test_apply_annotations_style_export_e2e_params(self):
+        """Régression E2E : STYLE_EXPORT Times 28 padding 10 ne doit pas devenir STYLE_EXPOR T."""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "src.pdf")
+            out = os.path.join(tmp, "out.pdf")
+            self._create_blank_pdf(src)
+
+            apply_annotations(
+                src,
+                out,
+                {"1": {"w": 400, "h": 300, "rotation": 0}},
+                {
+                    "1": [
+                        {
+                            "type": "text",
+                            "x": 100,
+                            "y": 100,
+                            "w": 260,
+                            "h": 100,
+                            "text": "STYLE_EXPORT",
+                            "textHtml": "STYLE_EXPORT",
+                            "fontFamily": "Times New Roman",
+                            "fontSize": 28,
+                            "padding": 10,
+                            "textColor": "#cc0000",
+                        }
+                    ]
+                },
+            )
+
+            text = (PdfReader(out).pages[0].extract_text() or "").replace("\n", "")
+            self.assertIn("STYLE_EXPORT", text)
+            self.assertNotIn("STYLE_EXPOR T", text)
+            self.assertNotRegex(text, r"STYLE_EXPOR\s+T")
 
     def test_apply_annotations_text_style_times_and_size(self):
         with tempfile.TemporaryDirectory() as tmp:

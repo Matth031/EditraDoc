@@ -258,6 +258,27 @@ def _plain_text_fits_one_line(plain: str, font_name: str, font_size: float, fw: 
         return False
 
 
+def _plain_is_single_token(plain: str) -> bool:
+    """Texte sans espace : Paragraph ReportLab peut couper au milieu (ex. STYLE_EXPOR T)."""
+    p = str(plain or "")
+    return bool(p.strip()) and "\n" not in p and not re.search(r"\s", p)
+
+
+def _should_draw_plain_string(
+    plain: str,
+    has_markup: bool,
+    raw_html: str | None,
+    font_name: str,
+    font_size: float,
+    fw: float,
+) -> bool:
+    if has_markup or _html_has_line_breaks(raw_html) or "\n" in plain:
+        return False
+    if _plain_is_single_token(plain):
+        return True
+    return _plain_text_fits_one_line(plain, font_name, font_size, fw)
+
+
 def _normalize_rl_color(val: str) -> str:
     """Couleur CSS -> #rrggbb pour les attributs <font color=...> de ReportLab."""
     val = (val or "").strip().strip('"').strip("'")
@@ -714,11 +735,8 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                     )
                     draw_path = (
                         "drawString"
-                        if (
-                            not has_markup
-                            and not _html_has_line_breaks(raw_html)
-                            and "\n" not in plain
-                            and _plain_text_fits_one_line(plain, font_name, font_size, fw)
+                        if _should_draw_plain_string(
+                            plain, has_markup, raw_html, font_name, font_size, fw
                         )
                         else "paragraph"
                     )
@@ -749,11 +767,8 @@ def apply_annotations(input_path: str, output_path: str, canvases_px_by_page: di
                                 c.rect(0, 0, w, h, stroke=0, fill=1)
                             else:
                                 c.rect(x, y, w, h, stroke=0, fill=1)
-                    if (
-                        not has_markup
-                        and not _html_has_line_breaks(raw_html)
-                        and "\n" not in plain
-                        and _plain_text_fits_one_line(plain, font_name, font_size, fw)
+                    if _should_draw_plain_string(
+                        plain, has_markup, raw_html, font_name, font_size, fw
                     ):
                         c.setFillColor(text_color)
                         c.setFont(font_name, font_size)
