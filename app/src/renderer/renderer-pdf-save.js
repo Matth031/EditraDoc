@@ -563,7 +563,7 @@
       });
     } catch (error) {
       logSave("annotations_map_error", { error: String(error?.message || error) });
-      throw new Error("Impossible de preparer les annotations pour l'export.");
+      throw new Error("Impossible de preparer les annotations pour l'export.", { cause: error });
     }
 
     try {
@@ -586,7 +586,7 @@
         reason: "image_encode_failed",
         error: String(error?.message || error)
       });
-      throw new Error("image_encode_failed");
+      throw new Error("image_encode_failed", { cause: error });
     }
 
     return { canvases, annotationsByPage };
