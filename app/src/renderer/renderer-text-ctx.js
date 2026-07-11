@@ -8,7 +8,7 @@
   if (!window.__editifyTextHtml) {
     throw new Error("[editify] renderer-text-html.js doit précéder renderer-text-ctx.js.");
   }
-  const { getTextBoundaryInRoot, plainTextForAnnotationItem, sanitizeTextHtml } =
+  const { getTextBoundaryInRoot, plainTextForAnnotationItem, sanitizeTextHtml, setSanitizedHtml } =
     window.__editifyTextHtml;
 
   function getPlainSelectionOffsetsInEditor(ed) {
@@ -95,7 +95,7 @@
   function getFormatCoverageFromSanitizedHtml(html, kind) {
     const div = document.createElement("div");
     div.setAttribute("style", "position:fixed;left:-9999px;top:0;");
-    div.innerHTML = sanitizeTextHtml(html || "");
+    setSanitizedHtml(div, html || "");
     document.body.appendChild(div);
     const cov = getFormatCoverage(div, kind);
     document.body.removeChild(div);
@@ -303,7 +303,7 @@
     const html = item.textHtml && String(item.textHtml).trim();
     if (html) {
       const div = document.createElement("div");
-      div.innerHTML = sanitizeTextHtml(item.textHtml);
+      setSanitizedHtml(div, item.textHtml);
       if (replacePlainTextRangeInEditor(div, start, end, replacement)) {
         item.textHtml = sanitizeTextHtml(div.innerHTML);
         const r = document.createRange();

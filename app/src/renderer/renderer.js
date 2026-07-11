@@ -6,7 +6,7 @@
  *   file d'attente de jobs PDF via IPC (`maniPdfApi` défini dans preload, pas d'accès fs direct).
  * - Le service Python écoute sur 127.0.0.1:8765; le processus principal relaie les jobs après validation des chemins.
  * - Annotations: rectangles logiques (x,y,w,h) + rotation CSS ; redimensionnement projeté dans le repère local.
- * - Texte enrichi: `sanitizeTextHtml` réduit le risque XSS avant insertion dans le DOM.
+ * - Texte enrichi: sanitization S5 (DOMPurify) à l'injection DOM, au sync modèle et au paste contentEditable.
  * - Split pages: état local + brouillon `localStorage` ; export uniquement via job `split_groups` validé côté main.
  *
  * Découpage i18n (bonnes pratiques):
@@ -102,6 +102,7 @@ const SHAPE_TYPE_KEYS = i18nApply.SHAPE_TYPE_KEYS;
 const e2eHelpers = window.__editifyE2eHelpers;
 const {
   sanitizeTextHtml,
+  setSanitizedHtml,
   plainTextForAnnotationItem,
   applySpellHighlightsToTextDisplayNode
 } = window.__editifyTextHtml;
@@ -707,7 +708,7 @@ function annotationHasExplicitLineBreaks(item) {
   if (/<\s*br\b/i.test(html)) return true;
   try {
     const div = document.createElement("div");
-    div.innerHTML = sanitizeTextHtml(html);
+    setSanitizedHtml(div, html);
     if (div.querySelectorAll("div, p, li").length > 1) return true;
   } catch {
     /* ignore */
@@ -985,6 +986,22 @@ function applyEditingTextAutoGrow(tab, item, node) {
 }
 
 function wireTextEditorInteraction(tab, item, node, ed) {
+  ed.addEventListener(
+    "paste",
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const { insertSanitizedClipboardIntoEditor } = window.__editifyTextHtml;
+      const handled =
+        typeof insertSanitizedClipboardIntoEditor === "function" &&
+        insertSanitizedClipboardIntoEditor(ed, event.clipboardData);
+      if (handled === false) return;
+      syncTextFromEditor(item, ed);
+      applyEditingTextAutoGrow(tab, item, node);
+      session.scheduleAutoSave();
+    },
+    { capture: true }
+  );
   ed.addEventListener(
     "keydown",
     (event) => {
@@ -1948,7 +1965,7 @@ function renderAnnotations() {
 
       if (!isEditing) {
         if (a.textHtml && String(a.textHtml).trim()) {
-          node.innerHTML = sanitizeTextHtml(a.textHtml);
+          setSanitizedHtml(node, a.textHtml);
         } else {
           node.textContent = a.text ? a.text : "";
         }
@@ -1976,7 +1993,7 @@ function renderAnnotations() {
           ed.setAttribute("lang", getSpellcheckBcp47FromUiLang(state.language));
         } catch {}
         if (a.textHtml && String(a.textHtml).trim()) {
-          ed.innerHTML = sanitizeTextHtml(a.textHtml);
+          setSanitizedHtml(ed, a.textHtml);
         } else {
           ed.textContent = a.text || "";
         }

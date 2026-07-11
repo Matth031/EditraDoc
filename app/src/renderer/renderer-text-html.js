@@ -5,6 +5,14 @@
 (function () {
   "use strict";
 
+  function getSanitizeApi() {
+    const api = window.__editifySanitizeHtml;
+    if (!api?.sanitizeAnnotationTextHtml) {
+      throw new Error("[editify] sanitize-html.js doit précéder renderer-text-html.js.");
+    }
+    return api;
+  }
+
   function stripTagsForPlain(html) {
     return String(html || "")
       .replace(/<\s*br\s*\/?>/gi, "\n")
@@ -12,18 +20,92 @@
       .trim();
   }
 
-  /** Réduit le XSS sur le HTML produit par contentEditable (pas un sanitizer complet type DOMPurify). */
+  /** Sanitization S5 — déléguée à `sanitize-html.js` (DOMPurify + whitelist). */
   function sanitizeTextHtml(html) {
-    const div = document.createElement("div");
-    div.innerHTML = String(html || "");
-    div.querySelectorAll("script,style,iframe,object,embed,link").forEach((el) => el.remove());
-    div.querySelectorAll("*").forEach((el) => {
-      for (const attr of Array.from(el.attributes || [])) {
-        const n = attr.name || "";
-        if (n.toLowerCase().startsWith("on")) el.removeAttribute(n);
-      }
-    });
-    return div.innerHTML;
+    return getSanitizeApi().sanitizeAnnotationTextHtml(html);
+  }
+
+  function setSanitizedHtml(element, html) {
+    getSanitizeApi().setSanitizedHtml(element, html);
+  }
+
+  /**
+   * Insère du HTML déjà whitelisté à la sélection courante dans l'éditeur (paste sécurisé).
+   * @param {HTMLElement} editorEl
+   * @param {string} html
+   * @returns {boolean}
+   */
+  function insertSanitizedHtmlAtSelection(editorEl, html) {
+    if (!editorEl || typeof document === "undefined") return false;
+    const clean = sanitizeTextHtml(html);
+    if (!clean) return true;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+    const range = sel.getRangeAt(0);
+    const ancestor =
+      range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ?
+        range.commonAncestorContainer
+      : range.commonAncestorContainer.parentElement;
+    if (!ancestor || !editorEl.contains(ancestor)) return false;
+
+    range.deleteContents();
+    const wrapper = document.createElement("div");
+    setSanitizedHtml(wrapper, clean);
+    while (wrapper.firstChild) {
+      const node = wrapper.firstChild;
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.collapse(true);
+    }
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  }
+
+  /**
+   * Insère du texte brut à la sélection (paste sans HTML).
+   * @param {HTMLElement} editorEl
+   * @param {string} text
+   * @returns {boolean}
+   */
+  function insertPlainTextAtSelection(editorEl, text) {
+    if (!editorEl || typeof document === "undefined") return false;
+    const value = String(text ?? "").replace(/\r\n/g, "\n");
+    if (!value) return true;
+    editorEl.focus();
+    try {
+      return document.execCommand("insertText", false, value);
+    } catch {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      if (!editorEl.contains(range.commonAncestorContainer)) return false;
+      range.deleteContents();
+      range.insertNode(document.createTextNode(value));
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    }
+  }
+
+  /**
+   * Paste contentEditable (S5 U6) : sanitize AVANT insertion DOM — évite XSS au moment du collage.
+   * @param {HTMLElement} editorEl
+   * @param {DataTransfer | null | undefined} clipboardData
+   * @returns {boolean} false si rien n'a pu être traité
+   */
+  function insertSanitizedClipboardIntoEditor(editorEl, clipboardData) {
+    if (!editorEl || !clipboardData) return false;
+    const html = String(clipboardData.getData("text/html") || "").trim();
+    const plain = clipboardData.getData("text/plain");
+    if (html) {
+      return insertSanitizedHtmlAtSelection(editorEl, html);
+    }
+    if (plain != null && String(plain).length > 0) {
+      return insertPlainTextAtSelection(editorEl, plain);
+    }
+    return false;
   }
 
   function plainTextFromHtmlRoot(root) {
@@ -40,7 +122,7 @@
     if (!item || item.type !== "text") return "";
     if (item.textHtml && String(item.textHtml).trim()) {
       const div = document.createElement("div");
-      div.innerHTML = sanitizeTextHtml(item.textHtml);
+      setSanitizedHtml(div, item.textHtml);
       return plainTextFromHtmlRoot(div);
     }
     return String(item.text || "").replace(/\r\n/g, "\n");
@@ -453,6 +535,10 @@
   window.__editifyTextHtml = {
     stripTagsForPlain,
     sanitizeTextHtml,
+    setSanitizedHtml,
+    insertSanitizedHtmlAtSelection,
+    insertPlainTextAtSelection,
+    insertSanitizedClipboardIntoEditor,
     plainTextFromHtmlRoot,
     plainTextFromEditorElement,
     plainTextForAnnotationItem,

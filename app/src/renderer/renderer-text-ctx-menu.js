@@ -355,7 +355,7 @@
   function runBackgroundSpellScanForTextAnnotations() {
     const d = ctx;
     if (!d) return;
-    const { plainTextForAnnotationItem, sanitizeTextHtml, applySpellHighlightsToTextDisplayNode } =
+    const { plainTextForAnnotationItem, setSanitizedHtml, applySpellHighlightsToTextDisplayNode } =
       window.__editifyTextHtml;
     const tab = d.getActiveTab();
     const api = window.maniPdfApi;
@@ -387,7 +387,7 @@
         else delete node.dataset.spellIssues;
         if (!node.querySelector?.(".text-editor")) {
           if (a.textHtml && String(a.textHtml).trim()) {
-            node.innerHTML = sanitizeTextHtml(a.textHtml);
+            setSanitizedHtml(node, a.textHtml);
           } else {
             node.textContent = a.text ? a.text : "";
           }
