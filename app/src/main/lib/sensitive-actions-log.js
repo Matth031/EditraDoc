@@ -146,8 +146,6 @@ function trimEntriesFifo(entries, limits = {}) {
   while (bytes > maxFileBytes && list.length > 0) {
     if (list.length === 1) {
       list = [];
-      json = "[]";
-      bytes = 2;
       break;
     }
     list.shift();
