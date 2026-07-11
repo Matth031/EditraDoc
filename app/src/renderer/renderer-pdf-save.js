@@ -34,7 +34,6 @@
    * @property {(html: string) => string} sanitizeTextHtml
    * @property {(root: HTMLElement) => string} buildExportTextHtmlForPdf
    * @property {(tab: unknown, canvases?: Record<string, { w?: number, h?: number }>) => void} ensureTextAnnotationsSizedForExport
-   * @property {() => Promise<void>} [syncOpenPdfPathsToMain]
    * @property {(tab: unknown, zone: { width: number, height: number }, pageKey: string) => boolean} scaleAnnotationsForPage
    * @property {Set<string>} SHAPE_TYPES
    * @property {(a: Record<string, unknown>) => void} mergeShapeStyleFields
@@ -640,12 +639,6 @@
     if (!pythonReady?.ok) {
       logSave("export_abort", { reason: "python_unavailable", error: pythonReady?.error });
       return { ok: false, error: pythonReady?.error || "Service Python indisponible." };
-    }
-
-    try {
-      await d.syncOpenPdfPathsToMain?.();
-    } catch {
-      /* ignore */
     }
 
     let canvases;

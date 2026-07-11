@@ -25,7 +25,6 @@ const { evaluatePdfOpen } = require("./lib/pdf-open");
 const {
   registerOpenPdfPath,
   unregisterOpenPdfPath,
-  syncOpenPdfPaths,
   isOpenPdfPath
 } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
@@ -948,16 +947,6 @@ ipcMain.handle("pdf:unregister-open-path", async (_, pdfPath) => {
   } catch (error) {
     logIpcFailure("pdf:unregister-open-path", error, { pdfPath });
     return { ok: false, error: "Retrait du chemin ouvert impossible." };
-  }
-});
-
-ipcMain.handle("pdf:sync-open-paths", async (_, paths) => {
-  try {
-    syncOpenPdfPaths(Array.isArray(paths) ? paths : []);
-    return { ok: true };
-  } catch (error) {
-    logIpcFailure("pdf:sync-open-paths", error);
-    return { ok: false, error: "Synchronisation des chemins ouverts impossible." };
   }
 });
 

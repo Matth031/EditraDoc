@@ -1,6 +1,6 @@
 const path = require("node:path");
 
-/** Chemins PDF actuellement ouverts (onglets) — synchronisés via pdf:open et pdf:sync-open-paths. */
+/** Chemins PDF actuellement ouverts (onglets) — enregistrés via pdf:open / register / unregister. */
 let openPdfTabPaths = new Set();
 /** @type {Map<string, number>} */
 let openPdfPathRefCounts = new Map();
@@ -44,21 +44,6 @@ function unregisterOpenPdfPath(pdfPath) {
 }
 
 /**
- * @param {string[]} paths
- */
-function syncOpenPdfPaths(paths) {
-  openPdfTabPaths = new Set();
-  openPdfPathRefCounts.clear();
-  for (const rawPath of paths || []) {
-    const normalized = normalizeOpenPdfPath(rawPath);
-    if (!normalized) continue;
-    const next = (openPdfPathRefCounts.get(normalized) || 0) + 1;
-    openPdfPathRefCounts.set(normalized, next);
-    openPdfTabPaths.add(normalized);
-  }
-}
-
-/**
  * @param {string} pdfPath
  */
 function isOpenPdfPath(pdfPath) {
@@ -85,7 +70,6 @@ function getOpenPdfPathRefCountForTests(pdfPath) {
 module.exports = {
   registerOpenPdfPath,
   unregisterOpenPdfPath,
-  syncOpenPdfPaths,
   isOpenPdfPath,
   normalizeOpenPdfPath,
   resetOpenPdfPathsForTests,

@@ -15,7 +15,6 @@
    * @property {() => void} updateWelcomeVisibility
    * @property {() => void} syncPropertyInputs
    * @property {() => void} scheduleSidebarUpdate
-   * @property {() => Promise<void>} [syncOpenPdfPathsToMain]
    */
 
   /** @type {SessionDeps | null} */
@@ -127,9 +126,6 @@
       d.updateWelcomeVisibility();
       d.syncPropertyInputs();
       d.scheduleSidebarUpdate();
-      if (typeof d.syncOpenPdfPathsToMain === "function") {
-        d.syncOpenPdfPathsToMain().catch(() => {});
-      }
       if (r.recovered) d.setStatus(d.t("stSessionRecovered"));
     } catch (error) {
       try {

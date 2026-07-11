@@ -40,7 +40,6 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   readPdfBytes: (path) => ipcRenderer.invoke("pdf:read-bytes", path),
   registerOpenPdfPath: (path) => ipcRenderer.invoke("pdf:register-open-path", path),
   unregisterOpenPdfPath: (path) => ipcRenderer.invoke("pdf:unregister-open-path", path),
-  syncOpenPdfPaths: (paths) => ipcRenderer.invoke("pdf:sync-open-paths", paths),
   openPdfDialog: () => openDialogOrE2eBypass("MANI_PDF_E2E_PDF_PATH", "dialog:openPdf"),
   saveSession: (payload) => ipcRenderer.invoke("session:save", payload),
   loadSession: () => ipcRenderer.invoke("session:load"),

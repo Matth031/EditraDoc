@@ -25,10 +25,13 @@ const {
   MAX_VALIDATION_ATTEMPTS
 } = require("../src/main/lib/python-validation");
 const { evaluatePdfOpen } = require("../src/main/lib/pdf-open");
+const openPdfRegistry = require("../src/main/lib/open-pdf-registry");
 
 const APP_ROOT = path.join(__dirname, "..");
 const PY_DIR = path.join(APP_ROOT, "python");
 const INDEX_HTML = path.join(APP_ROOT, "src", "renderer", "index.html");
+const MAIN_JS = path.join(APP_ROOT, "src", "main", "main.js");
+const PRELOAD_JS = path.join(APP_ROOT, "src", "main", "preload.js");
 
 /** Routes POST actives (miroir pdf_service.py do_POST, legacy exclues). */
 const ACTIVE_POST_ROUTES = Object.freeze([
@@ -201,6 +204,26 @@ test("INVARIANT S6 : pdf:read-bytes — chemin hors whitelist onglets ouverts �
   });
   assert.equal(result.ok, false);
   assert.equal(result.errorCode, ERROR_CODES.PDF_READ_NOT_OPEN);
+});
+
+test("INVARIANT S6 : pdf:sync-open-paths absent — injection whitelist impossible", () => {
+  assert.equal(openPdfRegistry.syncOpenPdfPaths, undefined);
+  const mainSrc = fs.readFileSync(MAIN_JS, "utf8");
+  const preloadSrc = fs.readFileSync(PRELOAD_JS, "utf8");
+  assert.equal(mainSrc.includes('ipcMain.handle("pdf:sync-open-paths"'), false);
+  assert.equal(preloadSrc.includes("syncOpenPdfPaths"), false);
+  assert.equal(preloadSrc.includes("pdf:sync-open-paths"), false);
+
+  openPdfRegistry.resetOpenPdfPathsForTests();
+  const injected = path.join(os.tmpdir(), "invariant-s6-injected.pdf");
+  assert.equal(openPdfRegistry.isOpenPdfPath(injected), false);
+  const blocked = validatePdfReadBytesRequest(injected, {
+    exists: true,
+    fileSize: 4096,
+    isOpenPath: openPdfRegistry.isOpenPdfPath(injected)
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.errorCode, ERROR_CODES.PDF_READ_NOT_OPEN);
 });
 
 // --- S7 : CSP connect-src ---

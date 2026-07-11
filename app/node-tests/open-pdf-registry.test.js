@@ -5,7 +5,6 @@ const os = require("node:os");
 const {
   registerOpenPdfPath,
   unregisterOpenPdfPath,
-  syncOpenPdfPaths,
   isOpenPdfPath,
   resetOpenPdfPathsForTests,
   getOpenPdfPathRefCountForTests
@@ -60,28 +59,17 @@ test("open-pdf-registry : deux onglets même path — un unregister conserve rea
   resetOpenPdfPathsForTests();
 });
 
-test("open-pdf-registry : sync compte les doublons de path (refCount)", () => {
+test("open-pdf-registry : plusieurs chemins indépendants", () => {
   resetOpenPdfPathsForTests();
   const dir = os.tmpdir();
-  const p = path.join(dir, "sync-dup.pdf");
-  syncOpenPdfPaths([p, p]);
-  assert.equal(getOpenPdfPathRefCountForTests(p), 2);
-  assert.equal(isOpenPdfPath(p), true);
-  unregisterOpenPdfPath(p);
-  assert.equal(getOpenPdfPathRefCountForTests(p), 1);
-  assert.equal(isOpenPdfPath(p), true);
-  resetOpenPdfPathsForTests();
-});
-
-test("open-pdf-registry : sync + register cohérents", () => {
-  resetOpenPdfPathsForTests();
-  const dir = os.tmpdir();
-  const a = path.join(dir, "sync-a.pdf");
-  const b = path.join(dir, "sync-b.pdf");
+  const a = path.join(dir, "multi-a.pdf");
+  const b = path.join(dir, "multi-b.pdf");
   registerOpenPdfPath(a);
-  syncOpenPdfPaths([b]);
+  registerOpenPdfPath(b);
+  assert.equal(isOpenPdfPath(a), true);
+  assert.equal(isOpenPdfPath(b), true);
+  unregisterOpenPdfPath(a);
   assert.equal(isOpenPdfPath(a), false);
   assert.equal(isOpenPdfPath(b), true);
-  assert.equal(getOpenPdfPathRefCountForTests(b), 1);
   resetOpenPdfPathsForTests();
 });
