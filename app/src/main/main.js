@@ -600,11 +600,7 @@ async function startPythonService() {
   stopPythonService();
   await freeLocalPort(8765);
   const { command, args, cwd, env } = getPythonLaunchConfig();
-  try {
-    console.log("[EditraDoc:python] demarrage", { command, args, cwd });
-  } catch {
-    /* ignore */
-  }
+  logInfo("python", "demarrage", { command, args, path: cwd });
   pythonProcess = spawn(command, args, {
     stdio: ["ignore", "pipe", "pipe"],
     cwd,
@@ -1036,11 +1032,6 @@ ipcMain.handle("dialog:savePdfAs", async (_, suggestedName) => {
       ? suggestedName.trim()
       : "document_modifie.pdf";
   log("save", "dialog_open", { suggestedName: name });
-  try {
-    console.log("[EditraDoc:save] dialog_open", { suggestedName: name });
-  } catch {
-    /* ignore */
-  }
   const result = await dialog.showSaveDialog(mainWindow, {
     title: "Enregistrer sous",
     defaultPath: name,
@@ -1051,12 +1042,6 @@ ipcMain.handle("dialog:savePdfAs", async (_, suggestedName) => {
     return { ok: false, cancelled: true };
   }
   log("save", "dialog_ok", { path: result.filePath });
-  log("save", "dialog_ok", { path: result.filePath });
-  try {
-    console.log("[EditraDoc:save] dialog_ok", { path: result.filePath });
-  } catch {
-    /* ignore */
-  }
   return { ok: true, path: result.filePath };
 });
 
@@ -1340,7 +1325,7 @@ ipcMain.handle("spellcheck:analyze", async (_, payload) => {
   try {
     const spell = await spellcheckService.getSpell(lang);
     if (!spell) {
-      console.error("[spellcheck] analyze: moteur indisponible (dictionnaire non chargé)", {
+      logWarn("spellcheck", "moteur indisponible (dictionnaire non chargé)", {
         lang,
         textLen: text.length
       });
@@ -1358,8 +1343,7 @@ ipcMain.handle("spellcheck:analyze", async (_, payload) => {
     const errors = spellcheckService.findMisspellings(spell, text);
     return { ok: true, errors };
   } catch (e) {
-    log("spellcheck", "analyze failed", { message: e?.message });
-    console.error("[spellcheck] analyze: exception", e?.message || e);
+    logWarn("spellcheck", "analyze exception", { message: e?.message || String(e) });
     return { ok: false, errors: [], reason: "exception" };
   }
 });

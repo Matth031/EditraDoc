@@ -92,6 +92,7 @@ export default [
   },
   {
     files: [
+      "src/renderer/renderer-error-log.js",
       "src/renderer/mani-color-picker.js",
       "src/renderer/floating-panel-drag.js",
       "src/renderer/renderer-text-html.js",
