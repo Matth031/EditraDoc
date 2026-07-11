@@ -18,6 +18,11 @@ const {
 } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
+const {
+  createSensitiveActionsLog,
+  buildSensitiveEntriesFromJob,
+  buildSensitiveEntryFromExport
+} = require("./lib/sensitive-actions-log");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
 const { freeLocalPort } = require("./lib/free-local-port");
@@ -92,12 +97,12 @@ function getPythonLaunchConfig() {
   return { command, args: [scriptPath], cwd, env };
 }
 const sessionStatePath = path.join(app.getPath("userData"), "session-state.json");
-const sensitiveLogPath = path.join(app.getPath("userData"), "sensitive-actions.json");
 const jobsStatePath = path.join(app.getPath("userData"), "jobs-state.json");
 const recentPdfsPath = path.join(app.getPath("userData"), "recent-pdfs.json");
 const jobs = [];
 let activeJobId = null;
-let sensitiveActions = [];
+/** @type {ReturnType<createSensitiveActionsLog> | null} */
+let sensitiveActionsLog = null;
 /** @type {string[]} */
 let recentPdfs = [];
 
@@ -152,15 +157,34 @@ function addRecentPdf(pdfPath) {
   }
 }
 
-function loadSensitiveLog() {
-  try {
-    if (fs.existsSync(sensitiveLogPath)) {
-      sensitiveActions = JSON.parse(fs.readFileSync(sensitiveLogPath, "utf8"));
-      if (!Array.isArray(sensitiveActions)) sensitiveActions = [];
-    }
-  } catch {
-    sensitiveActions = [];
+function getSensitiveActionsLog() {
+  if (!sensitiveActionsLog) {
+    sensitiveActionsLog = createSensitiveActionsLog({
+      filePath: path.join(app.getPath("userData"), "sensitive-actions.json")
+    });
   }
+  return sensitiveActionsLog;
+}
+
+function recordSensitiveJobOutcome(job) {
+  try {
+    const entries = buildSensitiveEntriesFromJob(job);
+    if (entries.length) getSensitiveActionsLog().appendMany(entries);
+  } catch (error) {
+    logWarn("sensitive:job", String(error?.message || error), { jobId: job?.id, type: job?.type });
+  }
+}
+
+function recordSensitiveExportOutcome(payload, result) {
+  try {
+    getSensitiveActionsLog().append(buildSensitiveEntryFromExport(payload, result));
+  } catch (error) {
+    logWarn("sensitive:export", String(error?.message || error));
+  }
+}
+
+function loadSensitiveLog() {
+  getSensitiveActionsLog().load();
 }
 
 function loadJobs() {
@@ -842,6 +866,7 @@ async function processJobQueue() {
     logError("job:queue", error.message, { jobId: next.id, type: next.type });
   } finally {
     activeJobId = null;
+    recordSensitiveJobOutcome(next);
     persistJobs();
   }
 }
@@ -1038,6 +1063,7 @@ ipcMain.handle("dialog:savePdfAs", async (_, suggestedName) => {
 ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
   try {
     const result = await exportPdfWithAnnotationsMain(payload);
+    recordSensitiveExportOutcome(payload, result);
     if (!result?.ok) {
       logError("export", result.error || "Export PDF échoué", {
         input_path: payload?.input_path,
@@ -1046,11 +1072,13 @@ ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
     }
     return result;
   } catch (error) {
+    const fail = { ok: false, error: error?.message || String(error) };
+    recordSensitiveExportOutcome(payload, fail);
     logIpcFailure("pdf:export-with-annotations", error, {
       input_path: payload?.input_path,
       output_path: payload?.output_path
     });
-    return { ok: false, error: error?.message || String(error) };
+    return fail;
   }
 });
 
@@ -1209,7 +1237,10 @@ ipcMain.handle("dialog:chooseLogFile", async (_, payload) => {
   return { ok: true, path: result.filePath };
 });
 
-ipcMain.handle("sensitive:list", async () => ({ ok: true, actions: sensitiveActions }));
+ipcMain.handle("sensitive:list", async () => ({
+  ok: true,
+  actions: getSensitiveActionsLog().getActions()
+}));
 
 function handleLogEventPayload(payload) {
   const level = String(payload?.level || "info").toLowerCase();
