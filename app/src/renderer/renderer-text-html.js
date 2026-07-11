@@ -191,18 +191,37 @@
     const content = contentEl.cloneNode(true);
     stripSpellHighlightMarkup(content);
     content.querySelectorAll?.(".resize-handle")?.forEach((h) => h.remove());
+    content.style.width = "100%";
+    content.style.maxWidth = "100%";
+    content.style.boxSizing = "border-box";
     shell.appendChild(content);
     return shell;
   }
 
+  function forceLayoutReflow(node) {
+    if (!node) return;
+    void node.offsetHeight;
+    void node.getBoundingClientRect?.();
+  }
+
+  function getExportContentRoot(root) {
+    if (!root) return null;
+    const clone = root.cloneNode(true);
+    stripSpellHighlightMarkup(clone);
+    clone.querySelectorAll?.(".resize-handle")?.forEach((h) => h.remove());
+    return clone;
+  }
+
   function htmlHasExplicitLineBreaks(root) {
     if (!root) return false;
-    const plain = plainTextIndexFromRoot(root);
+    const contentRoot = getExportContentRoot(root);
+    if (!contentRoot) return false;
+    const plain = plainTextIndexFromRoot(contentRoot);
     if (/\n/.test(plain)) return true;
-    const html = String(root.innerHTML || "");
+    const html = String(contentRoot.innerHTML || "");
     if (/<\s*br\b/i.test(html)) return true;
     try {
-      if (root.querySelectorAll("div, p, li").length > 1) return true;
+      if (contentRoot.querySelectorAll("div, p, li").length > 1) return true;
     } catch {
       /* ignore */
     }
@@ -218,22 +237,79 @@
     });
   }
 
+  function buildFontCssFromComputedStyle(cs) {
+    if (!cs) return "normal normal 14px Arial";
+    const style = cs.fontStyle || "normal";
+    const weight = cs.fontWeight || "normal";
+    const size = cs.fontSize || "14px";
+    const family = cs.fontFamily || "Arial";
+    return `${style} ${weight} ${size} ${family}`;
+  }
+
+  function createCanvasMeasureWidth(fontCss) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return () => 0;
+    ctx.font = fontCss;
+    return (segment) => ctx.measureText(String(segment || "")).width;
+  }
+
+  function resolveFontSourceForExport(displayRoot) {
+    const annotationEl =
+      displayRoot?.classList?.contains?.("annotation") ?
+        displayRoot
+      : displayRoot?.closest?.(".annotation.text");
+    const styleSource = annotationEl || displayRoot;
+    try {
+      return getComputedStyle(styleSource);
+    } catch {
+      return null;
+    }
+  }
+
+  /** DOM visuel puis repli canvas à la largeur du cadre (wrap-display / textWrapManual). */
+  function resolveSoftWrapOffsets(displayRoot, contentWidthPx) {
+    const contentRoot = getExportContentRoot(displayRoot);
+    if (!contentRoot) return [];
+    const plain = plainTextIndexFromRoot(contentRoot);
+    if (!plain) return [];
+
+    const domOffsets = filterSoftWrapOffsets(plain, getVisualLineBreakOffsets(contentRoot));
+    if (domOffsets.length) return domOffsets;
+
+    const width =
+      contentWidthPx > 0 ?
+        contentWidthPx
+      : getTextExportMeasureContext(displayRoot)?.contentWidth || 0;
+    if (width < 1) return [];
+
+    const wrapApi = window.__editifyTextSoftWrapOffsets;
+    if (!wrapApi?.computeSoftWrapOffsetsAtSpaces) return [];
+
+    const cs = resolveFontSourceForExport(displayRoot);
+    const measureWidth = createCanvasMeasureWidth(buildFontCssFromComputedStyle(cs));
+    return filterSoftWrapOffsets(
+      plain,
+      wrapApi.computeSoftWrapOffsetsAtSpaces(plain, width, measureWidth)
+    );
+  }
+
   /**
    * Figé les retours à la ligne visuels (soft-wrap) en <br> pour l'export PDF uniquement.
    * @param {HTMLElement} displayRoot
+   * @param {number} [contentWidthPx]
    */
-  function injectVisualLineBreaksIntoHtml(displayRoot) {
+  function injectVisualLineBreaksIntoHtml(displayRoot, contentWidthPx) {
     if (!displayRoot) return "";
+    const contentRoot = getExportContentRoot(displayRoot);
+    if (!contentRoot) return "";
     if (htmlHasExplicitLineBreaks(displayRoot)) {
-      return displayRoot.innerHTML || "";
+      return contentRoot.innerHTML || "";
     }
-    const plain = plainTextIndexFromRoot(displayRoot);
-    const offsets = filterSoftWrapOffsets(plain, getVisualLineBreakOffsets(displayRoot));
-    if (!offsets.length) return displayRoot.innerHTML || "";
+    const offsets = resolveSoftWrapOffsets(displayRoot, contentWidthPx);
+    if (!offsets.length) return contentRoot.innerHTML || "";
 
-    const clone = displayRoot.cloneNode(true);
-    stripSpellHighlightMarkup(clone);
-    clone.querySelectorAll?.(".resize-handle")?.forEach((h) => h.remove());
+    const clone = contentRoot;
     [...offsets].sort((a, b) => b - a).forEach((o) => insertBreakAtPlainOffset(clone, o));
     return clone.innerHTML || "";
   }
@@ -248,22 +324,25 @@
       return sanitizeTextHtml(displayRoot.innerHTML || "");
     }
 
+    forceLayoutReflow(displayRoot);
+
+    const measureCtx = getTextExportMeasureContext(displayRoot);
     const measureRoot = createExportMeasureRoot(displayRoot);
     if (measureRoot) {
       document.body.appendChild(measureRoot);
       try {
-        void measureRoot.offsetHeight;
+        forceLayoutReflow(measureRoot);
         const contentEl = measureRoot.firstElementChild;
         if (contentEl) {
-          const html = injectVisualLineBreaksIntoHtml(contentEl);
-          if (html) return sanitizeTextHtml(html);
+          const html = injectVisualLineBreaksIntoHtml(contentEl, measureCtx?.contentWidth);
+          if (/<\s*br\b/i.test(html || "")) return sanitizeTextHtml(html);
         }
       } finally {
         measureRoot.remove();
       }
     }
 
-    const html = injectVisualLineBreaksIntoHtml(displayRoot);
+    const html = injectVisualLineBreaksIntoHtml(displayRoot, measureCtx?.contentWidth);
     return sanitizeTextHtml(html || displayRoot.innerHTML || "");
   }
 

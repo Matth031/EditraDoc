@@ -393,11 +393,28 @@ test("export PDF : soft-wrap visuel figé en <br> (2 lignes équilibrées)", asy
 
   await page.waitForTimeout(400);
 
+  await expect
+    .poll(
+      async () =>
+        page.evaluate((id) => {
+          const d = window.__maniE2E.debugTextExportCaptureForTest(id);
+          return {
+            ok: d?.ok === true,
+            hasBr: /<br\s*\/?>/i.test(String(d?.captured || "")),
+            wrapDisplay: d?.wrapDisplay === true,
+            clientWidth: Number(d?.clientWidth) || 0
+          };
+        }, textId),
+      { timeout: 8000, message: "soft-wrap export : <br> materialise a 200x60" }
+    )
+    .toMatchObject({ ok: true, hasBr: true, wrapDisplay: true });
+
   const debug = await page.evaluate(
     (id) => window.__maniE2E.debugTextExportCaptureForTest(id),
     textId
   );
   expect(debug?.ok).toBe(true);
+  expect(Number(debug?.clientWidth)).toBeGreaterThanOrEqual(180);
   expect(String(debug?.captured || "")).toMatch(/<br\s*\/?>/i);
 
   const payload = await page.evaluate(() => window.__maniE2E.peekExportPayloadForTest());
