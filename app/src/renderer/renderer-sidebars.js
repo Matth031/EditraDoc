@@ -170,7 +170,8 @@
       const pageNumber = Number(pageNode.dataset.page) || 1;
       const pageKey = String(pageNumber);
       const userRot =
-        ((Number(tab.pageRotationsByPage?.[pageKey] ?? pageNode.dataset.userRotation) || 0) % 360 +
+        (((Number(tab.pageRotationsByPage?.[pageKey] ?? pageNode.dataset.userRotation) || 0) %
+          360) +
           360) %
         360;
       const srcCanvas = pageNode.querySelector("canvas.pdf-canvas");

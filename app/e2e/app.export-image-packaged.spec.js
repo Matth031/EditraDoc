@@ -7,9 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const e2eCi = require("./electron-ci-env");
 const { waitForPdfPagesRendered } = require("./helpers");
-const {
-  assertPdfHasEmbeddedImageXObjects
-} = require("./export-image-assertions");
+const { assertPdfHasEmbeddedImageXObjects } = require("./export-image-assertions");
 
 const appDir = process.cwd();
 const packagedExe = path.join(appDir, "dist", "win-unpacked", "EditraDoc.exe");

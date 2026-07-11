@@ -20,7 +20,10 @@ function sensitiveKey(a) {
 }
 
 function tempLogPath() {
-  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-sensitive-")), "sensitive-actions.json");
+  return path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-sensitive-")),
+    "sensitive-actions.json"
+  );
 }
 
 test("garde : champ interdit (password) leve ForbiddenSensitiveFieldError", () => {
@@ -65,7 +68,7 @@ test("garde : cle non autorisee (annotations_by_page) leve ForbiddenSensitiveFie
         status: "succeeded",
         inputPath: "/a/in.pdf",
         outputPath: "/a/out.pdf",
-        annotations_by_page: { "1": [] }
+        annotations_by_page: { 1: [] }
       }),
     ForbiddenSensitiveFieldError
   );

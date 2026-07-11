@@ -15,7 +15,9 @@ test("prepareSessionSavePayload : payload OK", () => {
 
 test("prepareSessionSavePayload : payload > 50 Mo -> rejet explicite", () => {
   const big = "x".repeat(MAX_SESSION_SAVE_BYTES + 1);
-  const result = prepareSessionSavePayload({ tabs: [{ annotationsByPage: { "1": [{ data: big }] } }] });
+  const result = prepareSessionSavePayload({
+    tabs: [{ annotationsByPage: { 1: [{ data: big }] } }]
+  });
   assert.equal(result.ok, false);
   assert.equal(result.errorCode, ERROR_CODES.SESSION_PAYLOAD_TOO_LARGE);
   assert.match(result.error, /50 Mo/);

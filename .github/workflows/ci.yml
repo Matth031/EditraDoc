@@ -34,6 +34,12 @@ jobs:
       - name: npm audit (high+)
         run: npm run test:audit
 
+      - name: Verify dev assets
+        run: npm run test:verify-assets
+
+      - name: Prettier check
+        run: npm run format:check
+
       - name: Lint
         run: npm run lint
 

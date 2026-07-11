@@ -64,8 +64,9 @@
         /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
           d.exportActivePdfToPath
         );
-      const peekExportPayloadForTest =
-        /** @type {() => Promise<Record<string, unknown>>} */ (d.peekExportPayloadForTest);
+      const peekExportPayloadForTest = /** @type {() => Promise<Record<string, unknown>>} */ (
+        d.peekExportPayloadForTest
+      );
 
       window.__maniE2E.resetUiState = () => {
         try {
@@ -358,7 +359,9 @@
             } catch {
               ed.textContent += ch;
             }
-            ed.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: ch }));
+            ed.dispatchEvent(
+              new InputEvent("input", { bubbles: true, inputType: "insertText", data: ch })
+            );
           }
           return loc.item.text || ed.innerText || "";
         } catch {
@@ -534,9 +537,9 @@
           const node = pagesContainer?.querySelector?.(`.pdf-page[data-page="${pageKey}"]`);
           const fromTab = tab?.pageRotationsByPage?.[pageKey];
           if (fromTab !== undefined) {
-            return ((Number(fromTab) || 0) % 360 + 360) % 360;
+            return (((Number(fromTab) || 0) % 360) + 360) % 360;
           }
-          return ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360;
+          return (((Number(node?.dataset?.userRotation) || 0) % 360) + 360) % 360;
         } catch {
           return -1;
         }
@@ -548,9 +551,9 @@
           const node = pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
           const fromTab = tab?.pageRotationsByPage?.[key];
           if (fromTab !== undefined) {
-            return ((Number(fromTab) || 0) % 360 + 360) % 360;
+            return (((Number(fromTab) || 0) % 360) + 360) % 360;
           }
-          return ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360;
+          return (((Number(node?.dataset?.userRotation) || 0) % 360) + 360) % 360;
         } catch {
           return -1;
         }
@@ -563,9 +566,9 @@
           return {
             w: canvas?.width || 0,
             h: canvas?.height || 0,
-            intrinsic: ((Number(node?.dataset?.intrinsicRotation) || 0) % 360 + 360) % 360,
-            user: ((Number(node?.dataset?.userRotation) || 0) % 360 + 360) % 360,
-            absolute: ((Number(node?.dataset?.rotation) || 0) % 360 + 360) % 360
+            intrinsic: (((Number(node?.dataset?.intrinsicRotation) || 0) % 360) + 360) % 360,
+            user: (((Number(node?.dataset?.userRotation) || 0) % 360) + 360) % 360,
+            absolute: (((Number(node?.dataset?.rotation) || 0) % 360) + 360) % 360
           };
         } catch {
           return null;
@@ -595,7 +598,9 @@
           const max = tab.pageCount ? Math.max(1, tab.pageCount) : n;
           tab.currentPage = Math.min(n, max);
           pdfv.setActivePage(tab.currentPage);
-          const active = pagesContainer?.querySelector?.(`.pdf-page[data-page="${tab.currentPage}"]`);
+          const active = pagesContainer?.querySelector?.(
+            `.pdf-page[data-page="${tab.currentPage}"]`
+          );
           active?.scrollIntoView?.({ block: "start", inline: "nearest" });
           return true;
         } catch {

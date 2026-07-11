@@ -105,9 +105,9 @@ test("scroll : page dominante (>50%) met à jour footer et miniature", async () 
       .toBe(pageCount);
 
     await expect(page.locator("#pageInfo")).toContainText(String(pageCount));
-    await expect(page.locator(`#thumbsList .thumb-item.active[data-page="${pageCount}"]`)).toHaveCount(
-      1
-    );
+    await expect(
+      page.locator(`#thumbsList .thumb-item.active[data-page="${pageCount}"]`)
+    ).toHaveCount(1);
   } finally {
     await e2eCi.closeElectronApp(app);
   }

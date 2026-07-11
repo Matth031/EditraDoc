@@ -253,7 +253,9 @@ function buildSensitiveEntriesFromJob(job) {
   const ts = new Date().toISOString();
   const journalStatus = status === "succeeded" ? "succeeded" : "failed";
   const errorSummary =
-    status === "failed" ? String(job?.error || result?.error || "Echec job").slice(0, 240) : undefined;
+    status === "failed"
+      ? String(job?.error || result?.error || "Echec job").slice(0, 240)
+      : undefined;
   const base = {
     ts,
     type,
@@ -279,7 +281,9 @@ function buildSensitiveEntriesFromJob(job) {
       {
         ...base,
         inputPath: pathField(payload.input_path),
-        outputPath: pathField(status === "succeeded" ? result.output_path || payload.output_path : payload.output_path)
+        outputPath: pathField(
+          status === "succeeded" ? result.output_path || payload.output_path : payload.output_path
+        )
       }
     ];
   }

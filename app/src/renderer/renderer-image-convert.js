@@ -34,7 +34,9 @@
 
   function requireDeps() {
     if (!deps) {
-      throw new Error("[editify] __editifyImageConvert.bind() doit être appelé depuis renderer.js.");
+      throw new Error(
+        "[editify] __editifyImageConvert.bind() doit être appelé depuis renderer.js."
+      );
     }
     return deps;
   }

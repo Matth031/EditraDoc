@@ -182,7 +182,16 @@
       "canvas",
       "base"
     ],
-    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "href", "src", "xlink:href", "formaction"]
+    FORBID_ATTR: [
+      "onerror",
+      "onload",
+      "onclick",
+      "onmouseover",
+      "href",
+      "src",
+      "xlink:href",
+      "formaction"
+    ]
   });
 
   /**

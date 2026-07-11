@@ -14,9 +14,9 @@
    * @property {() => void} updateViewer
    * @property {() => void} updateWelcomeVisibility
    * @property {() => void} syncPropertyInputs
- * @property {() => void} scheduleSidebarUpdate
- * @property {() => Promise<void>} [syncOpenPdfPathsToMain]
- */
+   * @property {() => void} scheduleSidebarUpdate
+   * @property {() => Promise<void>} [syncOpenPdfPathsToMain]
+   */
 
   /** @type {SessionDeps | null} */
   let deps = null;

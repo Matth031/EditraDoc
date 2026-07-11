@@ -205,7 +205,7 @@
     const absRot = getAbsolutePageRotation(tab, pageKey, intrinsic);
 
     const d = requireDeps();
-  // pdf.js : rotation = angle total affiché (défaut page.rotate), pas un delta additif.
+    // pdf.js : rotation = angle total affiché (défaut page.rotate), pas un delta additif.
     const baseViewport = page.getViewport({ scale: 1, rotation: absRot });
     const baseScale = containerWidth / baseViewport.width;
     const scale = baseScale * (d.state.zoomScale || 1);
@@ -364,7 +364,11 @@
       }
     }
 
-    const norm = (p) => String(p || "").trim().replace(/\//g, "\\").toLowerCase();
+    const norm = (p) =>
+      String(p || "")
+        .trim()
+        .replace(/\//g, "\\")
+        .toLowerCase();
     const targets = new Set((paths || []).map(norm).filter(Boolean));
     if (!targets.size || !pdfRenderCache.path) return;
     if (!targets.has(norm(pdfRenderCache.path))) return;

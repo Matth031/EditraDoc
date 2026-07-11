@@ -158,7 +158,10 @@ test("export PDF : image puis écrasement du fichier source (même chemin)", asy
     timeout: 15000
   });
 
-  const exportResult = await page.evaluate((p) => window.__maniE2E.exportActivePdfToPathForTest(p), workPdf);
+  const exportResult = await page.evaluate(
+    (p) => window.__maniE2E.exportActivePdfToPathForTest(p),
+    workPdf
+  );
   expect(exportResult?.ok).toBe(true);
   expect(fs.existsSync(workPdf)).toBe(true);
   expect(fs.statSync(workPdf).size).toBeGreaterThan(beforeSize);
@@ -211,10 +214,13 @@ test("export PDF : texte en cours d’édition (sans blur) est inclus dans le fi
   await editor.click();
   await editor.pressSequentially("TEST!", { delay: 15 });
   await expect
-    .poll(async () => {
-      const ui = await page.evaluate(() => window.__maniE2E.getUiState());
-      return (ui.textOnCurrentPage || []).some((s) => String(s).includes("TEST"));
-    }, { timeout: 5000 })
+    .poll(
+      async () => {
+        const ui = await page.evaluate(() => window.__maniE2E.getUiState());
+        return (ui.textOnCurrentPage || []).some((s) => String(s).includes("TEST"));
+      },
+      { timeout: 5000 }
+    )
     .toBe(true);
   // Pas de blur : export direct pendant l’édition immédiate.
   const exportResult = await page.evaluate(
@@ -300,11 +306,10 @@ test("export PDF : texte multiligne formaté puis écrasement conserve lignes et
   });
   const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(
-    () => !!window.__maniE2E?.overwriteActivePdfForTest,
-    null,
-    { timeout: 90000, polling: 250 }
-  );
+  await page.waitForFunction(() => !!window.__maniE2E?.overwriteActivePdfForTest, null, {
+    timeout: 90000,
+    polling: 250
+  });
 
   await expect
     .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
@@ -358,11 +363,10 @@ test("export PDF : soft-wrap visuel figé en <br> (2 lignes équilibrées)", asy
   });
   const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(
-    () => !!window.__maniE2E?.peekExportPayloadForTest,
-    null,
-    { timeout: 90000, polling: 250 }
-  );
+  await page.waitForFunction(() => !!window.__maniE2E?.peekExportPayloadForTest, null, {
+    timeout: 90000,
+    polling: 250
+  });
 
   await expect
     .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
@@ -382,7 +386,7 @@ test("export PDF : soft-wrap visuel figé en <br> (2 lignes équilibrées)", asy
     window.__maniE2E.injectTextForTest({
       plain: "on ajoute un texte voir si ça marche encore !",
       textHtml:
-        "<div>on ajoute un texte <b>voir si</b> ça marche <font color=\"#00aa00\">encore !</font></div>",
+        '<div>on ajoute un texte <b>voir si</b> ça marche <font color="#00aa00">encore !</font></div>',
       w: 200,
       h: 60,
       fontSize: 14,
@@ -448,11 +452,10 @@ test("export PDF : 2 lignes explicites (Enter) ne coupent pas les mots", async (
   });
   const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(
-    () => !!window.__maniE2E?.peekExportPayloadForTest,
-    null,
-    { timeout: 90000, polling: 250 }
-  );
+  await page.waitForFunction(() => !!window.__maniE2E?.peekExportPayloadForTest, null, {
+    timeout: 90000,
+    polling: 250
+  });
 
   await expect
     .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
@@ -472,7 +475,7 @@ test("export PDF : 2 lignes explicites (Enter) ne coupent pas les mots", async (
     window.__maniE2E.injectTextForTest({
       plain: "on ajoute un texte sur 2 lignes \nvoir si ça marche encore !",
       textHtml:
-        "<div>on ajoute un texte <u>sur 2 lignes</u> <br><b>voir si</b> ça marche <font color=\"#00aa00\">encore !</font></div>",
+        '<div>on ajoute un texte <u>sur 2 lignes</u> <br><b>voir si</b> ça marche <font color="#00aa00">encore !</font></div>',
       w: 280,
       h: 72,
       fontSize: 14,
@@ -518,11 +521,10 @@ test("export PDF : texte page 1 et page 4 visibles après enregistrement (page a
   });
   const page = await app.firstWindow({ timeout: e2eCi.electronFirstWindowTimeoutMs() });
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForFunction(
-    () => !!window.__maniE2E?.injectTextOnPageForTest,
-    null,
-    { timeout: 90000, polling: 250 }
-  );
+  await page.waitForFunction(() => !!window.__maniE2E?.injectTextOnPageForTest, null, {
+    timeout: 90000,
+    polling: 250
+  });
 
   await expect
     .poll(async () => page.evaluate(() => window.maniPdfApi.pythonHealth()), {
@@ -541,12 +543,8 @@ test("export PDF : texte page 1 et page 4 visibles après enregistrement (page a
   const pageCount = await page.evaluate(() => window.__maniE2E.getUiState()?.pageCount || 1);
   expect(pageCount).toBeGreaterThanOrEqual(4);
 
-  await page.evaluate(() =>
-    window.__maniE2E.injectTextOnPageForTest(1, { plain: "EXPMP1" })
-  );
-  await page.evaluate(() =>
-    window.__maniE2E.injectTextOnPageForTest(4, { plain: "EXPMP4" })
-  );
+  await page.evaluate(() => window.__maniE2E.injectTextOnPageForTest(1, { plain: "EXPMP1" }));
+  await page.evaluate(() => window.__maniE2E.injectTextOnPageForTest(4, { plain: "EXPMP4" }));
   await page.evaluate(() => window.__maniE2E.setCurrentPageForTest(1));
 
   const payload = await page.evaluate(() => window.__maniE2E.peekExportPayloadForTest());

@@ -4,18 +4,25 @@ const path = require("node:path");
 const { spawn, execSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const http = require("node:http");
-const { log, logError, logWarn, logInfo, logDebug, logExportAudit, logStartupBanner, getLogFilePath, reloadLogConfiguration, isExportAuditEnabledEffective } = require("./logger");
+const {
+  log,
+  logError,
+  logWarn,
+  logInfo,
+  logDebug,
+  logExportAudit,
+  logStartupBanner,
+  getLogFilePath,
+  reloadLogConfiguration,
+  isExportAuditEnabledEffective
+} = require("./logger");
 const appSettings = require("./app-settings");
 const { getBuildInfoPayload } = require("./lib/build-info");
 const { checkForUpdates, getUpdateStatus } = require("./lib/update-check");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
 const { evaluatePdfOpen } = require("./lib/pdf-open");
-const {
-  registerOpenPdfPath,
-  syncOpenPdfPaths,
-  isOpenPdfPath
-} = require("./lib/open-pdf-registry");
+const { registerOpenPdfPath, syncOpenPdfPaths, isOpenPdfPath } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
@@ -356,12 +363,15 @@ function createWindow() {
   mainWindow.on("leave-full-screen", () => broadcastFullscreenState());
   mainWindow.webContents.once("did-finish-load", () => broadcastFullscreenState());
 
-  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
-    logError("renderer:load", errorDescription || "Échec chargement page", {
-      errorCode,
-      url: validatedURL
-    });
-  });
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL) => {
+      logError("renderer:load", errorDescription || "Échec chargement page", {
+        errorCode,
+        url: validatedURL
+      });
+    }
+  );
 
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     logError("renderer:process", "Processus renderer terminé", details || {});
@@ -874,7 +884,10 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
     const validation = exists && fileSize > 0 ? await validateWithPython(pdfPath) : { ok: false };
     const result = evaluatePdfOpen(pdfPath, { exists, fileSize, validation });
     if (!result.ok) {
-      logWarn("pdf:open", result.error || "Ouverture PDF refusée", { pdfPath, errorCode: result.errorCode });
+      logWarn("pdf:open", result.error || "Ouverture PDF refusée", {
+        pdfPath,
+        errorCode: result.errorCode
+      });
       return result;
     }
     registerOpenPdfPath(pdfPath);
@@ -1179,7 +1192,9 @@ ipcMain.handle("update:set-settings", async (_, payload) => {
   return { ok: true, settings: appSettings.getUpdateSettings() };
 });
 
-ipcMain.handle("settings:get-log-file", async () => appSettings.getLogFileSettingsInfo(getLogFilePath));
+ipcMain.handle("settings:get-log-file", async () =>
+  appSettings.getLogFileSettingsInfo(getLogFilePath)
+);
 
 ipcMain.handle("settings:set-log-file", async (_, payload) => {
   const nextPath = payload?.path;

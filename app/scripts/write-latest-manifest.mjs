@@ -17,9 +17,7 @@ const version = String(pkg.version || "0.0.0");
 const tag = process.env.RELEASE_TAG || `v${version}`;
 
 const exeArg = process.argv[2];
-const exePath = exeArg
-  ? path.resolve(exeArg)
-  : path.join(repoRoot, "EditraDoc-Setup.exe");
+const exePath = exeArg ? path.resolve(exeArg) : path.join(repoRoot, "EditraDoc-Setup.exe");
 
 if (!fs.existsSync(exePath)) {
   console.error(`[write-latest-manifest] Installateur introuvable : ${exePath}`);

@@ -34,10 +34,7 @@ const INDEX_HTML = path.join(APP_ROOT, "src", "renderer", "index.html");
 const ACTIVE_POST_ROUTES = Object.freeze([
   ["/validate", { path: "/tmp/invariant-x.pdf" }],
   ["/merge", { inputs: ["/tmp/a.pdf"], output_path: "/tmp/out.pdf" }],
-  [
-    "/split",
-    { input_path: "/tmp/a.pdf", from_page: 1, to_page: 1, output_path: "/tmp/out.pdf" }
-  ],
+  ["/split", { input_path: "/tmp/a.pdf", from_page: 1, to_page: 1, output_path: "/tmp/out.pdf" }],
   ["/split-groups", { input_path: "/tmp/a.pdf", groups: [] }],
   [
     "/apply-annotations",
@@ -120,11 +117,7 @@ _export_audit_log("invariant_must_not_write", {"page": 1})
 `;
   const res = runPython(script);
   assert.equal(res.status, 0, res.stderr || res.stdout);
-  assert.equal(
-    fs.existsSync(logPath),
-    false,
-    "fichier audit cree sans EDITRADOC_EXPORT_AUDIT=1"
-  );
+  assert.equal(fs.existsSync(logPath), false, "fichier audit cree sans EDITRADOC_EXPORT_AUDIT=1");
 });
 
 test("INVARIANT S19 : scope export-audit exige verbose (pas de contournement)", () => {
@@ -328,17 +321,14 @@ test("INVARIANT S4 : service Python indisponible — ouverture PDF refusee (fail
 
 test("INVARIANT S5 : payload XSS img onerror neutralisé par sanitizeAnnotationTextHtml", () => {
   const { sanitizeAnnotationTextHtml } = require("../src/lib/sanitize-html.js");
-  const dirty = '<img src=x onerror=alert(1)><b>ok</b>';
+  const dirty = "<img src=x onerror=alert(1)><b>ok</b>";
   const out = sanitizeAnnotationTextHtml(dirty);
   assert.doesNotMatch(out, /onerror|javascript:|<\s*img/i);
   assert.match(out, /<b>ok<\/b>/i);
 });
 
 test("INVARIANT S5 : paste handler contentEditable présent (capture avant insertion native)", () => {
-  const rendererJs = fs.readFileSync(
-    path.join(APP_ROOT, "src", "renderer", "renderer.js"),
-    "utf8"
-  );
+  const rendererJs = fs.readFileSync(path.join(APP_ROOT, "src", "renderer", "renderer.js"), "utf8");
   assert.match(
     rendererJs,
     /addEventListener\(\s*["']paste["']/,

@@ -19,7 +19,11 @@ const raptorFixture = path.join(repoRoot, "tests", "raptor.png");
 const outPdf = path.join(repoRoot, "tests", "test_page_rotate_export.pdf");
 const outWysiwygPdf = path.join(repoRoot, "tests", "test_page_rotate_wysiwyg.pdf");
 const rotatedFixture = path.join(repoRoot, "tests", "pdf_intrinsic_rotate270.pdf");
-const createRotatedFixtureScript = path.join(process.cwd(), "scripts", "create-rotated-pdf-fixture.mjs");
+const createRotatedFixtureScript = path.join(
+  process.cwd(),
+  "scripts",
+  "create-rotated-pdf-fixture.mjs"
+);
 const fallbackPng = path.join(process.cwd(), "public", "miniature_no_bg.png");
 
 function ensureRotatedPdfFixture() {
@@ -96,7 +100,9 @@ test("Rotation page : boutons désactivés sans PDF (AC-ROT-05)", async () => {
   const { app, page } = await launchApp();
   try {
     await page.evaluate(() => window.__maniE2E.resetUiState());
-    expect(await page.evaluate(() => window.__maniE2E.areRotateButtonsDisabledForTest())).toBe(true);
+    expect(await page.evaluate(() => window.__maniE2E.areRotateButtonsDisabledForTest())).toBe(
+      true
+    );
   } finally {
     await e2eCi.closeElectronApp(app);
   }
@@ -139,9 +145,7 @@ test("Rotation page : multipage — seule la page active change (AC-ROT-02)", as
       .poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForPageTest(2)))
       .toBe(270);
 
-    const rotPage1After = await page.evaluate(() =>
-      window.__maniE2E.getPageRotationForPageTest(1)
-    );
+    const rotPage1After = await page.evaluate(() => window.__maniE2E.getPageRotationForPageTest(1));
     expect(rotPage1After).toBe(rotPage1Before);
   } finally {
     await e2eCi.closeElectronApp(app);
@@ -154,9 +158,7 @@ test("Rotation page : cycle 360° (AC-ROT-06)", async () => {
     for (let i = 0; i < 4; i += 1) {
       await page.evaluate(() => window.__maniE2E.rotatePageForTest("right"));
     }
-    await expect
-      .poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest()))
-      .toBe(0);
+    await expect.poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest())).toBe(0);
   } finally {
     await e2eCi.closeElectronApp(app);
   }
@@ -302,9 +304,7 @@ test("Rotation page : écrasement PDF /Rotate natif + delta utilisateur (AC-ROT-
     const exportResult = await page.evaluate(() => window.__maniE2E.overwriteActivePdfForTest());
     expect(exportResult?.ok).toBeTruthy();
 
-    await expect
-      .poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest()))
-      .toBe(0);
+    await expect.poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest())).toBe(0);
 
     const after = await page.evaluate(() => window.__maniE2E.getPageRenderMetaForTest(1));
     expect(after.intrinsic).toBe(0);
@@ -366,9 +366,7 @@ test("Rotation page : écrasement même fichier réinitialise le delta utilisate
     const exportResult = await page.evaluate(() => window.__maniE2E.overwriteActivePdfForTest());
     expect(exportResult?.ok).toBeTruthy();
 
-    await expect
-      .poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest()))
-      .toBe(0);
+    await expect.poll(() => page.evaluate(() => window.__maniE2E.getPageRotationForTest())).toBe(0);
 
     const sizeAfter = await page.evaluate(() => {
       const c = document.querySelector('.pdf-page[data-page="1"] canvas.pdf-canvas');

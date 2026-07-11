@@ -76,7 +76,7 @@
     const cw = canvas?.width || 0;
     const ch = canvas?.height || 0;
     const delta = direction === "left" ? -90 : 90;
-    const norm = math()?.normalizeRotation || ((v) => ((Number(v) || 0) % 360 + 360) % 360);
+    const norm = math()?.normalizeRotation || ((v) => (((Number(v) || 0) % 360) + 360) % 360);
 
     rotating = true;
     try {
@@ -89,12 +89,7 @@
 
       const annotations = tab.annotationsByPage?.[pageKey] || [];
       if (annotations.length && cw > 0 && ch > 0 && math()?.rotateAnnotationsOnPage) {
-        tab.annotationsByPage[pageKey] = math().rotateAnnotationsOnPage(
-          annotations,
-          delta,
-          cw,
-          ch
-        );
+        tab.annotationsByPage[pageKey] = math().rotateAnnotationsOnPage(annotations, delta, cw, ch);
       }
 
       await d.rerenderPage(pageNumber);

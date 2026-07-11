@@ -110,7 +110,8 @@
    */
   function onDocumentKeydown(e) {
     if (e.key !== "Escape") return;
-    if (!deps?.logFileSettingsModal || deps.logFileSettingsModal.classList.contains("hidden")) return;
+    if (!deps?.logFileSettingsModal || deps.logFileSettingsModal.classList.contains("hidden"))
+      return;
     close();
   }
 

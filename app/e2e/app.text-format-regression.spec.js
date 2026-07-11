@@ -131,9 +131,7 @@ test("frappe au bord de zone : le texte reste dans l'ordre de saisie", async () 
   const { app, page } = await launchApp();
   await openPdf(app, page);
 
-  const id = await page.evaluate(() =>
-    window.__maniE2E?.injectTextForTest?.({ plain: "" })
-  );
+  const id = await page.evaluate(() => window.__maniE2E?.injectTextForTest?.({ plain: "" }));
   expect(id).toBeTruthy();
 
   await page.evaluate(
@@ -142,8 +140,7 @@ test("frappe au bord de zone : le texte reste dans l'ordre de saisie", async () 
   );
 
   const typed = await page.evaluate(
-    ([annotationId, phrase]) =>
-      window.__maniE2E?.typeInTextEditorForTest?.(annotationId, phrase),
+    ([annotationId, phrase]) => window.__maniE2E?.typeInTextEditorForTest?.(annotationId, phrase),
     [id, "Encore une autre fenêtre de texte !"]
   );
 
@@ -253,8 +250,7 @@ test("undo séquentiel : italique puis gras puis couleur partielle", async () =>
     (annotationId) => {
       const f = window.__maniE2E?.getTextInlineFormatForTest?.(annotationId);
       const h = f?.textHtml || "";
-      const hasColor =
-        /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
+      const hasColor = /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
       return hasColor && f?.bold !== "none" && f?.italic !== "none";
     },
     id,
@@ -266,8 +262,7 @@ test("undo séquentiel : italique puis gras puis couleur partielle", async () =>
     (annotationId) => {
       const f = window.__maniE2E?.getTextInlineFormatForTest?.(annotationId);
       const h = f?.textHtml || "";
-      const hasColor =
-        /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
+      const hasColor = /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
       return hasColor && f?.bold !== "none" && f?.italic === "none";
     },
     id,
@@ -279,8 +274,7 @@ test("undo séquentiel : italique puis gras puis couleur partielle", async () =>
     (annotationId) => {
       const f = window.__maniE2E?.getTextInlineFormatForTest?.(annotationId);
       const h = f?.textHtml || "";
-      const hasColor =
-        /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
+      const hasColor = /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
       return hasColor && f?.bold === "none" && f?.italic === "none";
     },
     id,
@@ -292,13 +286,9 @@ test("undo séquentiel : italique puis gras puis couleur partielle", async () =>
     (annotationId) => {
       const f = window.__maniE2E?.getTextInlineFormatForTest?.(annotationId);
       const h = f?.textHtml || "";
-      const hasColor =
-        /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
+      const hasColor = /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)/i.test(h);
       return (
-        !hasColor &&
-        f?.bold === "none" &&
-        f?.italic === "none" &&
-        (f?.text || "").includes("rouge")
+        !hasColor && f?.bold === "none" && f?.italic === "none" && (f?.text || "").includes("rouge")
       );
     },
     id,

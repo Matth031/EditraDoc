@@ -491,7 +491,9 @@
     const fallback = d.sanitizeTextHtml(String(item.textHtml || item.text || ""));
     const id = String(item.id || "");
     if (!id) return fallback;
-    const node = d.layerRef.annotationLayer?.querySelector?.(`[data-id="${id.replace(/"/g, '\\"')}"]`);
+    const node = d.layerRef.annotationLayer?.querySelector?.(
+      `[data-id="${id.replace(/"/g, '\\"')}"]`
+    );
     if (!node) return fallback;
     const ed = d.getAnnotationTextEditor(node);
     const root = ed || node;

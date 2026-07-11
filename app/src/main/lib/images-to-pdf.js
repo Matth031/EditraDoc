@@ -23,7 +23,10 @@ function validateImagesOnDisk(inputPaths) {
         return { ok: false, error: `Image vide : ${base}` };
       }
       if (stat.size > MAX_IMAGE_BYTES) {
-        return { ok: false, error: `Image trop volumineuse (max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo) : ${base}` };
+        return {
+          ok: false,
+          error: `Image trop volumineuse (max ${MAX_IMAGE_BYTES / (1024 * 1024)} Mo) : ${base}`
+        };
       }
     } catch {
       return { ok: false, error: `Impossible de lire l'image : ${base}` };
@@ -71,7 +74,8 @@ async function convertImagesToPdf(inputPaths, outputPath, deps) {
       output_path: validation.outputPath
     });
   } catch (error) {
-    const msg = error && typeof error === "object" && "message" in error ? String(error.message) : "";
+    const msg =
+      error && typeof error === "object" && "message" in error ? String(error.message) : "";
     return { ok: false, error: msg || "Échec de la conversion image vers PDF." };
   }
 

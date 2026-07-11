@@ -25,9 +25,7 @@ function registerOpenPdfPath(pdfPath) {
  * @param {string[]} paths
  */
 function syncOpenPdfPaths(paths) {
-  openPdfTabPaths = new Set(
-    (paths || []).map((p) => normalizeOpenPdfPath(p)).filter(Boolean)
-  );
+  openPdfTabPaths = new Set((paths || []).map((p) => normalizeOpenPdfPath(p)).filter(Boolean));
 }
 
 /**

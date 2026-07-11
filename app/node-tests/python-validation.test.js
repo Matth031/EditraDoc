@@ -238,7 +238,9 @@ test("validatePdfWithPython : pas de retry sur reponse 401", async () => {
             on(event, handler) {
               if (event === "data") {
                 handler(
-                  Buffer.from(JSON.stringify({ ok: false, error: "Token d'authentification invalide." }))
+                  Buffer.from(
+                    JSON.stringify({ ok: false, error: "Token d'authentification invalide." })
+                  )
                 );
               }
               if (event === "end") {

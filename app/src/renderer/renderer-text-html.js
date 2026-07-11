@@ -43,9 +43,9 @@
     if (!sel || sel.rangeCount === 0) return false;
     const range = sel.getRangeAt(0);
     const ancestor =
-      range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ?
-        range.commonAncestorContainer
-      : range.commonAncestorContainer.parentElement;
+      range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
     if (!ancestor || !editorEl.contains(ancestor)) return false;
 
     range.deleteContents();
@@ -225,8 +225,9 @@
     const annotationEl = displayRoot?.classList?.contains?.("annotation")
       ? displayRoot
       : displayRoot?.closest?.(".annotation.text");
-    const contentEl =
-      displayRoot?.classList?.contains?.("text-editor") ? displayRoot : annotationEl || displayRoot;
+    const contentEl = displayRoot?.classList?.contains?.("text-editor")
+      ? displayRoot
+      : annotationEl || displayRoot;
     if (!contentEl) return null;
     const styleSource = annotationEl || contentEl;
     const cs = getComputedStyle(styleSource);
@@ -337,9 +338,8 @@
   }
 
   function resolveFontSourceForExport(displayRoot) {
-    const annotationEl =
-      displayRoot?.classList?.contains?.("annotation") ?
-        displayRoot
+    const annotationEl = displayRoot?.classList?.contains?.("annotation")
+      ? displayRoot
       : displayRoot?.closest?.(".annotation.text");
     const styleSource = annotationEl || displayRoot;
     try {
@@ -360,9 +360,9 @@
     if (domOffsets.length) return domOffsets;
 
     const width =
-      contentWidthPx > 0 ?
-        contentWidthPx
-      : getTextExportMeasureContext(displayRoot)?.contentWidth || 0;
+      contentWidthPx > 0
+        ? contentWidthPx
+        : getTextExportMeasureContext(displayRoot)?.contentWidth || 0;
     if (width < 1) return [];
 
     const wrapApi = window.__editifyTextSoftWrapOffsets;

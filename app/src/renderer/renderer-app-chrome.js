@@ -477,7 +477,10 @@
       closeAllFlyoutMenus();
       d0.savePdfAs().catch((error) => {
         try {
-          d0.logText?.("save", { step: "toolbar_exception", error: String(error?.message || error) });
+          d0.logText?.("save", {
+            step: "toolbar_exception",
+            error: String(error?.message || error)
+          });
         } catch {
           /* ignore */
         }

@@ -13,7 +13,7 @@ beforeEach(() => {
 
 test("sanitizeAnnotationTextHtml : whitelist balises texte", () => {
   const input =
-    '<div><p>Hello</p><br/><b>bold</b><strong>s</strong><i>i</i><em>e</em><u>u</u>' +
+    "<div><p>Hello</p><br/><b>bold</b><strong>s</strong><i>i</i><em>e</em><u>u</u>" +
     '<span style="color:#ff0000;font-weight:bold">c</span><font color="#00ff00">f</font></div>';
   const out = sanitizeAnnotationTextHtml(input);
   for (const tag of ["div", "p", "br", "b", "strong", "i", "em", "u", "span", "font"]) {
@@ -40,21 +40,19 @@ test("sanitizeAnnotationTextHtml : font[color] conservé", () => {
 });
 
 test("sanitizeAnnotationTextHtml : mani-spell-miss unwrap (strip)", () => {
-  const out = sanitizeAnnotationTextHtml(
-    'before<span class="mani-spell-miss">miss</span>after'
-  );
+  const out = sanitizeAnnotationTextHtml('before<span class="mani-spell-miss">miss</span>after');
   assert.equal(out, "beforemissafter");
   assert.doesNotMatch(out, /mani-spell-miss/i);
 });
 
 test("sanitizeAnnotationTextHtml : payloads XSS neutralisés", () => {
   const payloads = [
-    '<img src=x onerror=alert(1)>',
-    '<svg onload=alert(1)></svg>',
+    "<img src=x onerror=alert(1)>",
+    "<svg onload=alert(1)></svg>",
     '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">',
     '<iframe src="javascript:alert(1)"></iframe>',
     '<a href="javascript:alert(1)">x</a>',
-    '<script>alert(1)</script>',
+    "<script>alert(1)</script>",
     '<div onclick="alert(1)">x</div>',
     '<span style="background:url(javascript:alert(1))">x</span>'
   ];

@@ -51,9 +51,12 @@ test("Image → PDF : PNG via IPC (AC-IMG-01)", async () => {
       })
       .toMatchObject({ ok: true, export_ready: true });
 
-    const result = await page.evaluate(async (paths) => {
-      return window.maniPdfApi.convertImagesToPdf({ inputPaths: paths });
-    }, [raptorPng]);
+    const result = await page.evaluate(
+      async (paths) => {
+        return window.maniPdfApi.convertImagesToPdf({ inputPaths: paths });
+      },
+      [raptorPng]
+    );
 
     assertHtmlToPdfCreatedWithoutError(expect, result, outPdf);
     expect(result.pageCount).toBe(1);
@@ -89,9 +92,12 @@ test("Image → PDF : ouverture UI après conversion (AC-IMG-02)", async () => {
       })
       .toMatchObject({ export_ready: true });
 
-    await page.evaluate(async (paths) => {
-      await window.__editifyImageConvert.runConversionWithPaths(paths);
-    }, [raptorPng]);
+    await page.evaluate(
+      async (paths) => {
+        await window.__editifyImageConvert.runConversionWithPaths(paths);
+      },
+      [raptorPng]
+    );
 
     await waitForPdfPagesRendered(page);
     assertHtmlToPdfCreatedWithoutError(expect, { ok: true, outputPath: outPdf }, outPdf);

@@ -40,7 +40,11 @@ export function resolvePython() {
 export function runPythonModule(moduleArgs, opts = {}) {
   const py = resolvePython();
   if (!py) {
-    return { status: 127, stdout: "", stderr: "Python introuvable (essayez python, python3 ou py -3)." };
+    return {
+      status: 127,
+      stdout: "",
+      stderr: "Python introuvable (essayez python, python3 ou py -3)."
+    };
   }
   return spawnSync(py.cmd, [...py.prefixArgs, ...moduleArgs], {
     cwd: opts.cwd,
