@@ -95,10 +95,8 @@ test("DIAG: console + bootstrap + ouverture PDF", async () => {
   fs.writeFileSync(outPath, logs.join("\n"), "utf8");
 
   for (const line of logs) {
-    // eslint-disable-next-line no-console
     console.log(line);
   }
-  // eslint-disable-next-line no-console
   console.log(`[diag][saved] ${outPath}`);
 
   await e2eCi.closeElectronApp(app);
