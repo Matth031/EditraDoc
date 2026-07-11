@@ -19,6 +19,7 @@ Ces comportements sont **validés par audit**. Toute modification — y compris 
 | **S7** | **CSP** : `connect-src` ne doit **jamais** réintégrer `127.0.0.1` / `localhost` sans justification + validation explicite. | `index.html` |
 | **S1** | **Co-localisation** chemins PDF sortie : ne jamais retirer/contourner `path-guard.js` / `_assert_output_in_same_directory_as_input`. | `path-guard.js`, `pdf_ops.py`, handlers export |
 | **S4** | **validatePdfWithPython** : comportement **fail-closed** (refus si service indisponible). Ne jamais redevenir fail-open. | `python-validation.js`, `main.js` |
+| **S5** | **Sanitization HTML annotations texte** : DOMPurify + whitelist (`sanitize-html.js`) sur toute injection DOM (render, paste contentEditable, sync modèle, export). Paste intercepté **avant** insertion. Pas de balises/attributs hors whitelist ; `mani-spell-miss` strippé ; URI `javascript:`/`data:` bloqués. | `sanitize-html.js`, `renderer-text-html.js`, `renderer.js` (`wireTextEditorInteraction`) |
 
 ## Règle d’arbitrage
 

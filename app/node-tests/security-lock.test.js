@@ -323,3 +323,31 @@ test("INVARIANT S4 : service Python indisponible — ouverture PDF refusee (fail
   fs.unlinkSync(pdfPath);
   fs.rmdirSync(dir);
 });
+
+// --- S5 : sanitization HTML annotations texte ---
+
+test("INVARIANT S5 : payload XSS img onerror neutralisé par sanitizeAnnotationTextHtml", () => {
+  const { sanitizeAnnotationTextHtml } = require("../src/lib/sanitize-html.js");
+  const dirty = '<img src=x onerror=alert(1)><b>ok</b>';
+  const out = sanitizeAnnotationTextHtml(dirty);
+  assert.doesNotMatch(out, /onerror|javascript:|<\s*img/i);
+  assert.match(out, /<b>ok<\/b>/i);
+});
+
+test("INVARIANT S5 : paste handler contentEditable présent (capture avant insertion native)", () => {
+  const rendererJs = fs.readFileSync(
+    path.join(APP_ROOT, "src", "renderer", "renderer.js"),
+    "utf8"
+  );
+  assert.match(
+    rendererJs,
+    /addEventListener\(\s*["']paste["']/,
+    "wireTextEditorInteraction doit intercepter paste"
+  );
+  assert.match(
+    rendererJs,
+    /insertSanitizedClipboardIntoEditor/,
+    "paste doit appeler insertSanitizedClipboardIntoEditor"
+  );
+  assert.match(rendererJs, /event\.preventDefault\(\)/);
+});
