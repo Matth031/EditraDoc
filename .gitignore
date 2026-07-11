@@ -1,5 +1,6 @@
 app/node_modules/
 app/dist/
+resources/
 
 # Installateur Windows copié à la racine après npm run dist:win (éviter les commits de gros binaires)
 EditraDoc-Setup.exe
