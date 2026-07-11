@@ -10,5 +10,7 @@ module.exports = defineConfig({
   fullyParallel: false,
   /** Un seul worker : Electron + xvfb ; évite les courses sur le port Python local. */
   workers: 1,
+  /** Outil diagnostic (npm run e2e:diag) — hors régression standard. */
+  testIgnore: ["**/diag-pdf-open-console.spec.js"],
   reporter: "list"
 });
