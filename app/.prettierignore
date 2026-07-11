@@ -1,5 +1,6 @@
 node_modules
 dist
 out
+src/lib/vendor/**
 src/renderer/renderer.js
 src/renderer/renderer-i18n-data.js
