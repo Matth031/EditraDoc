@@ -22,7 +22,12 @@ const { checkForUpdates, getUpdateStatus } = require("./lib/update-check");
 const { isOutputPdfInSameDirectoryAsInput } = require("./lib/path-guard");
 const { validatePdfWithPython } = require("./lib/python-validation");
 const { evaluatePdfOpen } = require("./lib/pdf-open");
-const { registerOpenPdfPath, syncOpenPdfPaths, isOpenPdfPath } = require("./lib/open-pdf-registry");
+const {
+  registerOpenPdfPath,
+  unregisterOpenPdfPath,
+  syncOpenPdfPaths,
+  isOpenPdfPath
+} = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
@@ -917,6 +922,32 @@ ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   } catch (error) {
     logIpcFailure("pdf:read-bytes", error, { pdfPath });
     return { ok: false, error: `Lecture PDF impossible: ${error.message}` };
+  }
+});
+
+ipcMain.handle("pdf:register-open-path", async (_, pdfPath) => {
+  try {
+    if (typeof pdfPath !== "string" || !pdfPath.trim()) {
+      return { ok: false, error: "Chemin PDF invalide." };
+    }
+    registerOpenPdfPath(pdfPath);
+    return { ok: true };
+  } catch (error) {
+    logIpcFailure("pdf:register-open-path", error, { pdfPath });
+    return { ok: false, error: "Enregistrement du chemin ouvert impossible." };
+  }
+});
+
+ipcMain.handle("pdf:unregister-open-path", async (_, pdfPath) => {
+  try {
+    if (typeof pdfPath !== "string" || !pdfPath.trim()) {
+      return { ok: false, error: "Chemin PDF invalide." };
+    }
+    unregisterOpenPdfPath(pdfPath);
+    return { ok: true };
+  } catch (error) {
+    logIpcFailure("pdf:unregister-open-path", error, { pdfPath });
+    return { ok: false, error: "Retrait du chemin ouvert impossible." };
   }
 });
 

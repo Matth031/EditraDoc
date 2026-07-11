@@ -4,6 +4,7 @@ const path = require("node:path");
 const os = require("node:os");
 const {
   registerOpenPdfPath,
+  unregisterOpenPdfPath,
   syncOpenPdfPaths,
   isOpenPdfPath,
   normalizeOpenPdfPath,
@@ -22,13 +23,15 @@ test("hasPdfExtension : .pdf insensible à la casse", () => {
   assert.equal(hasPdfExtension("/a/doc.txt"), false);
 });
 
-test("open-pdf-registry : register + sync + isOpenPdfPath", () => {
+test("open-pdf-registry : register + unregister + sync + isOpenPdfPath", () => {
   resetOpenPdfPathsForTests();
   const dir = os.tmpdir();
   const p = path.join(dir, "open.pdf");
   registerOpenPdfPath(p);
   assert.equal(isOpenPdfPath(p), true);
   assert.equal(isOpenPdfPath(path.join(dir, "other.pdf")), false);
+  unregisterOpenPdfPath(p);
+  assert.equal(isOpenPdfPath(p), false);
   syncOpenPdfPaths([path.join(dir, "b.pdf")]);
   assert.equal(isOpenPdfPath(p), false);
   assert.equal(isOpenPdfPath(path.join(dir, "b.pdf")), true);

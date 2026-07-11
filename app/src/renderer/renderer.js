@@ -1758,6 +1758,7 @@ function removeTab(tabId) {
   pdfv.updateViewer();
   updateWelcomeVisibility();
   session.scheduleAutoSave();
+  unregisterOpenPdfPathOnMain(removed.path).catch(() => {});
   syncOpenPdfPathsToMain().catch(() => {});
 
   // E7-S1: toast "PDF retiré" + Annuler (5-8s)
@@ -1786,6 +1787,7 @@ function removeTab(tabId) {
       pdfv.updateViewer();
       updateWelcomeVisibility();
       session.scheduleAutoSave();
+      registerOpenPdfPathOnMain(entry.tab.path).catch(() => {});
       syncOpenPdfPathsToMain().catch(() => {});
     },
     timeoutMs: 6500
@@ -1803,6 +1805,26 @@ async function syncOpenPdfPathsToMain() {
     if (!window.maniPdfApi?.syncOpenPdfPaths) return;
     const paths = state.tabs.map((t) => t.path).filter(Boolean);
     await window.maniPdfApi.syncOpenPdfPaths(paths);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Incrémente la whitelist main (ex. annulation fermeture onglet). */
+async function registerOpenPdfPathOnMain(filePath) {
+  try {
+    if (!window.maniPdfApi?.registerOpenPdfPath || !filePath) return;
+    await window.maniPdfApi.registerOpenPdfPath(filePath);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Décrémente la whitelist main (fermeture onglet). */
+async function unregisterOpenPdfPathOnMain(filePath) {
+  try {
+    if (!window.maniPdfApi?.unregisterOpenPdfPath || !filePath) return;
+    await window.maniPdfApi.unregisterOpenPdfPath(filePath);
   } catch {
     /* ignore */
   }
