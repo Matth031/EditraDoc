@@ -1,6 +1,6 @@
 const path = require("node:path");
 
-/** Chemins PDF actuellement ouverts (onglets) — enregistrés via pdf:open / register / unregister. */
+/** Chemins PDF actuellement ouverts (onglets) — enregistrés uniquement après pdf:open réussi. */
 let openPdfTabPaths = new Set();
 /** @type {Map<string, number>} */
 let openPdfPathRefCounts = new Map();

@@ -1775,18 +1775,34 @@ function removeTab(tabId) {
       if (!pendingTabUndo) return;
       const entry = pendingTabUndo;
       pendingTabUndo = null;
-      const safeIndex = clamp(entry.index, 0, state.tabs.length);
-      state.tabs.splice(safeIndex, 0, entry.tab);
-      if (entry.wasActive) state.activeTabId = entry.tab.id;
-      else state.activeTabId = entry.prevActiveTabId || state.activeTabId;
-      state.selectedAnnotationId = null;
-      state.editingAnnotationId = null;
+      // Re-validation complète via pdf:open (whitelist S6) — jamais register aveugle.
+      void (async () => {
+        try {
+          if (!entry.tab?.path || !window.maniPdfApi?.openPdf) {
+            setStatus("Impossible de restaurer le PDF.");
+            return;
+          }
+          const open = await window.maniPdfApi.openPdf(entry.tab.path);
+          if (!open?.ok) {
+            setStatus(resolvePdfOpenErrorMessage(open));
+            return;
+          }
+        } catch {
+          setStatus("Impossible de restaurer le PDF.");
+          return;
+        }
+        const safeIndex = clamp(entry.index, 0, state.tabs.length);
+        state.tabs.splice(safeIndex, 0, entry.tab);
+        if (entry.wasActive) state.activeTabId = entry.tab.id;
+        else state.activeTabId = entry.prevActiveTabId || state.activeTabId;
+        state.selectedAnnotationId = null;
+        state.editingAnnotationId = null;
 
-      renderTabs();
-      pdfv.updateViewer();
-      updateWelcomeVisibility();
-      session.scheduleAutoSave();
-      registerOpenPdfPathOnMain(entry.tab.path).catch(() => {});
+        renderTabs();
+        pdfv.updateViewer();
+        updateWelcomeVisibility();
+        session.scheduleAutoSave();
+      })();
     },
     timeoutMs: 6500
   });
@@ -1795,16 +1811,6 @@ function removeTab(tabId) {
     if (pendingTabUndo?.toastId !== toastId) return;
     pendingTabUndo = null;
   }, 7000);
-}
-
-/** Incrémente la whitelist main (ex. annulation fermeture onglet). */
-async function registerOpenPdfPathOnMain(filePath) {
-  try {
-    if (!window.maniPdfApi?.registerOpenPdfPath || !filePath) return;
-    await window.maniPdfApi.registerOpenPdfPath(filePath);
-  } catch {
-    /* ignore */
-  }
 }
 
 /** Décrémente la whitelist main (fermeture onglet). */

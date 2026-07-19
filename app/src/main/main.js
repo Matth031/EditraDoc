@@ -924,19 +924,6 @@ ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   }
 });
 
-ipcMain.handle("pdf:register-open-path", async (_, pdfPath) => {
-  try {
-    if (typeof pdfPath !== "string" || !pdfPath.trim()) {
-      return { ok: false, error: "Chemin PDF invalide." };
-    }
-    registerOpenPdfPath(pdfPath);
-    return { ok: true };
-  } catch (error) {
-    logIpcFailure("pdf:register-open-path", error, { pdfPath });
-    return { ok: false, error: "Enregistrement du chemin ouvert impossible." };
-  }
-});
-
 ipcMain.handle("pdf:unregister-open-path", async (_, pdfPath) => {
   try {
     if (typeof pdfPath !== "string" || !pdfPath.trim()) {

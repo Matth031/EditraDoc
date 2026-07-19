@@ -226,6 +226,41 @@ test("INVARIANT S6 : pdf:sync-open-paths absent — injection whitelist impossib
   assert.equal(blocked.errorCode, ERROR_CODES.PDF_READ_NOT_OPEN);
 });
 
+test("INVARIANT S6 : pdf:register-open-path — chemin jamais ouvert via pdf:open → refus", () => {
+  const {
+    evaluateRegisterOpenPathIpcRequest,
+    ERROR_CODES: REG_CODES
+  } = require("../src/main/lib/pdf-register-open-path-guard");
+  const mainSrc = fs.readFileSync(MAIN_JS, "utf8");
+  const preloadSrc = fs.readFileSync(PRELOAD_JS, "utf8");
+  assert.equal(
+    mainSrc.includes('ipcMain.handle("pdf:register-open-path"'),
+    false,
+    "IPC pdf:register-open-path ne doit pas exister (élargissement S6 sans validation)"
+  );
+  assert.equal(preloadSrc.includes("pdf:register-open-path"), false);
+  assert.equal(
+    /(^|[^a-zA-Z])registerOpenPdfPath\s*:/.test(preloadSrc),
+    false,
+    "preload ne doit pas exposer registerOpenPdfPath (unregisterOpenPdfPath reste autorisé)"
+  );
+
+  const neverOpened = path.join(os.tmpdir(), "invariant-s6-never-opened.pdf");
+  const rejected = evaluateRegisterOpenPathIpcRequest(neverOpened);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.errorCode, REG_CODES.PDF_REGISTER_VIA_OPEN_ONLY);
+
+  openPdfRegistry.resetOpenPdfPathsForTests();
+  assert.equal(openPdfRegistry.isOpenPdfPath(neverOpened), false);
+  const readBlocked = validatePdfReadBytesRequest(neverOpened, {
+    exists: true,
+    fileSize: 4096,
+    isOpenPath: openPdfRegistry.isOpenPdfPath(neverOpened)
+  });
+  assert.equal(readBlocked.ok, false);
+  assert.equal(readBlocked.errorCode, ERROR_CODES.PDF_READ_NOT_OPEN);
+});
+
 // --- S7 : CSP connect-src ---
 
 test("INVARIANT S7 : CSP connect-src sans 127.0.0.1 ni localhost", () => {
