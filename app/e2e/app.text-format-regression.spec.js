@@ -398,6 +398,41 @@ test("undo : sélection vidée et panneau propriétés masqué", async () => {
   await e2eCi.closeElectronApp(app);
 });
 
+/** TKT-BUG-UNDO-EDIT-001 : état cohérent après undo (pas d'édition fantôme). */
+test("undo en mode édition : selectedAnnotationId et editingAnnotationId null", async () => {
+  const { app, page } = await launchApp();
+  await openPdf(app, page);
+
+  const id = await page.evaluate(() =>
+    window.__maniE2E?.injectTextForTest?.({ plain: "texte undo edition" })
+  );
+  expect(id).toBeTruthy();
+
+  const entered = await page.evaluate(
+    (annotationId) => window.__maniE2E?.beginTextEditForTest?.(annotationId),
+    id
+  );
+  expect(entered).toBe(true);
+
+  const typed = await page.evaluate(
+    ([annotationId, text]) => window.__maniE2E?.typeInTextEditorForTest?.(annotationId, text),
+    [id, " modif"]
+  );
+  expect(typed).toBeTruthy();
+
+  const beforeUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
+  expect(beforeUndo?.editingAnnotationId).toBe(id);
+
+  await page.evaluate(() => window.__maniE2E?.undoForTest?.());
+
+  const afterUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
+  expect(afterUndo?.selectedAnnotationId).toBeNull();
+  expect(afterUndo?.editingAnnotationId).toBeNull();
+  await expect(page.locator("#annotationLayer .annotation.text.editing")).toHaveCount(0);
+
+  await e2eCi.closeElectronApp(app);
+});
+
 test("édition : blanc virtuel final proportionnel à la police, non persisté", async () => {
   const { app, page } = await launchApp();
   await openPdf(app, page);

@@ -2068,6 +2068,14 @@ function deleteSelected() {
 
 function finishUndoRedoUi(tab) {
   state.selectedAnnotationId = null;
+  // Ne pas syncTextFromEditor ici : applySnapshot a déjà restauré le modèle ;
+  // vider editingAnnotationId sort proprement du mode édition (TKT-BUG-UNDO-EDIT-001).
+  state.editingAnnotationId = null;
+  try {
+    document.activeElement?.blur?.();
+  } catch {
+    /* ignore */
+  }
   syncPropertyInputs();
   renderAnnotations();
   session.scheduleAutoSave();
