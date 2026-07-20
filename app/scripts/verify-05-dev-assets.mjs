@@ -26,6 +26,7 @@ const rel = (s) => s.replace(/^\.\//, "");
 const idxData = srcs.findIndex((s) => rel(s) === "renderer-i18n-data.js");
 const idxTextHtml = srcs.findIndex((s) => rel(s) === "renderer-text-html.js");
 const idxTextCtx = srcs.findIndex((s) => rel(s) === "renderer-text-ctx.js");
+const idxTextLayout = srcs.findIndex((s) => rel(s) === "renderer-text-layout.js");
 const idxUtils = srcs.findIndex((s) => rel(s) === "renderer-utils.js");
 const idxToast = srcs.findIndex((s) => rel(s) === "renderer-toast.js");
 const idxSessionLogStore = srcs.findIndex((s) => rel(s) === "../lib/session-log-store.js");
@@ -51,6 +52,7 @@ const idxRenderer = srcs.findIndex((s) => rel(s) === "renderer.js");
 if (idxData === -1) fail("index.html : script renderer-i18n-data.js introuvable.");
 if (idxTextHtml === -1) fail("index.html : script renderer-text-html.js introuvable.");
 if (idxTextCtx === -1) fail("index.html : script renderer-text-ctx.js introuvable.");
+if (idxTextLayout === -1) fail("index.html : script renderer-text-layout.js introuvable.");
 if (idxUtils === -1) fail("index.html : script renderer-utils.js introuvable.");
 if (idxToast === -1) fail("index.html : script renderer-toast.js introuvable.");
 if (idxSessionLogStore === -1) fail("index.html : script ../lib/session-log-store.js introuvable.");
@@ -77,7 +79,8 @@ if (idxRenderer === -1) fail("index.html : script renderer.js introuvable.");
 if (
   idxData >= idxTextHtml ||
   idxTextHtml >= idxTextCtx ||
-  idxTextCtx >= idxUtils ||
+  idxTextCtx >= idxTextLayout ||
+  idxTextLayout >= idxUtils ||
   idxUtils >= idxToast ||
   idxToast >= idxSessionLogStore ||
   idxSessionLogStore >= idxSessionLog ||

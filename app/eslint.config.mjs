@@ -97,6 +97,7 @@ export default [
       "src/renderer/floating-panel-drag.js",
       "src/renderer/renderer-text-html.js",
       "src/renderer/renderer-text-ctx.js",
+      "src/renderer/renderer-text-layout.js",
       "src/renderer/renderer-utils.js",
       "src/renderer/renderer-toast.js",
       "src/renderer/renderer-session-log.js",
