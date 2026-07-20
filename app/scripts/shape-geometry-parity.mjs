@@ -1,5 +1,5 @@
 /**
- * Parité géométrie formes : SHAPE_POLYGON_POINTS (renderer.js) vs SHAPE_PCT (pdf_ops.py).
+ * Parité géométrie formes : SHAPE_POLYGON_POINTS (renderer-shape-vector.js) vs SHAPE_PCT (pdf_ops.py).
  * Lecture directe des sources — pas de JSON partagé.
  */
 import fs from "node:fs";
@@ -25,15 +25,15 @@ const EXPECTED_SHAPE_NAMES = [
 ];
 
 /**
- * @param {string} rendererJsPath
+ * @param {string} shapeVectorJsPath
  * @returns {ShapeMap}
  */
-export function loadJsShapePolygons(rendererJsPath) {
-  const src = fs.readFileSync(rendererJsPath, "utf8");
-  const match = src.match(/const SHAPE_POLYGON_POINTS = \{([\s\S]*?)\n\};/);
+export function loadJsShapePolygons(shapeVectorJsPath) {
+  const src = fs.readFileSync(shapeVectorJsPath, "utf8");
+  const match = src.match(/const SHAPE_POLYGON_POINTS = \{([\s\S]*?)\n {2}\};/);
   if (!match) {
     throw new Error(
-      `SHAPE_POLYGON_POINTS introuvable dans ${rendererJsPath} (regex échouée — format renommé ?)`
+      `SHAPE_POLYGON_POINTS introuvable dans ${shapeVectorJsPath} (regex échouée — format renommé ?)`
     );
   }
   /** @type {ShapeMap} */
@@ -140,10 +140,10 @@ function assertExtractedShapeCount(count, side) {
  * @throws {Error}
  */
 export function assertShapeGeometryParity(appRoot) {
-  const rendererPath = path.join(appRoot, "src", "renderer", "renderer.js");
+  const shapeVectorPath = path.join(appRoot, "src", "renderer", "renderer-shape-vector.js");
   const pdfOpsPath = path.join(appRoot, "python", "pdf_ops.py");
 
-  const jsShapes = loadJsShapePolygons(rendererPath);
+  const jsShapes = loadJsShapePolygons(shapeVectorPath);
   const pyShapes = loadPyShapePct(pdfOpsPath);
 
   assertExtractedShapeCount(Object.keys(jsShapes).length, "JS");

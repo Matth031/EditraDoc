@@ -108,6 +108,7 @@ export default [
       "src/renderer/renderer-sidebars.js",
       "src/renderer/renderer-text-ctx-menu.js",
       "src/renderer/renderer-shape-image-ctx-menu.js",
+      "src/renderer/renderer-shape-vector.js",
       "src/renderer/renderer-split-workspace.js",
       "src/renderer/renderer-jobs.js",
       "src/renderer/renderer-html-convert.js",

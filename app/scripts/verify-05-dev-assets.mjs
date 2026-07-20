@@ -34,6 +34,7 @@ const idxSessionLogUi = srcs.findIndex((s) => rel(s) === "renderer-session-log-u
 const idxSidebars = srcs.findIndex((s) => rel(s) === "renderer-sidebars.js");
 const idxTextCtxMenu = srcs.findIndex((s) => rel(s) === "renderer-text-ctx-menu.js");
 const idxShapeImageCtxMenu = srcs.findIndex((s) => rel(s) === "renderer-shape-image-ctx-menu.js");
+const idxShapeVector = srcs.findIndex((s) => rel(s) === "renderer-shape-vector.js");
 const idxSplitWorkspace = srcs.findIndex((s) => rel(s) === "renderer-split-workspace.js");
 const idxJobs = srcs.findIndex((s) => rel(s) === "renderer-jobs.js");
 const idxHtmlConvert = srcs.findIndex((s) => rel(s) === "renderer-html-convert.js");
@@ -59,6 +60,7 @@ if (idxSidebars === -1) fail("index.html : script renderer-sidebars.js introuvab
 if (idxTextCtxMenu === -1) fail("index.html : script renderer-text-ctx-menu.js introuvable.");
 if (idxShapeImageCtxMenu === -1)
   fail("index.html : script renderer-shape-image-ctx-menu.js introuvable.");
+if (idxShapeVector === -1) fail("index.html : script renderer-shape-vector.js introuvable.");
 if (idxSplitWorkspace === -1) fail("index.html : script renderer-split-workspace.js introuvable.");
 if (idxJobs === -1) fail("index.html : script renderer-jobs.js introuvable.");
 if (idxHtmlConvert === -1) fail("index.html : script renderer-html-convert.js introuvable.");
@@ -83,7 +85,8 @@ if (
   idxSessionLogUi >= idxSidebars ||
   idxSidebars >= idxTextCtxMenu ||
   idxTextCtxMenu >= idxShapeImageCtxMenu ||
-  idxShapeImageCtxMenu >= idxSplitWorkspace ||
+  idxShapeImageCtxMenu >= idxShapeVector ||
+  idxShapeVector >= idxSplitWorkspace ||
   idxSplitWorkspace >= idxJobs ||
   idxJobs >= idxHtmlConvert ||
   idxHtmlConvert >= idxImageConvert ||
