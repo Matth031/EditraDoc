@@ -1,28 +1,106 @@
 /**
- * Attend que le nombre de nœuds .pdf-page corresponde à tab.pageCount
- * puis que les miniatures soient alignées (deux phases pour éviter les courses rendu / thumbs).
+ * Attend que le rendu PDF soit réellement prêt pour les tests :
+ * - autant de `.pdf-page` **avec** `canvas.pdf-canvas` (même critère que `renderThumbnails`)
+ * - autant de `.thumb-item` dans `#thumbsList`
+ * - idéalement `tab.pageCount` aligné (via `__maniE2E.getUiState`)
+ *
+ * Un seul poll avec backoff léger (pas deux timeouts 90 s séquentiels) — TKT-FLK-E2E-001.
+ * Retour immédiat si pageCount + canvas + thumbs alignés.
+ * Si le DOM est cohérent (canvas === thumbs === pages) mais `pageCount` traîne
+ * (race session / re-entrée updateViewer), accepte après quelques polls stables.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {{ timeoutMs?: number }} [options]
  */
-async function waitForPdfPagesRendered(page) {
-  await page.waitForFunction(
-    () => {
+async function waitForPdfPagesRendered(page, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 90000;
+  const started = Date.now();
+  let delayMs = 25;
+  const maxDelayMs = 200;
+  /** Polls DOM-cohérents consécutifs requis si pageCount désynchronisé. */
+  const stableDomPollsRequired = 3;
+  let stableDomPolls = 0;
+  let lastDomKey = "";
+
+  /**
+   * @returns {Promise<{
+   *   pageCount: number | null,
+   *   pdfPages: number,
+   *   withCanvas: number,
+   *   thumbs: number,
+   *   uiError: boolean
+   * }>}
+   */
+  async function snapshot() {
+    return page.evaluate(() => {
       const u = window.__maniE2E?.getUiState?.();
-      if (!u || u.error || u.pageCount == null) return false;
-      const n = document.querySelectorAll("#pagesContainer .pdf-page").length;
-      return n === u.pageCount && n >= 1;
-    },
-    null,
-    { timeout: 90000 }
-  );
-  await page.waitForFunction(
-    () => {
-      const u = window.__maniE2E?.getUiState?.();
-      if (!u || u.pageCount == null) return false;
-      const n = document.querySelectorAll("#pagesContainer .pdf-page").length;
-      const thumbs = document.querySelectorAll("#thumbsList .thumb-item").length;
-      return n === u.pageCount && thumbs === n && n >= 1;
-    },
-    null,
-    { timeout: 90000 }
+      const pageNodes = document.querySelectorAll("#pagesContainer .pdf-page");
+      let withCanvas = 0;
+      pageNodes.forEach((node) => {
+        if (node.querySelector("canvas.pdf-canvas")) withCanvas += 1;
+      });
+      const pageCountRaw = u?.pageCount;
+      const pageCount = pageCountRaw == null || u?.error ? null : Number(pageCountRaw);
+      return {
+        pageCount: Number.isFinite(pageCount) ? pageCount : null,
+        pdfPages: pageNodes.length,
+        withCanvas,
+        thumbs: document.querySelectorAll("#thumbsList .thumb-item").length,
+        uiError: Boolean(u?.error)
+      };
+    });
+  }
+
+  /**
+   * @param {{ pageCount: number | null, pdfPages: number, withCanvas: number, thumbs: number, uiError: boolean }} s
+   */
+  function isFullyAligned(s) {
+    if (s.uiError || s.pageCount == null || s.pageCount < 1) return false;
+    return s.withCanvas === s.pageCount && s.thumbs === s.pageCount && s.pdfPages === s.pageCount;
+  }
+
+  /**
+   * DOM prêt au sens renderThumbnails (ignore pageCount).
+   * @param {{ pdfPages: number, withCanvas: number, thumbs: number }} s
+   */
+  function isDomConsistent(s) {
+    return s.withCanvas >= 1 && s.withCanvas === s.thumbs && s.withCanvas === s.pdfPages;
+  }
+
+  // Premier check immédiat — zéro attente si déjà prêt.
+  {
+    const s0 = await snapshot();
+    if (isFullyAligned(s0)) return;
+  }
+
+  while (Date.now() - started < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const s = await snapshot();
+    if (isFullyAligned(s)) return;
+
+    if (isDomConsistent(s)) {
+      const key = `${s.withCanvas}:${s.thumbs}:${s.pdfPages}`;
+      if (key === lastDomKey) stableDomPolls += 1;
+      else {
+        lastDomKey = key;
+        stableDomPolls = 1;
+      }
+      // Race connue : pageCount stale alors que paint + thumbs sont déjà cohérents.
+      if (stableDomPolls >= stableDomPollsRequired) return;
+    } else {
+      lastDomKey = "";
+      stableDomPolls = 0;
+    }
+
+    delayMs = Math.min(maxDelayMs, Math.round(delayMs * 1.5));
+  }
+
+  const finalSnap = await snapshot().catch(() => null);
+  throw new Error(
+    `waitForPdfPagesRendered: timeout ${timeoutMs}ms` +
+      (finalSnap
+        ? ` (pageCount=${finalSnap.pageCount}, pages=${finalSnap.pdfPages}, canvas=${finalSnap.withCanvas}, thumbs=${finalSnap.thumbs})`
+        : "")
   );
 }
 
