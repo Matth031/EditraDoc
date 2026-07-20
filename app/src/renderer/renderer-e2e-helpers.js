@@ -278,6 +278,36 @@
           return false;
         }
       };
+      /**
+       * Setup uniquement : sélection + mode édition + plage plain dans l'éditeur.
+       * N'applique aucune couleur / format — pour enchaîner ensuite sur le vrai chemin UI panneau.
+       */
+      window.__maniE2E.enterTextEditWithRangeForTest = (annotationId, start, end) => {
+        try {
+          const tab = getActiveTab();
+          const id = String(annotationId || "");
+          if (!tab || !id) return false;
+          const loc = findAnnotationLocation(tab, id);
+          if (!loc?.item || loc.item.type !== "text") return false;
+          state.selectedAnnotationId = id;
+          state.editingAnnotationId = id;
+          syncPropertyInputs();
+          renderAnnotations();
+          const host = pagesContainer?.querySelector?.(`[data-id="${id}"]`);
+          const ed = host?.querySelector?.(".text-editor");
+          const helpers = window.__editifyTextCtxHelpers;
+          if (!ed || !helpers?.setPlainSelectionInEditor) return false;
+          if (!helpers.setPlainSelectionInEditor(ed, start, end)) return false;
+          try {
+            ed.focus();
+          } catch {
+            /* ignore */
+          }
+          return true;
+        } catch {
+          return false;
+        }
+      };
       window.__maniE2E.applyPartialTextColorForTest = (annotationId, start, end, hex) => {
         try {
           const tab = getActiveTab();

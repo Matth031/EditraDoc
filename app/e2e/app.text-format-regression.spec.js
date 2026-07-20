@@ -189,6 +189,63 @@ test("sélection partielle : couleur sur un segment seulement", async () => {
   await e2eCi.closeElectronApp(app);
 });
 
+/**
+ * Chemin UI réel du panneau (nuancier Mani + Valider), sans applyPartialTextColorForTest.
+ * Setup uniquement : enterTextEditWithRangeForTest (édition + plage plain).
+ */
+test("panneau propriétés : couleur partielle via nuancier + Valider", async () => {
+  const { app, page } = await launchApp();
+  await openPdf(app, page);
+
+  const id = await page.evaluate(() =>
+    window.__maniE2E?.injectTextForTest?.({ plain: "aa rouge bb" })
+  );
+  expect(id).toBeTruthy();
+
+  const prepared = await page.evaluate(
+    ([annotationId, start, end]) =>
+      window.__maniE2E?.enterTextEditWithRangeForTest?.(annotationId, start, end),
+    [id, 3, 8]
+  );
+  expect(prepared).toBe(true);
+
+  await expect(page.locator("#textPropsPanel")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#textPropsPanel")).not.toHaveClass(/hidden/);
+
+  await page.locator('#textPropsPanel [data-mani-color-for="propTextColor"]').click();
+  await expect(page.locator("#maniColorModal")).toBeVisible({ timeout: 5000 });
+
+  await page.locator("#maniColorR").fill("204");
+  await page.locator("#maniColorG").fill("0");
+  await page.locator("#maniColorB").fill("0");
+  await page.locator("#maniColorValidateBtn").click();
+  await expect(page.locator("#maniColorModal")).toBeHidden({ timeout: 5000 });
+
+  await page.waitForFunction(
+    (annotationId) => {
+      const p = window.__maniE2E?.getAnnotationProps?.(annotationId);
+      const h = p?.textHtml || "";
+      const hasColorMarkup =
+        /color\s*:\s*#?cc0000|color\s*:\s*rgb\(\s*204\s*,\s*0\s*,\s*0\s*\)|color\s*=\s*["']?#?cc0000/i.test(
+          h
+        );
+      const panel = document.getElementById("textPropsPanel");
+      const prop = /** @type {HTMLInputElement | null} */ (
+        document.getElementById("propTextColor")
+      );
+      const panelVisible = !!panel && !panel.classList.contains("hidden");
+      const panelColor = String(prop?.value || "").toLowerCase();
+      return (
+        hasColorMarkup && p?.textColor !== "#cc0000" && panelVisible && panelColor === "#cc0000"
+      );
+    },
+    id,
+    { timeout: 10000 }
+  );
+
+  await e2eCi.closeElectronApp(app);
+});
+
 test("fenêtre texte seule : couleur sur tout le bloc", async () => {
   const { app, page } = await launchApp();
   await openPdf(app, page);
@@ -294,6 +351,49 @@ test("undo séquentiel : italique puis gras puis couleur partielle", async () =>
     id,
     { timeout: 10000 }
   );
+
+  await e2eCi.closeElectronApp(app);
+});
+
+/**
+ * Comportement actuel verrouillé tel quel — voir ticket TKT-UX-UNDO-PANEL-001 pour
+ * réévaluation UX (restaurer sélection + resync panneau après undo).
+ */
+test("undo : sélection vidée et panneau propriétés masqué", async () => {
+  const { app, page } = await launchApp();
+  await openPdf(app, page);
+
+  const id = await page.evaluate(() =>
+    window.__maniE2E?.injectTextForTest?.({ plain: "texte undo panneau" })
+  );
+  expect(id).toBeTruthy();
+
+  await expect(page.locator("#textPropsPanel")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#textPropsPanel")).not.toHaveClass(/hidden/);
+
+  const beforeUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
+  expect(beforeUndo?.selectedAnnotationId).toBe(id);
+
+  const changed = await page.evaluate(
+    ([annotationId, color]) => window.__maniE2E?.applyWholeTextColorForTest?.(annotationId, color),
+    [id, "#0000cc"]
+  );
+  expect(changed).toBe(true);
+
+  await page.evaluate(() => window.__maniE2E?.undoForTest?.());
+
+  const afterUndo = await page.evaluate(() => {
+    const ui = window.__maniE2E?.getUiState?.();
+    const panel = document.getElementById("textPropsPanel");
+    return {
+      selectedAnnotationId: ui?.selectedAnnotationId ?? null,
+      panelHidden: !panel || panel.classList.contains("hidden")
+    };
+  });
+
+  expect(afterUndo.selectedAnnotationId).toBeNull();
+  expect(afterUndo.panelHidden).toBe(true);
+  await expect(page.locator("#textPropsPanel")).toHaveClass(/hidden/);
 
   await e2eCi.closeElectronApp(app);
 });

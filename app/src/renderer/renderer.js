@@ -32,6 +32,7 @@
  * - `renderer-pdf-save.js` : enregistrement / export PDF avec annotations (`window.__editifyPdfSave`, `bind()` après `__editifyPdfViewer.bind()`).
  * - `renderer-shape-vector.js` : types / defaults / rendu SVG formes (`window.__editifyShapeVector`).
  * - `renderer-text-layout.js` : mesure / wrap / auto-grow / sizing export texte (`window.__editifyTextLayout`).
+ * - `renderer-annotation-props.js` : panneau propriétés, application live, nuancier Mani (`window.__editifyAnnotationProps`).
  */
 if (!window.__editifyTextHtml) {
   throw new Error("[editify] Charger renderer-text-html.js avant renderer.js (voir index.html).");
@@ -99,6 +100,9 @@ if (!window.__editifyShapeVector) {
 if (!window.__editifyTextLayout) {
   throw new Error("[editify] Charger renderer-text-layout.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyAnnotationProps) {
+  throw new Error("[editify] Charger renderer-annotation-props.js avant renderer.js (voir index.html).");
+}
 const pdfv = window.__editifyPdfViewer;
 const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
@@ -132,10 +136,16 @@ const {
   renderShapeVectorDOM
 } = window.__editifyShapeVector;
 const textLayout = window.__editifyTextLayout;
-/** Assignées après `bind()` en fin de fichier (dépendances `getActiveTab`, `renderAnnotations`, …). */
+const annotationProps = window.__editifyAnnotationProps;
+/** Assignées après `bind()` (dépendances état / DOM / texte). */
 let scheduleSidebarUpdate;
 let renderThumbnails;
 let renderChanges;
+let syncPropertyInputs;
+let applySelectedProperties;
+let applySelectedPropertiesLive;
+let markBgTouchedAndApply;
+let clickManiColorValidateButtonForInputId;
 
 const welcomeScreen = document.getElementById("welcomeScreen");
 const addTextBtn = document.getElementById("addTextBtn");
@@ -830,6 +840,50 @@ function applyTextColorToTextAnnotation(item, color) {
   globalThis.__maniTextColorRangeBackup = null;
   item.textColor = hex;
 }
+
+window.__editifyAnnotationProps.bind({
+  state,
+  getActiveTab,
+  getSelectedAnnotation,
+  captureSnapshot,
+  renderAnnotations,
+  scheduleAutoSave: () => session.scheduleAutoSave(),
+  captureLastTextStyleFromItem,
+  applyTextColorToTextAnnotation,
+  captureTextColorSelectionBackup,
+  clamp,
+  SHAPE_TYPES,
+  mergeShapeStyleFields,
+  defaultShapeFillAlphaAfterClear,
+  logText,
+  tcm,
+  sim,
+  textPropsPanel,
+  shapePropsPanel,
+  propWidth,
+  propHeight,
+  propRotation,
+  propOpacity,
+  propTextColor,
+  propBgColor,
+  propBgColorLabel,
+  propPadding,
+  propFontFamily,
+  propFontSize,
+  propShapeFill,
+  propShapeFillOpacity,
+  propShapeStroke,
+  propShapeStrokeOpacity,
+  propShapeStrokeWidth,
+  propShapeBackdrop,
+  propShapeBackdropOpacity
+});
+syncPropertyInputs = annotationProps.syncPropertyInputs;
+applySelectedProperties = annotationProps.applySelectedProperties;
+applySelectedPropertiesLive = annotationProps.applySelectedPropertiesLive;
+markBgTouchedAndApply = annotationProps.markBgTouchedAndApply;
+clickManiColorValidateButtonForInputId = annotationProps.clickManiColorValidateButtonForInputId;
+annotationProps.wireManiColorHandlers();
 
 function getAnnotationTextEditor(root) {
   return root?.querySelector?.(".text-editor");
@@ -2049,59 +2103,7 @@ function redo() {
   }
 }
 
-function syncPropertyInputs() {
-  const item = getSelectedAnnotation();
-  const isText = !!item && item.type === "text";
-  const isShape = !!item && SHAPE_TYPES.has(item.type);
-  if (textPropsPanel) {
-    textPropsPanel.classList.toggle("hidden", !isText);
-  }
-  if (shapePropsPanel) {
-    shapePropsPanel.classList.toggle("hidden", !isShape);
-  }
-  if (!item) return;
-  if (propWidth && propHeight && propRotation && propOpacity) {
-    propWidth.value = String(Math.round(item.w || 180));
-    propHeight.value = String(Math.round(item.h || 120));
-    propRotation.value = String(Math.round(item.rotation || 0));
-    propOpacity.value = String(Math.round(item.opacity ?? 100));
-  }
-  if (isText) {
-    propTextColor.value = item.textColor || "#111111";
-
-    // Fond transparent par défaut: on affiche une "case vide".
-    // input[type=color] ne supporte pas une valeur vide, donc on met un fallback,
-    // et on pilote l'apparence via une classe CSS.
-    const bgIsTransparent = !item.bgColor;
-    propBgColor.value = bgIsTransparent ? "#ffffff" : item.bgColor;
-    propBgColorLabel?.classList?.toggle?.("is-transparent", bgIsTransparent);
-
-    // Le champ Fond n'est appliqué que si l'utilisateur le modifie explicitement.
-    propBgColor.dataset.touched = "0";
-    propPadding.value = String(Math.round(item.padding ?? 6));
-    propFontFamily.value = item.fontFamily || "Arial";
-    propFontSize.value = String(Math.round(item.fontSize ?? 14));
-    captureLastTextStyleFromItem(item);
-  }
-  if (isShape && propShapeFill && propShapeFillOpacity && propShapeStroke && propShapeStrokeWidth) {
-    mergeShapeStyleFields(item);
-    propShapeFill.value = item.fillColor || "#000000";
-    propShapeFillOpacity.value = String(Math.round((Number(item.fillAlpha) ?? 0.3) * 100));
-    propShapeStroke.value = item.strokeColor || "#000000";
-    propShapeStrokeWidth.value = String(Math.max(0, Math.floor(Number(item.strokeWidth) || 0)));
-    if (propShapeStrokeOpacity) propShapeStrokeOpacity.value = String(Math.round((Number(item.strokeAlpha) ?? 1) * 100));
-    if (propShapeBackdrop && propShapeBackdropOpacity) {
-      const bdTr = !item.backdropColor || (Number(item.backdropAlpha) ?? 0) < 0.001;
-      propShapeBackdrop.value = bdTr ? "#ffffff" : item.backdropColor;
-      propShapeBackdropOpacity.value = String(Math.round((Number(item.backdropAlpha) ?? 0) * 100));
-    }
-  }
-  try {
-    window.syncManiColorSwatches?.();
-  } catch {
-    /* ignore */
-  }
-}
+// Panneau propriétés : renderer-annotation-props.js (`syncPropertyInputs`, `applySelectedProperties`, Mani).
 
 window.__editifyTextLayout.bind({
   getSafeZoneSize,
@@ -2331,293 +2333,6 @@ tooltips.bind({ toolTip });
 scheduleSidebarUpdate = window.__editifySidebars.scheduleSidebarUpdate;
 renderThumbnails = window.__editifySidebars.renderThumbnails;
 renderChanges = window.__editifySidebars.renderChanges;
-
-function applySelectedProperties() {
-  const tab = getActiveTab();
-  const item = getSelectedAnnotation();
-  if (!tab || !item) return;
-  captureSnapshot(tab);
-  if (item.type === "text") {
-    applyTextColorToTextAnnotation(item, propTextColor.value || "#111111");
-
-    // Le champ "Fond" reste un override explicite du fond du bloc.
-    if (propBgColor.dataset.touched === "1") {
-      item.bgColor = propBgColor.value ? propBgColor.value : null;
-    }
-
-    item.padding = Math.max(0, Math.min(64, Number(propPadding.value) || 0));
-    item.fontFamily = propFontFamily.value || "Arial";
-    item.fontSize = Math.max(8, Math.min(96, Number(propFontSize.value) || 14));
-    captureLastTextStyleFromItem(item);
-  } else if (SHAPE_TYPES.has(item.type) && propShapeFill && propShapeFillOpacity && propShapeStroke && propShapeStrokeWidth) {
-    const prevFill = item.fillColor;
-    const prevStroke = item.strokeColor;
-    const prevBackdrop = item.backdropColor;
-
-    item.fillColor = propShapeFill.value || item.fillColor;
-    let fillA = clamp(Number(propShapeFillOpacity.value) / 100, 0, 1);
-    if (fillA < 0.001 && item.fillColor !== prevFill) {
-      fillA = defaultShapeFillAlphaAfterClear(item.type);
-      propShapeFillOpacity.value = String(Math.round(fillA * 100));
-    }
-    item.fillAlpha = fillA;
-
-    item.strokeColor = propShapeStroke.value || item.strokeColor;
-    let strokeA = propShapeStrokeOpacity ? clamp(Number(propShapeStrokeOpacity.value) / 100, 0, 1) : 1;
-    if (strokeA < 0.001 && item.strokeColor !== prevStroke) {
-      strokeA = 1;
-      if (propShapeStrokeOpacity) propShapeStrokeOpacity.value = "100";
-      if ((Number(item.strokeWidth) || 0) < 1) {
-        const w = 2;
-        item.strokeWidth = w;
-        if (propShapeStrokeWidth) propShapeStrokeWidth.value = String(w);
-      }
-    }
-    if (propShapeStrokeOpacity) item.strokeAlpha = strokeA;
-
-    item.strokeWidth = clamp(Math.floor(Number(propShapeStrokeWidth.value) || 0), 0, 24);
-    if (propShapeBackdrop && propShapeBackdropOpacity) {
-      let bda = clamp(Number(propShapeBackdropOpacity.value) / 100, 0, 1);
-      const newBd = propShapeBackdrop.value;
-      if (bda < 0.001 && newBd && newBd !== prevBackdrop) {
-        bda = 0.3;
-        propShapeBackdropOpacity.value = "30";
-      }
-      item.backdropAlpha = bda;
-      if (item.backdropAlpha < 0.001) {
-        item.backdropColor = null;
-      } else {
-        item.backdropColor = newBd || item.backdropColor || "#ffffff";
-      }
-    }
-  }
-  renderAnnotations();
-  session.scheduleAutoSave();
-}
-
-function applySelectedPropertiesLive() {
-  const item = getSelectedAnnotation();
-  if (!item) return;
-  applySelectedProperties();
-}
-
-/** Comportement historique (36f53ac) : toucher « Fond » puis appliquer (sinon applySelectedProperties ignore le fond). */
-function markBgTouchedAndApply() {
-  try {
-    propBgColor.dataset.touched = "1";
-    propBgColorLabel?.classList?.remove?.("is-transparent");
-  } catch {}
-  applySelectedPropertiesLive();
-}
-
-/**
- * Même effet que les boutons « Valider » du panneau (clic programmatique = mêmes handlers que l'utilisateur).
- * À l'ouverture du nuancier (mani-color-open), la sélection peut être perdue : on la sauvegarde.
- */
-function clickManiColorValidateButtonForInputId(id) {
-  const map = {
-    propShapeFill: "validateShapeFillBtn",
-    propShapeStroke: "validateShapeStrokeBtn",
-    propShapeBackdrop: "validateShapeBackdropBtn",
-    propTextColor: "validateTextColorBtn",
-    propBgColor: "applyBgBtn",
-    ctxTextColor: "ctxValidateTextColorBtn",
-    ctxTextBg: "ctxValidateTextBgBtn",
-    ctxShapeFill: "ctxValidateShapeFillBtn",
-    ctxShapeStroke: "ctxValidateShapeStrokeBtn",
-    ctxShapeBackdrop: "ctxValidateShapeBackdropBtn"
-  };
-  const btnId = map[id];
-  if (!btnId) {
-    logText("maniColorValidateClickMapMiss", { id });
-    return false;
-  }
-  const btn = document.getElementById(btnId);
-  if (!btn) {
-    logText("maniColorValidateBtnMissing", { id, btnId });
-    return false;
-  }
-  btn.click();
-  logText("maniColorValidateBtnClicked", { id, btnId });
-  return true;
-}
-
-function applyManiColorAfterPicker(inputEl) {
-  try {
-    const id = inputEl?.id || "";
-    const hex = String(inputEl?.value || "").trim();
-    logText("maniColorApply", {
-      id,
-      v: hex,
-      selectedId: state.selectedAnnotationId,
-      backup: globalThis.__maniColorSelectionBackup,
-      shapeCtx: sim.getShapeCtxMenuTargetId(),
-      textCtx: tcm.getTextCtxMenuTargetId(),
-      propShapeFillEl: Boolean(propShapeFill),
-      propShapeStrokeWEl: Boolean(propShapeStrokeWidth)
-    });
-    try {
-      window.maniPdfApi?.log?.("maniColorApply", {
-        id,
-        selectedId: state.selectedAnnotationId,
-        backup: globalThis.__maniColorSelectionBackup
-      });
-    } catch {
-      /* ignore */
-    }
-    if (!id) return;
-
-    if (id === "propBgColor" && propBgColor) {
-      propBgColor.dataset.touched = "1";
-    }
-    if (id === "ctxTextBg") {
-      const bg = document.getElementById("ctxTextBg");
-      if (bg) bg.dataset.ctxTouched = "1";
-    }
-    if (id === "ctxShapeBackdrop") {
-      const bd = document.getElementById("ctxShapeBackdrop");
-      if (bd) bd.dataset.ctxTouched = "1";
-    }
-
-    if (id === "ctxTextColor" || id === "ctxTextBg") {
-      if (!tcm.getTextCtxMenuTargetId() && globalThis.__maniCtxTextBackup) {
-        tcm.setTextCtxMenuTargetId(globalThis.__maniCtxTextBackup);
-        logText("maniColorRestoreTextCtx", { textCtxMenuTargetId: tcm.getTextCtxMenuTargetId() });
-      }
-      try {
-        tcm.ensureTextAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
-      } catch {
-        /* ignore */
-      }
-      logText("maniColorBranchCtxText", { id, textCtxMenuTargetId: tcm.getTextCtxMenuTargetId(), hex });
-      try {
-        if (!clickManiColorValidateButtonForInputId(id)) {
-          logText("maniColorCtxTextFallbackApply", { id });
-          tcm.applyTextCtxMenuBoxProps();
-        }
-        window.maniPdfApi?.log?.("maniColor ctx text applied", { id, via: "clickOrFallback" });
-      } catch (e) {
-        try {
-          tcm.applyTextCtxMenuBoxProps();
-        } catch {
-          /* ignore */
-        }
-      }
-      globalThis.__maniCtxTextBackup = undefined;
-      return;
-    }
-    if (id.startsWith("ctxShape")) {
-      if (!sim.getShapeCtxMenuTargetId() && globalThis.__maniCtxShapeBackup) {
-        sim.setShapeCtxMenuTargetId(globalThis.__maniCtxShapeBackup);
-        logText("maniColorRestoreShapeCtx", { shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId() });
-      }
-      try {
-        sim.ensureShapeAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
-      } catch {
-        /* ignore */
-      }
-      logText("maniColorBranchCtxShape", { id, shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId(), hex });
-      try {
-        if (!clickManiColorValidateButtonForInputId(id)) {
-          logText("maniColorCtxShapeFallbackApply", { id });
-          sim.applyShapeCtxMenuProps();
-        }
-        window.maniPdfApi?.log?.("maniColor ctx shape applied", { id, via: "clickOrFallback" });
-      } catch (e) {
-        try {
-          sim.applyShapeCtxMenuProps();
-        } catch {
-          /* ignore */
-        }
-      }
-      globalThis.__maniCtxShapeBackup = undefined;
-      return;
-    }
-
-    const tab = getActiveTab();
-    if (!tab) {
-      logText("maniColorNoTab", { id });
-      return;
-    }
-
-    const beforeSel = state.selectedAnnotationId;
-    if (!getSelectedAnnotation() && globalThis.__maniColorSelectionBackup != null && globalThis.__maniColorSelectionBackup !== "") {
-      state.selectedAnnotationId = globalThis.__maniColorSelectionBackup;
-      logText("maniColorRestoreSel", { from: beforeSel, to: state.selectedAnnotationId });
-    }
-    globalThis.__maniColorSelectionBackup = undefined;
-
-    const item = getSelectedAnnotation();
-    logText("maniColorBeforeApplySelected", {
-      hasItem: Boolean(item),
-      type: item?.type,
-      branchShape: Boolean(item && SHAPE_TYPES.has(item.type) && propShapeFill && propShapeFillOpacity)
-    });
-
-    if (!item) {
-      logText("maniColorNoItem", { id, selectedId: state.selectedAnnotationId });
-      return;
-    }
-
-    try {
-      if (!clickManiColorValidateButtonForInputId(id)) {
-        applySelectedProperties();
-      }
-      const after = getSelectedAnnotation();
-      window.maniPdfApi?.log?.("maniColor panel validate click", {
-        id,
-        type: item.type,
-        textColor: after?.type === "text" ? after.textColor : undefined,
-        fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined,
-        propTextVal: id === "propTextColor" ? propTextColor?.value : undefined
-      });
-      logText("maniColorPanelDone", {
-        id,
-        type: item.type,
-        textColor: after?.type === "text" ? after.textColor : undefined,
-        fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined
-      });
-    } catch (e) {
-      try {
-        applySelectedProperties();
-      } catch {
-        /* ignore */
-      }
-    }
-  } catch (e) {
-    logText("maniColorCommitErr", { err: String(e) });
-  }
-}
-
-document.addEventListener("mani-color-open", (ev) => {
-  globalThis.__maniColorSelectionBackup = state.selectedAnnotationId;
-  globalThis.__maniCtxShapeBackup = sim.getShapeCtxMenuTargetId();
-  globalThis.__maniCtxTextBackup = tcm.getTextCtxMenuTargetId();
-  const field = ev.detail?.inputId;
-  if (field === "propTextColor" || field === "ctxTextColor") {
-    if (!globalThis.__maniTextColorRangeBackup) {
-      captureTextColorSelectionBackup();
-    }
-  } else {
-    globalThis.__maniTextColorRangeBackup = null;
-  }
-  logText("maniColorPickerOpen", {
-    backup: globalThis.__maniColorSelectionBackup,
-    shapeCtxBackup: globalThis.__maniCtxShapeBackup,
-    textCtxBackup: globalThis.__maniCtxTextBackup,
-    field: ev.detail?.inputId
-  });
-});
-
-document.addEventListener("mani-color-capture-text-selection", () => {
-  captureTextColorSelectionBackup();
-});
-
-globalThis.maniAfterColorCommit = applyManiColorAfterPicker;
-
-document.addEventListener("mani-color-close", () => {
-  globalThis.__maniTextColorRangeBackup = null;
-});
 
 function pageShift(delta) {
   const tab = getActiveTab();
