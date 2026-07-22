@@ -103,6 +103,7 @@ export default [
       "src/renderer/renderer-annotation-history.js",
       "src/renderer/renderer-annotations.js",
       "src/renderer/renderer-keymap.js",
+      "src/renderer/renderer-geometry.js",
       "src/renderer/renderer-utils.js",
       "src/renderer/renderer-toast.js",
       "src/renderer/renderer-session-log.js",
