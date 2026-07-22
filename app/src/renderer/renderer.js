@@ -36,6 +36,7 @@
  * - `renderer-tabs.js` : onglets, fermeture, undo toast S6 (`window.__editifyTabs`, `bind()` avant `session.bind()`).
  * - `renderer-annotation-history.js` : snapshots undo/redo + finishUndoRedoUi (`window.__editifyAnnotationHistory`).
  * - `renderer-annotations.js` : rendu / drag / resize / add / paste / delete (`window.__editifyAnnotations`, `bind()` après `historyMod.bind()`).
+ * - `renderer-keymap.js` : dispatch clavier + isTypingContext (`window.__editifyKeymap`, `bind()`/`wire()` après modules orchestrés).
  */
 if (!window.__editifyTextHtml) {
   throw new Error("[editify] Charger renderer-text-html.js avant renderer.js (voir index.html).");
@@ -119,6 +120,9 @@ if (!window.__editifyAnnotations) {
     "[editify] Charger renderer-annotations.js avant renderer.js (voir index.html)."
   );
 }
+if (!window.__editifyKeymap) {
+  throw new Error("[editify] Charger renderer-keymap.js avant renderer.js (voir index.html).");
+}
 const pdfv = window.__editifyPdfViewer;
 const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
@@ -156,6 +160,7 @@ const annotationProps = window.__editifyAnnotationProps;
 const tabsMod = window.__editifyTabs;
 const historyMod = window.__editifyAnnotationHistory;
 const annotationsMod = window.__editifyAnnotations;
+const keymapMod = window.__editifyKeymap;
 /** Assignées après `bind()` (dépendances état / DOM / texte). */
 let scheduleSidebarUpdate;
 let renderThumbnails;
@@ -1922,176 +1927,64 @@ document.addEventListener("mousedown", (event) => {
 });
 
 function isTypingContext(target) {
-  if (!target) return false;
-  const tag = target.tagName?.toLowerCase();
-  if (tag === "input") {
-    const type = String(target.type || "").toLowerCase();
-    // file / boutons : pas de saisie clavier — ne pas bloquer Ctrl+S, etc.
-    if (type === "file" || type === "button" || type === "submit" || type === "reset") {
-      return false;
-    }
-  }
-  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+  return keymapMod.isTypingContext(target);
 }
 
-document.addEventListener(
-  "keydown",
-  (event) => {
-  if (event.key === "F10") {
-    event.preventDefault();
-    event.stopPropagation();
-    chrome.toggleHtmlToolbarF10("renderer-keydown");
-    return;
-  }
-
-  if (event.key === "Escape" && !shapeModal.classList.contains("hidden")) {
-    event.preventDefault();
-    closeShapePicker();
-    return;
-  }
-
-  if (event.key === "Escape") {
-    const anyFlyout =
-      (pdfToolsMenu && !pdfToolsMenu.classList.contains("hidden")) ||
-      (toolbarFileMenu && !toolbarFileMenu.classList.contains("hidden")) ||
-      (toolbarOptionsMenu && !toolbarOptionsMenu.classList.contains("hidden"));
-    if (anyFlyout) {
-      event.preventDefault();
-      chrome.closeAllFlyoutMenus();
-      return;
-    }
-  }
-
-  // E6-S2: en mode édition texte, ESC doit terminer l'édition (sans perdre le texte).
-  if (event.key === "Escape" && state.editingAnnotationId) {
-    event.preventDefault();
-    const tab = getActiveTab();
-    if (tab) {
-      try {
-        const id = state.editingAnnotationId;
-        const annos = currentPageAnnotations(tab);
-        const item = annos.find((a) => a.id === id);
-        const editingNode = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${id}"]`);
-        const edEsc = getAnnotationTextEditor(editingNode);
-        if (item && item.type === "text" && edEsc) {
-          captureSnapshot(tab);
-          syncTextFromEditor(item, edEsc);
-          finalizeTextAnnotationLayout(item);
-          session.scheduleAutoSave();
-        }
-      } catch {}
-    }
-    state.editingAnnotationId = null;
-    state.selectedAnnotationId = null;
+function endTextEditOnEscape() {
+  const tab = getActiveTab();
+  if (tab) {
     try {
-      document.activeElement?.blur?.();
+      const id = state.editingAnnotationId;
+      const annos = currentPageAnnotations(tab);
+      const item = annos.find((a) => a.id === id);
+      const editingNode = pdfLayerRef.annotationLayer?.querySelector?.(`[data-id="${id}"]`);
+      const edEsc = getAnnotationTextEditor(editingNode);
+      if (item && item.type === "text" && edEsc) {
+        captureSnapshot(tab);
+        syncTextFromEditor(item, edEsc);
+        finalizeTextAnnotationLayout(item);
+        session.scheduleAutoSave();
+      }
     } catch {}
-    syncPropertyInputs();
-    renderAnnotations();
-    return;
   }
+  state.editingAnnotationId = null;
+  state.selectedAnnotationId = null;
+  try {
+    document.activeElement?.blur?.();
+  } catch {}
+  syncPropertyInputs();
+  renderAnnotations();
+}
 
-  if (isTypingContext(event.target) || state.editingAnnotationId) return;
-
-  const key = event.key.toLowerCase();
-
-  // Clipboard (Ctrl+C / Ctrl+X / Ctrl+V) pour annotations
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "c") {
-    const tab = getActiveTab();
-    const item = getSelectedAnnotationFromActivePage(tab);
-    if (!tab || !item) return;
-    event.preventDefault();
-    // On copie toutes les props au moment du Ctrl+C
-    const copy = cloneForClipboard(item);
-    if (!copy) return;
-    state.clipboard = copy;
-    setStatus("Élément copié");
-    return;
-  }
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "x") {
-    const tab = getActiveTab();
-    const annotations = tab ? currentPageAnnotations(tab) : null;
-    const item = getSelectedAnnotationFromActivePage(tab);
-    if (!tab || !annotations || !item) return;
-    event.preventDefault();
-    const cut = cloneForClipboard(item);
-    if (!cut) return;
-    state.clipboard = cut;
-    const idx = annotations.findIndex((a) => a.id === item.id);
-    if (idx >= 0) {
-      captureSnapshot(tab);
-      annotations.splice(idx, 1);
-      state.selectedAnnotationId = null;
-      state.editingAnnotationId = null;
-      syncPropertyInputs();
-      renderAnnotations();
-      session.scheduleAutoSave();
-    }
-    setStatus("Élément coupé");
-    return;
-  }
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "v") {
-    if (!state.clipboard) return;
-    event.preventDefault();
-    pasteClipboardIntoActivePage();
-    setStatus("Élément collé");
-    return;
-  }
-
-  if (event.key === "Delete" || event.key === "Backspace") {
-    event.preventDefault();
-    deleteSelected();
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "z") {
-    event.preventDefault();
-    undo();
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && (key === "y" || (event.shiftKey && key === "z"))) {
-    event.preventDefault();
-    redo();
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && key === "s") {
-    event.preventDefault();
-    savePdfAs().catch((error) => {
-      pdfSave.logSave("save_shortcut_exception", { error: String(error?.message || error) });
-    });
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && key === "o") {
-    event.preventDefault();
-    void tabsMod.promptOpenPdf();
-    return;
-  }
-
-  if (
-    event.key === "ArrowLeft" ||
-    event.key === "ArrowRight" ||
-    event.key === "ArrowUp" ||
-    event.key === "ArrowDown"
-  ) {
-    if (tryHandleSelectedAnnotationArrowKey(event)) return;
-  }
-
-  if (event.key === "ArrowLeft") {
-    event.preventDefault();
-    pageShift(-1);
-    return;
-  }
-
-  if (event.key === "ArrowRight") {
-    event.preventDefault();
-    pageShift(1);
-  }
-  },
-  true
-);
+keymapMod.bind({
+  state,
+  chrome,
+  shapeModal,
+  closeShapePicker,
+  pdfToolsMenu,
+  toolbarFileMenu,
+  toolbarOptionsMenu,
+  endTextEditOnEscape,
+  getActiveTab,
+  getSelectedAnnotationFromActivePage,
+  currentPageAnnotations,
+  cloneForClipboard,
+  setStatus,
+  captureSnapshot,
+  syncPropertyInputs,
+  renderAnnotations,
+  session,
+  pasteClipboardIntoActivePage,
+  deleteSelected,
+  undo,
+  redo,
+  savePdfAs,
+  pdfSave,
+  promptOpenPdf: () => tabsMod.promptOpenPdf(),
+  tryHandleSelectedAnnotationArrowKey,
+  pageShift
+});
+keymapMod.wire();
 
 window.addEventListener("blur", () => {
   if (pointer.activePointerCleanup) pointer.activePointerCleanup();
