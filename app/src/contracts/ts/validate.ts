@@ -1,5 +1,5 @@
 /**
- * Validation runtime Ajv pour les contrats IPC (P1).
+ * Validation runtime Ajv pour les contrats IPC / Python (P1).
  */
 import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
 import {
@@ -7,6 +7,16 @@ import {
   PdfReadBytesResponseSchema,
   type PdfReadBytesRequest
 } from "./pdf-read-bytes.js";
+import {
+  PdfOpenRequestSchema,
+  PdfOpenResponseSchema,
+  type PdfOpenRequest
+} from "./pdf-open.js";
+import {
+  ValidatePdfRequestSchema,
+  ValidatePdfResponseSchema,
+  type ValidatePdfRequest
+} from "./pdf-validate.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -14,7 +24,9 @@ const ajv = new Ajv({
   removeAdditional: false
 });
 
-const validateRequest: ValidateFunction = ajv.compile(PdfReadBytesRequestSchema);
+const validateReadBytesRequest: ValidateFunction = ajv.compile(PdfReadBytesRequestSchema);
+const validateOpenRequest: ValidateFunction = ajv.compile(PdfOpenRequestSchema);
+const validateValidateRequest: ValidateFunction = ajv.compile(ValidatePdfRequestSchema);
 
 export type ContractValidationOk<T> = { ok: true; value: T };
 export type ContractValidationErr = {
@@ -24,37 +36,79 @@ export type ContractValidationErr = {
   details?: ErrorObject[];
 };
 
+function formatAjvErrors(errors: ErrorObject[] | null | undefined, fallback: string): string {
+  return (
+    errors?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim()).join("; ") || fallback
+  );
+}
+
 /**
  * Normalise l’argument IPC historique (string path) vers `{ path }`.
  */
-export function normalizePdfReadBytesArg(raw: unknown): unknown {
+export function normalizePathArg(raw: unknown): unknown {
   if (typeof raw === "string") {
     return { path: raw };
   }
   return raw;
 }
 
+/** @deprecated alias — préférer normalizePathArg */
+export function normalizePdfReadBytesArg(raw: unknown): unknown {
+  return normalizePathArg(raw);
+}
+
 export function validatePdfReadBytesRequestContract(
   raw: unknown
 ): ContractValidationOk<PdfReadBytesRequest> | ContractValidationErr {
-  const candidate = normalizePdfReadBytesArg(raw);
-  if (validateRequest(candidate)) {
+  const candidate = normalizePathArg(raw);
+  if (validateReadBytesRequest(candidate)) {
     return { ok: true, value: candidate as PdfReadBytesRequest };
   }
-  const msg =
-    validateRequest.errors
-      ?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim())
-      .join("; ") || "Requête pdf:read-bytes invalide.";
   return {
     ok: false,
-    error: `Contrat IPC invalide: ${msg}`,
+    error: `Contrat IPC invalide: ${formatAjvErrors(validateReadBytesRequest.errors, "Requête pdf:read-bytes invalide.")}`,
     errorCode: "CONTRACT_INVALID",
-    details: validateRequest.errors || undefined
+    details: validateReadBytesRequest.errors || undefined
+  };
+}
+
+export function validatePdfOpenRequestContract(
+  raw: unknown
+): ContractValidationOk<PdfOpenRequest> | ContractValidationErr {
+  const candidate = normalizePathArg(raw);
+  if (validateOpenRequest(candidate)) {
+    return { ok: true, value: candidate as PdfOpenRequest };
+  }
+  return {
+    ok: false,
+    error: `Contrat IPC invalide: ${formatAjvErrors(validateOpenRequest.errors, "Requête pdf:open invalide.")}`,
+    errorCode: "CONTRACT_INVALID",
+    details: validateOpenRequest.errors || undefined
+  };
+}
+
+/** Même schéma que POST /validate — utile pour tests / alignement Node. */
+export function validateValidatePdfRequestContract(
+  raw: unknown
+): ContractValidationOk<ValidatePdfRequest> | ContractValidationErr {
+  const candidate = normalizePathArg(raw);
+  if (validateValidateRequest(candidate)) {
+    return { ok: true, value: candidate as ValidatePdfRequest };
+  }
+  return {
+    ok: false,
+    error: `Contrat invalide: ${formatAjvErrors(validateValidateRequest.errors, "Requête /validate invalide.")}`,
+    errorCode: "CONTRACT_INVALID",
+    details: validateValidateRequest.errors || undefined
   };
 }
 
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export const schemas = {
   "pdf-read-bytes.request.json": PdfReadBytesRequestSchema,
-  "pdf-read-bytes.response.json": PdfReadBytesResponseSchema
+  "pdf-read-bytes.response.json": PdfReadBytesResponseSchema,
+  "pdf-open.request.json": PdfOpenRequestSchema,
+  "pdf-open.response.json": PdfOpenResponseSchema,
+  "pdf-validate.request.json": ValidatePdfRequestSchema,
+  "pdf-validate.response.json": ValidatePdfResponseSchema
 };

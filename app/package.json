@@ -84,7 +84,8 @@
     "afterPack": "scripts/afterPack-set-win-icon.cjs",
     "asar": true,
     "asarUnpack": [
-      "python/**/*"
+      "python/**/*",
+      "src/contracts/schemas/**/*"
     ],
     "files": [
       "src/**/*",

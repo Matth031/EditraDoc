@@ -24,6 +24,7 @@ from pdf_ops import (
     split_pdf_groups,
     unprotect_pdf,
 )
+from contract_validation import validate_pdf_validate_request
 from pdf_validation import validate_pdf_path
 
 LOG_VERBOSE = os.environ.get("MANI_PDF_PY_LOGS") != "0"
@@ -115,7 +116,19 @@ class Handler(BaseHTTPRequestHandler):
             logging.info("POST %s payload=%s", self.path, _redact_payload_for_log(payload))
         try:
             if self.path == "/validate":
-                result = validate_pdf_path(payload.get("path", ""))
+                # Frontière contrat (jsonschema) AVANT validate_pdf_path.
+                schema_ok, schema_err = validate_pdf_validate_request(payload)
+                if not schema_ok:
+                    self._json_response(
+                        400,
+                        {
+                            "ok": False,
+                            "error": f"Contrat invalide: {schema_err}",
+                            "errorCode": "CONTRACT_INVALID",
+                        },
+                    )
+                    return
+                result = validate_pdf_path(str(payload["path"]))
                 if result.ok:
                     self._json_response(200, {"ok": True})
                 else:

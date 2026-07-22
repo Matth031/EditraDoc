@@ -1,9 +1,12 @@
 /**
  * Harness volontairement incorrect — doit faire échouer `tsc --noEmit`.
  */
-import type { PdfReadBytesRequest } from "../ts/pdf-read-bytes.js";
+import type { PdfOpenRequest } from "../ts/pdf-open.js";
+import type { ValidatePdfRequest } from "../ts/pdf-validate.js";
 
-// Erreur attendue : path doit être string, pas number.
-const bad: PdfReadBytesRequest = { path: 42 };
+// Erreurs attendues : path doit être string.
+const badOpen: PdfOpenRequest = { path: 42 };
+const badValidate: ValidatePdfRequest = { path: null };
 
-void bad;
+void badOpen;
+void badValidate;

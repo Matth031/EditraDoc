@@ -42,7 +42,7 @@ try {
   Write-Host "[bundle-python] pip / dependances"
   & .\python.exe $getPip --no-warn-script-location
   & .\python.exe -m pip install --upgrade pip
-  & .\python.exe -m pip install "pypdf>=4.0" "reportlab>=4.0"
+  & .\python.exe -m pip install "pypdf>=4.0" "reportlab>=4.0" "jsonschema>=4.0"
 } finally {
   Pop-Location
 }

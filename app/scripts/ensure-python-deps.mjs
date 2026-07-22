@@ -48,4 +48,4 @@ if (result.status !== 0) {
   process.exit(result.status || 1);
 }
 
-console.log("[EditraDoc] Dépendances Python OK (pypdf, reportlab).");
+console.log("[EditraDoc] Dépendances Python OK (pypdf, reportlab, jsonschema).");

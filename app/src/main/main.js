@@ -28,7 +28,10 @@ const {
   isOpenPdfPath
 } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
-const { validatePdfReadBytesRequestContract } = require("../contracts/dist/validate");
+const {
+  validatePdfReadBytesRequestContract,
+  validatePdfOpenRequestContract
+} = require("../contracts/dist/validate");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
   createSensitiveActionsLog,
@@ -884,19 +887,30 @@ async function processJobQueue() {
 
 ipcMain.handle("pdf:open", async (_, pdfPath) => {
   try {
-    const exists = Boolean(pdfPath && fs.existsSync(pdfPath));
-    const fileSize = exists ? fs.statSync(pdfPath).size : 0;
-    const validation = exists && fileSize > 0 ? await validateWithPython(pdfPath) : { ok: false };
-    const result = evaluatePdfOpen(pdfPath, { exists, fileSize, validation });
+    const contract = validatePdfOpenRequestContract(pdfPath);
+    if (!contract.ok) {
+      logWarn("pdf:open", contract.error, { errorCode: contract.errorCode });
+      return {
+        ok: false,
+        error: contract.error,
+        errorCode: contract.errorCode
+      };
+    }
+    const resolvedPath = contract.value.path;
+    const exists = Boolean(resolvedPath && fs.existsSync(resolvedPath));
+    const fileSize = exists ? fs.statSync(resolvedPath).size : 0;
+    const validation =
+      exists && fileSize > 0 ? await validateWithPython(resolvedPath) : { ok: false };
+    const result = evaluatePdfOpen(resolvedPath, { exists, fileSize, validation });
     if (!result.ok) {
       logWarn("pdf:open", result.error || "Ouverture PDF refusée", {
-        pdfPath,
+        pdfPath: resolvedPath,
         errorCode: result.errorCode
       });
       return result;
     }
-    registerOpenPdfPath(pdfPath);
-    addRecentPdf(pdfPath);
+    registerOpenPdfPath(resolvedPath);
+    addRecentPdf(resolvedPath);
     return result;
   } catch (error) {
     logIpcFailure("pdf:open", error, { pdfPath });

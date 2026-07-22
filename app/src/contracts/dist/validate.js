@@ -11,45 +11,85 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schemas = void 0;
+exports.normalizePathArg = normalizePathArg;
 exports.normalizePdfReadBytesArg = normalizePdfReadBytesArg;
 exports.validatePdfReadBytesRequestContract = validatePdfReadBytesRequestContract;
+exports.validatePdfOpenRequestContract = validatePdfOpenRequestContract;
+exports.validateValidatePdfRequestContract = validateValidatePdfRequestContract;
 /**
- * Validation runtime Ajv pour les contrats IPC (P1).
+ * Validation runtime Ajv pour les contrats IPC / Python (P1).
  */
 const ajv_1 = __importDefault(require("ajv"));
 const pdf_read_bytes_js_1 = require("./pdf-read-bytes.js");
+const pdf_open_js_1 = require("./pdf-open.js");
+const pdf_validate_js_1 = require("./pdf-validate.js");
 const ajv = new ajv_1.default({
     allErrors: true,
     strict: true,
     removeAdditional: false
 });
-const validateRequest = ajv.compile(pdf_read_bytes_js_1.PdfReadBytesRequestSchema);
+const validateReadBytesRequest = ajv.compile(pdf_read_bytes_js_1.PdfReadBytesRequestSchema);
+const validateOpenRequest = ajv.compile(pdf_open_js_1.PdfOpenRequestSchema);
+const validateValidateRequest = ajv.compile(pdf_validate_js_1.ValidatePdfRequestSchema);
+function formatAjvErrors(errors, fallback) {
+    return (errors?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim()).join("; ") || fallback);
+}
 /**
  * Normalise l’argument IPC historique (string path) vers `{ path }`.
  */
-function normalizePdfReadBytesArg(raw) {
+function normalizePathArg(raw) {
     if (typeof raw === "string") {
         return { path: raw };
     }
     return raw;
 }
+/** @deprecated alias — préférer normalizePathArg */
+function normalizePdfReadBytesArg(raw) {
+    return normalizePathArg(raw);
+}
 function validatePdfReadBytesRequestContract(raw) {
-    const candidate = normalizePdfReadBytesArg(raw);
-    if (validateRequest(candidate)) {
+    const candidate = normalizePathArg(raw);
+    if (validateReadBytesRequest(candidate)) {
         return { ok: true, value: candidate };
     }
-    const msg = validateRequest.errors
-        ?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim())
-        .join("; ") || "Requête pdf:read-bytes invalide.";
     return {
         ok: false,
-        error: `Contrat IPC invalide: ${msg}`,
+        error: `Contrat IPC invalide: ${formatAjvErrors(validateReadBytesRequest.errors, "Requête pdf:read-bytes invalide.")}`,
         errorCode: "CONTRACT_INVALID",
-        details: validateRequest.errors || undefined
+        details: validateReadBytesRequest.errors || undefined
+    };
+}
+function validatePdfOpenRequestContract(raw) {
+    const candidate = normalizePathArg(raw);
+    if (validateOpenRequest(candidate)) {
+        return { ok: true, value: candidate };
+    }
+    return {
+        ok: false,
+        error: `Contrat IPC invalide: ${formatAjvErrors(validateOpenRequest.errors, "Requête pdf:open invalide.")}`,
+        errorCode: "CONTRACT_INVALID",
+        details: validateOpenRequest.errors || undefined
+    };
+}
+/** Même schéma que POST /validate — utile pour tests / alignement Node. */
+function validateValidatePdfRequestContract(raw) {
+    const candidate = normalizePathArg(raw);
+    if (validateValidateRequest(candidate)) {
+        return { ok: true, value: candidate };
+    }
+    return {
+        ok: false,
+        error: `Contrat invalide: ${formatAjvErrors(validateValidateRequest.errors, "Requête /validate invalide.")}`,
+        errorCode: "CONTRACT_INVALID",
+        details: validateValidateRequest.errors || undefined
     };
 }
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 exports.schemas = {
     "pdf-read-bytes.request.json": pdf_read_bytes_js_1.PdfReadBytesRequestSchema,
-    "pdf-read-bytes.response.json": pdf_read_bytes_js_1.PdfReadBytesResponseSchema
+    "pdf-read-bytes.response.json": pdf_read_bytes_js_1.PdfReadBytesResponseSchema,
+    "pdf-open.request.json": pdf_open_js_1.PdfOpenRequestSchema,
+    "pdf-open.response.json": pdf_open_js_1.PdfOpenResponseSchema,
+    "pdf-validate.request.json": pdf_validate_js_1.ValidatePdfRequestSchema,
+    "pdf-validate.response.json": pdf_validate_js_1.ValidatePdfResponseSchema
 };

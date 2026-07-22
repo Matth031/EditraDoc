@@ -11,6 +11,7 @@
   },
   "include": [
     "src/contracts/harness/bad-call.ts",
-    "src/contracts/ts/pdf-read-bytes.ts"
+    "src/contracts/ts/pdf-open.ts",
+    "src/contracts/ts/pdf-validate.ts"
   ]
 }
