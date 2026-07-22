@@ -403,6 +403,21 @@ test("undo en mode édition : selectedAnnotationId et editingAnnotationId null",
   const { app, page } = await launchApp();
   await openPdf(app, page);
 
+  // Le fix doit vivre dans le module extrait — pas une copie résiduelle dans renderer.js.
+  const moduleProbe = await page.evaluate(() => {
+    const hist = window.__editifyAnnotationHistory;
+    return {
+      moduleId: hist?.moduleId || null,
+      hasFinish: typeof hist?.finishUndoRedoUi === "function",
+      hasUndo: typeof hist?.undo === "function",
+      undoForTestWired: typeof window.__maniE2E?.undoForTest === "function"
+    };
+  });
+  expect(moduleProbe.moduleId).toBe("renderer-annotation-history");
+  expect(moduleProbe.hasFinish).toBe(true);
+  expect(moduleProbe.hasUndo).toBe(true);
+  expect(moduleProbe.undoForTestWired).toBe(true);
+
   const id = await page.evaluate(() =>
     window.__maniE2E?.injectTextForTest?.({ plain: "texte undo edition" })
   );
@@ -423,7 +438,23 @@ test("undo en mode édition : selectedAnnotationId et editingAnnotationId null",
   const beforeUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
   expect(beforeUndo?.editingAnnotationId).toBe(id);
 
-  await page.evaluate(() => window.__maniE2E?.undoForTest?.());
+  // Spy : undoForTest → wrapper renderer → historyMod.undo (fonction EXTRAITE).
+  const spyHits = await page.evaluate(() => {
+    const hist = window.__editifyAnnotationHistory;
+    let calls = 0;
+    const original = hist.undo;
+    hist.undo = function patchedUndo() {
+      calls += 1;
+      return original.apply(this, arguments);
+    };
+    try {
+      window.__maniE2E.undoForTest();
+    } finally {
+      hist.undo = original;
+    }
+    return calls;
+  });
+  expect(spyHits).toBe(1);
 
   const afterUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
   expect(afterUndo?.selectedAnnotationId).toBeNull();

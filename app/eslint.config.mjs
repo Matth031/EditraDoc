@@ -100,6 +100,7 @@ export default [
       "src/renderer/renderer-text-layout.js",
       "src/renderer/renderer-annotation-props.js",
       "src/renderer/renderer-tabs.js",
+      "src/renderer/renderer-annotation-history.js",
       "src/renderer/renderer-utils.js",
       "src/renderer/renderer-toast.js",
       "src/renderer/renderer-session-log.js",

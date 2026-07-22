@@ -34,6 +34,7 @@
  * - `renderer-text-layout.js` : mesure / wrap / auto-grow / sizing export texte (`window.__editifyTextLayout`).
  * - `renderer-annotation-props.js` : panneau propriétés, application live, nuancier Mani (`window.__editifyAnnotationProps`).
  * - `renderer-tabs.js` : onglets, fermeture, undo toast S6 (`window.__editifyTabs`, `bind()` avant `session.bind()`).
+ * - `renderer-annotation-history.js` : snapshots undo/redo + finishUndoRedoUi (`window.__editifyAnnotationHistory`).
  */
 if (!window.__editifyTextHtml) {
   throw new Error("[editify] Charger renderer-text-html.js avant renderer.js (voir index.html).");
@@ -107,6 +108,11 @@ if (!window.__editifyAnnotationProps) {
 if (!window.__editifyTabs) {
   throw new Error("[editify] Charger renderer-tabs.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyAnnotationHistory) {
+  throw new Error(
+    "[editify] Charger renderer-annotation-history.js avant renderer.js (voir index.html)."
+  );
+}
 const pdfv = window.__editifyPdfViewer;
 const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
@@ -142,6 +148,7 @@ const {
 const textLayout = window.__editifyTextLayout;
 const annotationProps = window.__editifyAnnotationProps;
 const tabsMod = window.__editifyTabs;
+const historyMod = window.__editifyAnnotationHistory;
 /** Assignées après `bind()` (dépendances état / DOM / texte). */
 let scheduleSidebarUpdate;
 let renderThumbnails;
@@ -1173,50 +1180,15 @@ function currentPageAnnotations(tab) {
 }
 
 function getTabSnapshotState(tab) {
-  return {
-    annotationsByPage: tab.annotationsByPage,
-    pageRotationsByPage: tab.pageRotationsByPage || {},
-    pageRotationsUserTouched: tab.pageRotationsUserTouched || {}
-  };
-}
-
-function normalizePageRotationDeg(deg) {
-  const n = Number(deg) || 0;
-  return ((Math.round(n) % 360) + 360) % 360;
+  return historyMod.getTabSnapshotState(tab);
 }
 
 function captureSnapshot(tab) {
-  const snapshot = JSON.stringify(getTabSnapshotState(tab));
-  tab.undoStack.push(snapshot);
-  if (tab.undoStack.length > 50) tab.undoStack.shift();
-  tab.redoStack = [];
-  // E7-S2: toute mutation des annotations rend l'onglet "dirty".
-  tab.dirty = true;
+  historyMod.captureSnapshot(tab);
 }
 
 function applySnapshot(tab, snapshot) {
-  const parsed = JSON.parse(snapshot);
-  const prevRot = { ...(tab.pageRotationsByPage || {}) };
-  tab.annotationsByPage = parsed.annotationsByPage || {};
-  tab.pageRotationsByPage =
-    parsed.pageRotationsByPage && typeof parsed.pageRotationsByPage === "object"
-      ? parsed.pageRotationsByPage
-      : {};
-  tab.pageRotationsUserTouched =
-    parsed.pageRotationsUserTouched && typeof parsed.pageRotationsUserTouched === "object"
-      ? parsed.pageRotationsUserTouched
-      : {};
-  const changedPages = new Set();
-  const allKeys = new Set([...Object.keys(prevRot), ...Object.keys(tab.pageRotationsByPage)]);
-  for (const k of allKeys) {
-    if (
-      normalizePageRotationDeg(prevRot[k] || 0) !==
-      normalizePageRotationDeg(tab.pageRotationsByPage[k] || 0)
-    ) {
-      changedPages.add(Number(k) || 1);
-    }
-  }
-  return changedPages;
+  return historyMod.applySnapshot(tab, snapshot);
 }
 
 function renderAnnotations() {
@@ -1890,49 +1862,16 @@ function deleteSelected() {
   session.scheduleAutoSave();
 }
 
-function finishUndoRedoUi(tab) {
-  state.selectedAnnotationId = null;
-  // Ne pas syncTextFromEditor ici : applySnapshot a déjà restauré le modèle ;
-  // vider editingAnnotationId sort proprement du mode édition (TKT-BUG-UNDO-EDIT-001).
-  state.editingAnnotationId = null;
-  try {
-    document.activeElement?.blur?.();
-  } catch {
-    /* ignore */
-  }
-  syncPropertyInputs();
-  renderAnnotations();
-  session.scheduleAutoSave();
+function finishUndoRedoUi() {
+  historyMod.finishUndoRedoUi();
 }
 
 function undo() {
-  const tab = getActiveTab();
-  if (!tab || tab.undoStack.length === 0) return;
-  const current = JSON.stringify(getTabSnapshotState(tab));
-  tab.redoStack.push(current);
-  const snapshot = tab.undoStack.pop();
-  const changedPages = applySnapshot(tab, snapshot);
-  const after = () => finishUndoRedoUi(tab);
-  if (changedPages.size) {
-    pdfv.rerenderPages([...changedPages]).then(after).catch(after);
-  } else {
-    after();
-  }
+  historyMod.undo();
 }
 
 function redo() {
-  const tab = getActiveTab();
-  if (!tab || tab.redoStack.length === 0) return;
-  const current = JSON.stringify(getTabSnapshotState(tab));
-  tab.undoStack.push(current);
-  const snapshot = tab.redoStack.pop();
-  const changedPages = applySnapshot(tab, snapshot);
-  const after = () => finishUndoRedoUi(tab);
-  if (changedPages.size) {
-    pdfv.rerenderPages([...changedPages]).then(after).catch(after);
-  } else {
-    after();
-  }
+  historyMod.redo();
 }
 
 // Panneau propriétés : renderer-annotation-props.js (`syncPropertyInputs`, `applySelectedProperties`, Mani).
@@ -2056,6 +1995,14 @@ session.bind({
   updateWelcomeVisibility,
   syncPropertyInputs,
   scheduleSidebarUpdate: window.__editifySidebars.scheduleSidebarUpdate
+});
+historyMod.bind({
+  state,
+  getActiveTab,
+  syncPropertyInputs,
+  renderAnnotations,
+  session,
+  pdfv
 });
 sim.bind({
   state,
