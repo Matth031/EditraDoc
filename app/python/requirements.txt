@@ -1,3 +1,5 @@
 # Service local Mani PDF (pdf_service.py)
 pypdf>=4.0
 reportlab>=4.0
+# Contrats P1 — validation JSON Schema partagée (Node Ajv + Python)
+jsonschema>=4.0

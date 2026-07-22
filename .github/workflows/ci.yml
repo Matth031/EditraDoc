@@ -40,6 +40,15 @@ jobs:
       - name: Geometry contract harness (bad call must fail tsc)
         run: npm run test:geometry-contract
 
+      - name: Build IPC contracts (tsc CJS + JSON Schema)
+        run: npm run build:contracts
+
+      - name: Check contracts artifact drift
+        run: npm run check:contracts-artifact
+
+      - name: Contracts harness (bad call must fail tsc)
+        run: npm run test:contracts-contract
+
       - name: npm audit (high+)
         run: npm run test:audit
 

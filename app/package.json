@@ -36,7 +36,10 @@
     "dist:win": "node scripts/write-build-info.mjs && npm run prepare:win-icon && npm run bundle:python-win && electron-builder --win && node scripts/copy-installer-to-root.mjs && node scripts/write-latest-manifest.mjs",
     "build:geometry": "node scripts/build-geometry.mjs",
     "check:geometry-artifact": "node scripts/check-geometry-artifact.mjs",
-    "test:geometry-contract": "node scripts/expect-geometry-bad-tsc.mjs"
+    "test:geometry-contract": "node scripts/expect-geometry-bad-tsc.mjs",
+    "build:contracts": "node scripts/build-contracts.mjs",
+    "check:contracts-artifact": "node scripts/check-contracts-artifact.mjs",
+    "test:contracts-contract": "node scripts/expect-contracts-bad-tsc.mjs"
   },
   "c8": {
     "all": true,
@@ -71,7 +74,8 @@
     "globals": "^17.4.0",
     "prettier": "^3.5.3",
     "rcedit": "^5.0.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-json-schema": "^0.65.1"
   },
   "build": {
     "appId": "com.manipdf.local",
@@ -132,6 +136,7 @@
     }
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "dictionary-en": "^4.0.0",
     "dictionary-es": "^4.0.0",
     "dictionary-fr": "^3.0.0",

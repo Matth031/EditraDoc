@@ -28,6 +28,7 @@ const {
   isOpenPdfPath
 } = require("./lib/open-pdf-registry");
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
+const { validatePdfReadBytesRequestContract } = require("../contracts/dist/validate");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
   createSensitiveActionsLog,
@@ -905,18 +906,31 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
 
 ipcMain.handle("pdf:read-bytes", async (_, pdfPath) => {
   try {
-    const exists = Boolean(pdfPath && fs.existsSync(pdfPath));
-    const fileSize = exists ? fs.statSync(pdfPath).size : 0;
-    const guard = validatePdfReadBytesRequest(pdfPath, {
+    const contract = validatePdfReadBytesRequestContract(pdfPath);
+    if (!contract.ok) {
+      logWarn("pdf:read-bytes", contract.error, { errorCode: contract.errorCode });
+      return {
+        ok: false,
+        error: contract.error,
+        errorCode: contract.errorCode
+      };
+    }
+    const resolvedPath = contract.value.path;
+    const exists = Boolean(resolvedPath && fs.existsSync(resolvedPath));
+    const fileSize = exists ? fs.statSync(resolvedPath).size : 0;
+    const guard = validatePdfReadBytesRequest(resolvedPath, {
       exists,
       fileSize,
-      isOpenPath: isOpenPdfPath(pdfPath)
+      isOpenPath: isOpenPdfPath(resolvedPath)
     });
     if (!guard.ok) {
-      logWarn("pdf:read-bytes", guard.error, { pdfPath, errorCode: guard.errorCode });
+      logWarn("pdf:read-bytes", guard.error, {
+        pdfPath: resolvedPath,
+        errorCode: guard.errorCode
+      });
       return guard;
     }
-    const buf = fs.readFileSync(pdfPath);
+    const buf = fs.readFileSync(resolvedPath);
     return { ok: true, base64: buf.toString("base64") };
   } catch (error) {
     logIpcFailure("pdf:read-bytes", error, { pdfPath });

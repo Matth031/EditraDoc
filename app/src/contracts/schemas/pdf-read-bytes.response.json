@@ -1,0 +1,38 @@
+{
+  "$id": "editradoc.ipc.pdf-read-bytes.response",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "base64"],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "base64": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1
+        },
+        "errorCode": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  ]
+}

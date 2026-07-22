@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "rootDir": "src/contracts/ts",
+    "outDir": "src/contracts/dist",
+    "newLine": "lf",
+    "noEmitOnError": true
+  },
+  "include": ["src/contracts/ts/**/*.ts"]
+}
