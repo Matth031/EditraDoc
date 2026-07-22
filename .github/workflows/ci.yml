@@ -31,6 +31,15 @@ jobs:
       - name: Install node deps
         run: npm ci
 
+      - name: Build geometry IIFE (tsc)
+        run: npm run build:geometry
+
+      - name: Check geometry artifact drift
+        run: npm run check:geometry-artifact
+
+      - name: Geometry contract harness (bad call must fail tsc)
+        run: npm run test:geometry-contract
+
       - name: npm audit (high+)
         run: npm run test:audit
 

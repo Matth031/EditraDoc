@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "editify",
   "version": "1.1.2",
   "private": true,
@@ -33,7 +33,10 @@
     "dist": "electron-builder",
     "bundle:python-win": "powershell -ExecutionPolicy Bypass -File scripts/bundle-python-embed-win.ps1",
     "prepare:win-icon": "node scripts/generate-win-icon.mjs",
-    "dist:win": "node scripts/write-build-info.mjs && npm run prepare:win-icon && npm run bundle:python-win && electron-builder --win && node scripts/copy-installer-to-root.mjs && node scripts/write-latest-manifest.mjs"
+    "dist:win": "node scripts/write-build-info.mjs && npm run prepare:win-icon && npm run bundle:python-win && electron-builder --win && node scripts/copy-installer-to-root.mjs && node scripts/write-latest-manifest.mjs",
+    "build:geometry": "node scripts/build-geometry.mjs",
+    "check:geometry-artifact": "node scripts/check-geometry-artifact.mjs",
+    "test:geometry-contract": "node scripts/expect-geometry-bad-tsc.mjs"
   },
   "c8": {
     "all": true,
@@ -67,7 +70,8 @@
     "eslint-config-prettier": "^10.1.1",
     "globals": "^17.4.0",
     "prettier": "^3.5.3",
-    "rcedit": "^5.0.2"
+    "rcedit": "^5.0.2",
+    "typescript": "^5.8.3"
   },
   "build": {
     "appId": "com.manipdf.local",

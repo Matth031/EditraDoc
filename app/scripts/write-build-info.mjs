@@ -9,7 +9,13 @@ import { execSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.join(__dirname, "..");
-const pkg = JSON.parse(fs.readFileSync(path.join(appRoot, "package.json"), "utf8"));
+/** Lit JSON en ignorant un éventuel BOM UTF-8 (ex. Set-Content PowerShell). */
+function readJsonFile(filePath) {
+  let raw = fs.readFileSync(filePath, "utf8");
+  if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+  return JSON.parse(raw);
+}
+const pkg = readJsonFile(path.join(appRoot, "package.json"));
 const outPath = path.join(appRoot, "public", "build-info.json");
 
 function readGitCommit() {

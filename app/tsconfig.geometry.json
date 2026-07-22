@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "lib": ["ES2020", "DOM"],
+    "strict": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "rootDir": "src/renderer/ts/geometry",
+    "outDir": "src/renderer/ts-out/geometry",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "newLine": "lf"
+  },
+  "include": ["src/renderer/ts/geometry/geometry.ts", "src/renderer/ts/geometry/geometry-port.ts"]
+}

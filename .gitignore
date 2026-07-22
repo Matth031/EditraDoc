@@ -22,6 +22,7 @@ EditraDoc-Setup.exe
 
 app/test-results/
 app/playwright-report/
+app/src/renderer/ts-out/
 .cursor/
 _bmad-output/
 *.log

@@ -1,9 +1,19 @@
-/**
- * GENERATED FILE — ne pas éditer à la main.
- * Source : src/renderer/ts/geometry/geometry.ts (+ geometry-port.ts)
- * Régénérer : npm run build:geometry
- * Vérifier dérive : npm run check:geometry-artifact
- */
+import type {
+  AnnotationBox,
+  GeometryDeps,
+  GeometryPort,
+  PageKey,
+  TabGeometryHost,
+  ZoneSize
+} from "./geometry-port.js";
+
+export type { GeometryPort, GeometryDeps, ZoneSize, AnnotationBox };
+
+declare global {
+  interface Window {
+    __editifyGeometry?: GeometryPort;
+  }
+}
 
 /**
  * Géométrie / safe-zone — source TypeScript (P4).
@@ -11,21 +21,26 @@
  */
 (function () {
   "use strict";
-  let deps = null;
-  function requireDeps() {
+
+  let deps: GeometryDeps | null = null;
+
+  function requireDeps(): GeometryDeps {
     if (!deps) {
       throw new Error("[editify] renderer-geometry.js : appeler bind() avant usage.");
     }
     return deps;
   }
-  function bind(next) {
+
+  function bind(next: GeometryDeps): void {
     deps = next;
   }
-  function clamp(value, min, max) {
+
+  function clamp(value: number, min: number, max: number): number {
     if (max < min) return min;
     return Math.min(max, Math.max(min, value));
   }
-  function getSafeZoneSize() {
+
+  function getSafeZoneSize(): ZoneSize {
     const d = requireDeps();
     const canvas = d.pdfLayerRef.pdfCanvas;
     if (canvas && canvas.width > 0 && canvas.height > 0) {
@@ -38,8 +53,13 @@
       height: Math.max(0, Math.floor(rect.height))
     };
   }
+
   /** Zone canvas d'une page précise (export multi-pages — ne pas utiliser la page active). */
-  function getSafeZoneSizeForPage(tab, pageKey, canvases) {
+  function getSafeZoneSizeForPage(
+    tab: TabGeometryHost | null | undefined,
+    pageKey: PageKey | number,
+    canvases?: Record<PageKey, { w: number; h: number }>
+  ): ZoneSize {
     const d = requireDeps();
     const key = String(pageKey || 1);
     const meta = canvases?.[key];
@@ -51,14 +71,18 @@
       return { width: vp.width, height: vp.height };
     }
     const pageNode = d.pagesContainer?.querySelector?.(`.pdf-page[data-page="${key}"]`);
-    const canvas = pageNode?.querySelector?.("canvas.pdf-canvas");
+    const canvas = pageNode?.querySelector?.("canvas.pdf-canvas") as HTMLCanvasElement | null;
     if (canvas && canvas.width > 0 && canvas.height > 0) {
       return { width: canvas.width, height: canvas.height };
     }
     return getSafeZoneSize();
   }
+
   /** Lit la géométrie DOM d'une annotation (repère canvas interne) — diagnostic export. */
-  function readAnnotationGeometryFromDom(node, canvas) {
+  function readAnnotationGeometryFromDom(
+    node: Element | null,
+    canvas: HTMLCanvasElement | null
+  ): { x: number; y: number; w: number; h: number } | null {
     if (!node || !canvas) return null;
     const canvasRect = canvas.getBoundingClientRect();
     const nodeRect = node.getBoundingClientRect();
@@ -71,7 +95,8 @@
       h: nodeRect.height * sy
     };
   }
-  function fitAnnotationToSafeZone(item, zone) {
+
+  function fitAnnotationToSafeZone(item: AnnotationBox, zone: ZoneSize): void {
     const d = requireDeps();
     const SHAPE_TYPES = d.SHAPE_TYPES;
     const logText = d.logText;
@@ -107,24 +132,34 @@
       }
     }
   }
-  function scaleAnnotationsForZoneChange(tab, zone) {
+
+  function scaleAnnotationsForZoneChange(tab: TabGeometryHost | null, zone: ZoneSize): boolean {
     if (!tab) return false;
     const pageKey = String(tab.currentPage || 1);
     return scaleAnnotationsForPage(tab, zone, pageKey);
   }
-  function scaleAnnotationsForPage(tab, zone, pageKey) {
+
+  function scaleAnnotationsForPage(
+    tab: TabGeometryHost | null,
+    zone: ZoneSize,
+    pageKey: PageKey | number
+  ): boolean {
     if (!tab || !zone?.width || !zone?.height) return false;
     const key = String(pageKey || 1);
     if (!tab.viewportByPage) tab.viewportByPage = {};
     const prev = tab.viewportByPage[key];
     tab.viewportByPage[key] = { width: zone.width, height: zone.height };
+
     if (!prev || prev.width <= 0 || prev.height <= 0) return false;
     if (prev.width === zone.width && prev.height === zone.height) return false;
+
     const sx = zone.width / prev.width;
     const sy = zone.height / prev.height;
     if (!Number.isFinite(sx) || !Number.isFinite(sy)) return false;
+
     const annotations = tab.annotationsByPage?.[key] || [];
     if (!annotations.length) return false;
+
     annotations.forEach((item) => {
       item.x *= sx;
       item.y *= sy;
@@ -141,7 +176,8 @@
     });
     return true;
   }
-  function enforceSafeZoneForActiveTab() {
+
+  function enforceSafeZoneForActiveTab(): void {
     const d = requireDeps();
     const tab = d.getActiveTab();
     if (!tab) return;
@@ -162,7 +198,8 @@
       d.renderAnnotations();
     }
   }
-  const api = {
+
+  const api: GeometryPort = {
     bind,
     clamp,
     getSafeZoneSize,
@@ -174,5 +211,6 @@
     enforceSafeZoneForActiveTab,
     moduleId: "renderer-geometry"
   };
+
   window.__editifyGeometry = api;
 })();
