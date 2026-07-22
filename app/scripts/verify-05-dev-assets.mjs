@@ -30,6 +30,7 @@ const idxTextLayout = srcs.findIndex((s) => rel(s) === "renderer-text-layout.js"
 const idxAnnotationProps = srcs.findIndex((s) => rel(s) === "renderer-annotation-props.js");
 const idxUtils = srcs.findIndex((s) => rel(s) === "renderer-utils.js");
 const idxToast = srcs.findIndex((s) => rel(s) === "renderer-toast.js");
+const idxTabs = srcs.findIndex((s) => rel(s) === "renderer-tabs.js");
 const idxSessionLogStore = srcs.findIndex((s) => rel(s) === "../lib/session-log-store.js");
 const idxSessionLog = srcs.findIndex((s) => rel(s) === "renderer-session-log.js");
 const idxSessionLogUi = srcs.findIndex((s) => rel(s) === "renderer-session-log-ui.js");
@@ -58,6 +59,7 @@ if (idxAnnotationProps === -1)
   fail("index.html : script renderer-annotation-props.js introuvable.");
 if (idxUtils === -1) fail("index.html : script renderer-utils.js introuvable.");
 if (idxToast === -1) fail("index.html : script renderer-toast.js introuvable.");
+if (idxTabs === -1) fail("index.html : script renderer-tabs.js introuvable.");
 if (idxSessionLogStore === -1) fail("index.html : script ../lib/session-log-store.js introuvable.");
 if (idxSessionLog === -1) fail("index.html : script renderer-session-log.js introuvable.");
 if (idxSessionLogUi === -1) fail("index.html : script renderer-session-log-ui.js introuvable.");
@@ -86,7 +88,8 @@ if (
   idxTextLayout >= idxAnnotationProps ||
   idxAnnotationProps >= idxUtils ||
   idxUtils >= idxToast ||
-  idxToast >= idxSessionLogStore ||
+  idxToast >= idxTabs ||
+  idxTabs >= idxSessionLogStore ||
   idxSessionLogStore >= idxSessionLog ||
   idxSessionLog >= idxSessionLogUi ||
   idxSessionLogUi >= idxSidebars ||

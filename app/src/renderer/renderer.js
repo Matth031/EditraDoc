@@ -33,6 +33,7 @@
  * - `renderer-shape-vector.js` : types / defaults / rendu SVG formes (`window.__editifyShapeVector`).
  * - `renderer-text-layout.js` : mesure / wrap / auto-grow / sizing export texte (`window.__editifyTextLayout`).
  * - `renderer-annotation-props.js` : panneau propriétés, application live, nuancier Mani (`window.__editifyAnnotationProps`).
+ * - `renderer-tabs.js` : onglets, fermeture, undo toast S6 (`window.__editifyTabs`, `bind()` avant `session.bind()`).
  */
 if (!window.__editifyTextHtml) {
   throw new Error("[editify] Charger renderer-text-html.js avant renderer.js (voir index.html).");
@@ -103,6 +104,9 @@ if (!window.__editifyTextLayout) {
 if (!window.__editifyAnnotationProps) {
   throw new Error("[editify] Charger renderer-annotation-props.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyTabs) {
+  throw new Error("[editify] Charger renderer-tabs.js avant renderer.js (voir index.html).");
+}
 const pdfv = window.__editifyPdfViewer;
 const pdfSave = window.__editifyPdfSave;
 const sessionLog = window.__editifySessionLog;
@@ -137,6 +141,7 @@ const {
 } = window.__editifyShapeVector;
 const textLayout = window.__editifyTextLayout;
 const annotationProps = window.__editifyAnnotationProps;
+const tabsMod = window.__editifyTabs;
 /** Assignées après `bind()` (dépendances état / DOM / texte). */
 let scheduleSidebarUpdate;
 let renderThumbnails;
@@ -368,9 +373,8 @@ function annotationSummary(a) {
 }
 
 // ---------------------------------------
-// E7: Undo fermeture onglet (in-memory)
+// E7: Undo fermeture onglet — voir renderer-tabs.js (pendingTabUndo + toast S6)
 // ---------------------------------------
-let pendingTabUndo = null; // { tab, index, wasActive, prevActiveTabId, toastId }
 
 function hasUnsavedRiskForTab(tab) {
   if (!tab) return false;
@@ -1154,186 +1158,6 @@ function getSelectedAnnotation() {
   const tab = getActiveTab();
   if (!tab || !state.selectedAnnotationId) return null;
   return currentPageAnnotations(tab).find((a) => a.id === state.selectedAnnotationId) || null;
-}
-
-function renderTabs() {
-  tabs.innerHTML = "";
-  state.tabs.forEach((tab) => {
-    const node = document.createElement("button");
-    node.className = `tab ${tab.id === state.activeTabId ? "active" : ""}`;
-    const label = document.createElement("span");
-    label.textContent = tab.name;
-    node.appendChild(label);
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "tab-close";
-    closeBtn.textContent = "✕";
-    closeBtn.title = "Retirer ce PDF";
-    closeBtn.onclick = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      removeTab(tab.id);
-    };
-    node.appendChild(closeBtn);
-    node.onclick = () => {
-      state.activeTabId = tab.id;
-      pdfv.updateViewer();
-      renderTabs();
-    };
-    tabs.appendChild(node);
-  });
-}
-
-function removeTab(tabId) {
-  const idx = state.tabs.findIndex((t) => t.id === tabId);
-  if (idx < 0) return;
-  const removed = state.tabs[idx];
-
-  // E7-S2: confirmation uniquement si risque de perte (modifs non sauvegardées).
-  if (hasUnsavedRiskForTab(removed)) {
-    const ok = window.confirm("Ce PDF a des modifications non sauvegardées. Le retirer ?");
-    if (!ok) return;
-  }
-
-  // Une seule annulation possible à la fois (MVP): on invalide l'ancienne.
-  if (pendingTabUndo?.toastId) dismissToast(pendingTabUndo.toastId);
-  pendingTabUndo = null;
-
-  const wasActive = state.activeTabId === tabId;
-  const prevActiveTabId = state.activeTabId;
-  state.tabs.splice(idx, 1);
-
-  if (state.activeTabId === tabId) {
-    state.activeTabId = state.tabs[0]?.id || null;
-    state.selectedAnnotationId = null;
-    state.editingAnnotationId = null;
-  }
-
-  renderTabs();
-  pdfv.updateViewer();
-  updateWelcomeVisibility();
-  session.scheduleAutoSave();
-  unregisterOpenPdfPathOnMain(removed.path).catch(() => {});
-
-  // E7-S1: toast "PDF retiré" + Annuler (5-8s)
-  pendingTabUndo = {
-    tab: removed,
-    index: idx,
-    wasActive,
-    prevActiveTabId,
-    toastId: null
-  };
-  const toastId = showToast({
-    message: "PDF retiré",
-    actionLabel: "Annuler",
-    onAction: () => {
-      if (!pendingTabUndo) return;
-      const entry = pendingTabUndo;
-      pendingTabUndo = null;
-      // Re-validation complète via pdf:open (whitelist S6) — jamais register aveugle.
-      void (async () => {
-        try {
-          if (!entry.tab?.path || !window.maniPdfApi?.openPdf) {
-            setStatus("Impossible de restaurer le PDF.");
-            return;
-          }
-          const open = await window.maniPdfApi.openPdf(entry.tab.path);
-          if (!open?.ok) {
-            setStatus(resolvePdfOpenErrorMessage(open));
-            return;
-          }
-        } catch {
-          setStatus("Impossible de restaurer le PDF.");
-          return;
-        }
-        const safeIndex = clamp(entry.index, 0, state.tabs.length);
-        state.tabs.splice(safeIndex, 0, entry.tab);
-        if (entry.wasActive) state.activeTabId = entry.tab.id;
-        else state.activeTabId = entry.prevActiveTabId || state.activeTabId;
-        state.selectedAnnotationId = null;
-        state.editingAnnotationId = null;
-
-        renderTabs();
-        pdfv.updateViewer();
-        updateWelcomeVisibility();
-        session.scheduleAutoSave();
-      })();
-    },
-    timeoutMs: 6500
-  });
-  pendingTabUndo.toastId = toastId;
-  setTimeout(() => {
-    if (pendingTabUndo?.toastId !== toastId) return;
-    pendingTabUndo = null;
-  }, 7000);
-}
-
-/** Décrémente la whitelist main (fermeture onglet). */
-async function unregisterOpenPdfPathOnMain(filePath) {
-  try {
-    if (!window.maniPdfApi?.unregisterOpenPdfPath || !filePath) return;
-    await window.maniPdfApi.unregisterOpenPdfPath(filePath);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Message utilisateur pour un échec IPC `pdf:open` (codes stables côté main). */
-function resolvePdfOpenErrorMessage(result) {
-  if (result?.errorCode === "VALIDATION_SERVICE_UNAVAILABLE") {
-    return t("stValidationServiceUnavailable");
-  }
-  return result?.error || "Impossible d'ouvrir le PDF.";
-}
-
-async function addPdfTab(filePath, fileName) {
-
-  const result = await window.maniPdfApi.openPdf(filePath);
-  if (!result.ok) {
-    setStatus(resolvePdfOpenErrorMessage(result));
-
-    return;
-  }
-
-  const tab = {
-    id: `${Date.now()}-${Math.random()}`,
-    name: fileName,
-    path: result.path,
-    currentPage: 1,
-    annotationsByPage: {},
-    pageRotationsByPage: {},
-    pageRotationsUserTouched: {},
-    viewportByPage: {},
-    undoStack: [],
-    redoStack: []
-  };
-  state.tabs.push(tab);
-  state.activeTabId = tab.id;
-  renderTabs();
-  pdfv.updateViewer();
-  updateWelcomeVisibility();
-  setStatus(tr("stPdfLoadedNamed", { name: fileName }));
-  // E10-S1: onboarding minimal après ouverture
-  try {
-    setTimeout(() => {
-      // Ne pas spammer si l'utilisateur a déjà des interactions.
-      if (!getActiveTab()) return;
-      setStatus(t("stPdfLoadedHint2"));
-    }, 250);
-  } catch {}
-
-}
-
-async function promptOpenPdf() {
-
-  const selected = await window.maniPdfApi.openPdfDialog();
-  if (!selected.ok) {
-    if (!selected.cancelled) setStatus(selected.error || t("stSelectionCancelled"));
-
-    return;
-  }
-  const name = selected.path.split("\\").pop() || "document.pdf";
-  await addPdfTab(selected.path, name);
 }
 
 function annotationsOnPage(tab, pageKey) {
@@ -2209,11 +2033,25 @@ pdfSave.bind({
   setStatus,
   t
 });
+tabsMod.bind({
+  state,
+  tabs,
+  pdfv,
+  session,
+  updateWelcomeVisibility,
+  hasUnsavedRiskForTab,
+  showToast,
+  dismissToast,
+  clamp,
+  setStatus,
+  t,
+  tr
+});
 session.bind({
   state,
   setStatus,
   t,
-  renderTabs,
+  renderTabs: tabsMod.renderTabs,
   updateViewer: pdfv.updateViewer,
   updateWelcomeVisibility,
   syncPropertyInputs,
@@ -2296,7 +2134,7 @@ htmlConvert.bind({
   showToastBrief,
   sessionLog,
   closeMenus: () => chrome.closeAllFlyoutMenus(),
-  openPdfAtPath: (filePath, fileName) => addPdfTab(filePath, fileName)
+  openPdfAtPath: (filePath, fileName) => tabsMod.addPdfTab(filePath, fileName)
 });
 imageConvert.bind({
   toolbarImagesToPdfBtn,
@@ -2306,7 +2144,7 @@ imageConvert.bind({
   showToastBrief,
   sessionLog,
   closeMenus: () => chrome.closeAllFlyoutMenus(),
-  openPdfAtPath: (filePath, fileName) => addPdfTab(filePath, fileName)
+  openPdfAtPath: (filePath, fileName) => tabsMod.addPdfTab(filePath, fileName)
 });
 window.__editifyPageRotate.bind({
   rotateLeftBtn,
@@ -2400,7 +2238,7 @@ chrome.bind({
   sim,
   setStatus,
   t,
-  promptOpenPdf,
+  promptOpenPdf: () => tabsMod.promptOpenPdf(),
   savePdfAs,
   setLanguage,
   logText
@@ -2628,7 +2466,7 @@ shapeGrid?.addEventListener?.("click", (event) => {
 window.maniPdfApi?.onOpenFromMenu?.(async (filePath) => {
 
   const name = filePath.split("\\").pop() || "document.pdf";
-  await addPdfTab(filePath, name);
+  await tabsMod.addPdfTab(filePath, name);
 });
 
 // Options > Langue (menu natif)
@@ -2862,7 +2700,7 @@ document.addEventListener(
 
   if ((event.ctrlKey || event.metaKey) && key === "o") {
     event.preventDefault();
-    promptOpenPdf();
+    void tabsMod.promptOpenPdf();
     return;
   }
 
@@ -2990,7 +2828,7 @@ try {
     getActiveTab,
     cancelPointerInteraction,
     pagesContainer,
-    renderTabs,
+    renderTabs: tabsMod.renderTabs,
     pdfv,
     updateWelcomeVisibility,
     syncPropertyInputs,
