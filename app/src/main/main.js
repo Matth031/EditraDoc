@@ -138,8 +138,8 @@ function loadRecentPdfs() {
 function persistRecentPdfs() {
   try {
     fs.writeFileSync(recentPdfsPath, JSON.stringify(recentPdfs, null, 2), "utf8");
-  } catch {
-    /* ignore */
+  } catch (error) {
+    logWarn("recent:persist", String(error?.message || error));
   }
 }
 
@@ -160,16 +160,16 @@ function addRecentPdf(pdfPath) {
       // Bonus Windows: alimente aussi la liste de documents récents OS.
       app.addRecentDocument(p);
     } catch {
-      /* ignore */
+      /* intentional: OS recent documents API optional */
     }
     // Rafraîchir le menu pour afficher la nouvelle liste.
     try {
       createMenu();
-    } catch {
-      /* ignore */
+    } catch (error) {
+      logWarn("recent:menu", String(error?.message || error));
     }
-  } catch {
-    /* ignore */
+  } catch (error) {
+    logWarn("recent:add", String(error?.message || error));
   }
 }
 
@@ -307,7 +307,7 @@ function broadcastFullscreenState() {
     const full = Boolean(mainWindow?.isFullScreen?.());
     mainWindow?.webContents?.send?.("window:fullscreen-changed", full);
   } catch {
-    /* ignore */
+    /* intentional: fullscreen IPC notify best-effort */
   }
 }
 
@@ -327,7 +327,7 @@ function createWindow() {
   try {
     app.setName("EditraDoc");
   } catch {
-    /* ignore */
+    /* intentional: app.setName optional on some platforms */
   }
   const windowIcon = getWindowIconPath();
   mainWindow = new BrowserWindow({
@@ -347,12 +347,12 @@ function createWindow() {
     try {
       if (startMaximized) mainWindow.maximize();
     } catch {
-      /* ignore */
+      /* intentional: maximize window best-effort */
     }
     try {
       mainWindow.show();
     } catch {
-      /* ignore */
+      /* intentional: show window best-effort */
     }
   });
 
@@ -363,7 +363,7 @@ function createWindow() {
       try {
         mainWindow.webContents.send("toolbar:f10-toggle");
       } catch {
-        /* ignore */
+        /* intentional: F10 toolbar IPC best-effort */
       }
     }
   });
@@ -436,8 +436,8 @@ function createMenu() {
                   return;
                 }
                 mainWindow.webContents.send("pdf:open-from-menu", p);
-              } catch {
-                /* ignore */
+              } catch (error) {
+                logWarn("menu:open-pdf", String(error?.message || error));
               }
             }
           })),
@@ -449,8 +449,8 @@ function createMenu() {
               persistRecentPdfs();
               try {
                 createMenu();
-              } catch {
-                /* ignore */
+              } catch (error) {
+                logWarn("menu:refresh", String(error?.message || error));
               }
             }
           }
@@ -545,7 +545,7 @@ function createMenu() {
             try {
               mainWindow?.webContents?.send?.("app:session-log");
             } catch {
-              /* ignore */
+              /* intentional: session-log menu IPC best-effort */
             }
           }
         },
@@ -555,7 +555,7 @@ function createMenu() {
             try {
               mainWindow?.webContents?.send?.("app:log-file-settings");
             } catch {
-              /* ignore */
+              /* intentional: log-settings menu IPC best-effort */
             }
           }
         },
@@ -584,7 +584,7 @@ function createMenu() {
             try {
               mainWindow?.webContents?.send?.("app:about");
             } catch {
-              /* ignore */
+              /* intentional: about menu IPC best-effort */
             }
           }
         }
@@ -660,7 +660,7 @@ function stopPythonService() {
       p.kill();
     }
   } catch {
-    /* ignore */
+    /* intentional: kill python child best-effort */
   }
 }
 
@@ -1185,8 +1185,8 @@ ipcMain.handle("app:notify-ui-language", async (_, lang) => {
   uiLanguage = MENU_I18N[key] ? key : "fr";
   try {
     createMenu();
-  } catch {
-    /* ignore */
+  } catch (error) {
+    logWarn("i18n:menu", String(error?.message || error));
   }
   return { ok: true, language: uiLanguage };
 });
@@ -1195,7 +1195,7 @@ function notifyUpdateStatus(status) {
   try {
     mainWindow?.webContents?.send?.("update:status-changed", status ?? null);
   } catch {
-    /* ignore */
+    /* intentional: update status IPC best-effort */
   }
 }
 
@@ -1400,7 +1400,7 @@ ipcMain.handle("spellcheck:analyze", async (_, payload) => {
         const words = await ses.listWordsInSpellCheckerDictionary();
         spellcheckService.mergePersonalWords(spell, words);
       } catch {
-        /* ignore */
+        /* intentional: merge OS spell dictionary best-effort */
       }
     }
     const errors = spellcheckService.findMisspellings(spell, text);

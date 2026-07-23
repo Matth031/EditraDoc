@@ -13,7 +13,7 @@ function openDialogOrE2eBypass(envVarName, ipcChannel, ipcArg) {
       return Promise.resolve({ ok: true, path: e2ePath });
     }
   } catch {
-    /* ignore */
+    /* intentional: E2E env path override best-effort */
   }
   return ipcArg === undefined
     ? ipcRenderer.invoke(ipcChannel)
@@ -76,7 +76,7 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
         }
       }
     } catch {
-      /* ignore */
+      /* intentional: E2E multi-path override best-effort */
     }
     return ipcRenderer.invoke("dialog:openImages");
   },

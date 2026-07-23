@@ -152,7 +152,7 @@ async function convertHtmlToPdf(inputPath, outputPath) {
         win.destroy();
       }
     } catch {
-      /* ignore */
+      /* intentional: destroy BrowserWindow best-effort */
     }
   }
 }

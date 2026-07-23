@@ -37,7 +37,7 @@ function findListeningPidOnPort(port) {
         if (Number.isInteger(pid) && pid > 0) return pid;
       }
     } catch {
-      /* port libre ou netstat indisponible */
+      /* intentional: port free or netstat unavailable */
     }
     return null;
   }
@@ -65,7 +65,7 @@ function killProcessTree(pid) {
       process.kill(pid, "SIGKILL");
     }
   } catch {
-    /* processus déjà terminé */
+    /* intentional: process already exited */
   }
 }
 

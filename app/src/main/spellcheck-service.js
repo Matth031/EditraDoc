@@ -40,7 +40,7 @@ async function importDictionary(langKey) {
     try {
       log("spellcheck", "import failed", { langKey, err: msg });
     } catch {
-      /* ignore */
+      /* intentional: secondary spell log must never throw */
     }
   }
   return null;
@@ -61,7 +61,7 @@ function getSpell(langKey) {
           try {
             log("spellcheck", "no dictionary payload", { langKey });
           } catch {
-            /* ignore */
+            /* intentional: secondary spell log must never throw */
           }
           return null;
         }
@@ -73,7 +73,7 @@ function getSpell(langKey) {
           try {
             log("spellcheck", "nspell init failed", { langKey, err: msg });
           } catch {
-            /* ignore */
+            /* intentional: secondary spell log must never throw */
           }
           return null;
         }
@@ -95,7 +95,7 @@ function mergePersonalWords(spell, words) {
       try {
         spell.add(s);
       } catch {
-        /* ignore */
+        /* intentional: personal dictionary add best-effort */
       }
     }
   }
@@ -122,7 +122,7 @@ function findMisspellings(spell, text) {
       const suggestions = spell.suggest(raw).slice(0, 10);
       out.push({ word: raw, start, end, suggestions });
     } catch {
-      /* ignore */
+      /* intentional: skip token on spell analyze error */
     }
   }
   return out;

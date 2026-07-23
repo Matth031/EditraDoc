@@ -49,7 +49,7 @@ function getLogFilePath() {
     const custom = getAppSettings().getCustomLogFilePath();
     if (custom) return custom;
   } catch {
-    /* ignore avant app ready */
+    /* intentional: settings before app ready best-effort */
   }
   const installLog = path.join(getInstallRoot(), "logs.txt");
   if (canWriteToDirectory(path.dirname(installLog))) return installLog;
@@ -70,7 +70,7 @@ function reloadLogConfiguration() {
   try {
     getAppSettings().loadSettings(true);
   } catch {
-    /* ignore */
+    /* intentional: reload log settings best-effort */
   }
   resetLogFileCache();
 }
@@ -119,7 +119,7 @@ function rotateIfNeeded(filePath) {
       "utf8"
     );
   } catch {
-    /* ignore */
+    /* intentional: log rotation best-effort */
   }
 }
 
@@ -156,7 +156,7 @@ function appendLog(level, scope, message, data) {
   try {
     appendLineWithFallback(line);
   } catch {
-    /* ignore */
+    /* intentional: logger append must never throw */
   }
   if (level === "error") {
     console.error(line);
@@ -202,7 +202,7 @@ function logExportAudit(scope, message, data) {
   try {
     appendLineWithFallback(line);
   } catch {
-    /* ignore */
+    /* intentional: export-audit append must never throw */
   }
   if (VERBOSE) {
     console.log(line);
@@ -223,7 +223,7 @@ function logStartupBanner() {
     try {
       version = require(path.join(app.getAppPath(), "package.json")).version || version;
     } catch {
-      /* ignore */
+      /* intentional: package.json version fallback best-effort */
     }
   }
   logInfo("app", "Démarrage EditraDoc", {

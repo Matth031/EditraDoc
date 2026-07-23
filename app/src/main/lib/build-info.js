@@ -49,7 +49,7 @@ function loadBuildInfo() {
       };
       return cached;
     } catch {
-      /* try next */
+      /* intentional: try next build-info candidate path */
     }
   }
   cached = {
