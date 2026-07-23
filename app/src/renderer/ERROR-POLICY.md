@@ -51,7 +51,16 @@ Règle ESLint locale `editify/intentional-catch` :
 | E1 | Cluster sync texte / delete (impact utilisateur) |
 | E2 | Annoter les (a) restants + e2e/main `/* ignore */` — **fait** (`intentional:` + quelques (b)/(c) via report/logWarn) |
 | E3 | Promesses boot + passage lint en **error** — **fait** |
-| E4 | Métriques locales (`error-metrics.json`) |
+| E4 | Métriques locales (`error-metrics.json`) — **fait** (fondation, pas d’UI) |
+| E5 | (opt) UI Santé — hors scope |
+
+## Monitoring E4 (`error-metrics.json`)
+
+- Compteurs `(level, scope)` en fenêtre **15 min**, message normalisé (≤80 chars, chemins masqués)
+- Seuil soft : **≥5** même `scope` / 15 min → `warn` `monitor:threshold` dans `logs.txt`
+- Fichier à côté de `logs.txt`, flush atomique ~30 s (immédiat au seuil)
+- **S19** : pas de `textHtml` / chemins complets / audit export dans les métriques (`export-audit` exclu)
+- Suivi tickets : si le même scope franchit le seuil sur **≥3 sessions process** distinctes → ouvrir `TKT-ERR-…` (voir `app/src/contracts/TICKETS.md`, miroir `docs/06-Test-Matrix.md`)
 
 ## Lint — mode bloquant (fin E3)
 

@@ -3,6 +3,10 @@
  * Chargé en premier dans index.html (après le preload Electron).
  *
  * Politique catch / niveaux : voir `ERROR-POLICY.md` (même dossier).
+ *
+ * E4 monitoring : chaque `report()` passe par `maniPdfApi.logEvent` (canal existant).
+ * Les compteurs `error-metrics.json` sont incrémentés côté main dans `logger.appendLog`
+ * — pas de second pipeline IPC.
  */
 (function () {
   "use strict";

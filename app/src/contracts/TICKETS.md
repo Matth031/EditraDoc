@@ -12,3 +12,16 @@
 | **Action ultérieure** | Aligner plafonds (HTTP ≥ 80 Mo **ou** S13 ≤ 64 Mo) + tests ; arbitrage Matt |
 
 Mirror local aussi dans `docs/06-Test-Matrix.md` (hors dépôt git).
+
+---
+
+## TKT-ERR — règle de suivi monitoring (E4)
+
+| Champ | Valeur |
+|-------|--------|
+| **Déclencheur** | Même `scope` franchit le seuil soft (`monitor:threshold`, ≥5 / 15 min) sur **≥ 3 sessions process** distinctes (champ `thresholdSessions` dans `error-metrics.json`) |
+| **Action** | Ouvrir un ticket `TKT-ERR-<scope-slug>-NNN` ici **et** miroir dans `docs/06-Test-Matrix.md` (comme FLK-E2E-001) |
+| **Contenu ticket** | scope, niveaux observés, `messageHash` (pas de PII / pas de textHtml), fréquence sessions |
+| **Hors scope** | Panneau UI Santé (E5) |
+
+Aucun `TKT-ERR` ouvert au moment de la fondation E4 (compteurs vides au démarrage).

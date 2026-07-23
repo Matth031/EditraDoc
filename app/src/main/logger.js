@@ -5,7 +5,13 @@ const {
   formatLogLine,
   shouldLogLevel,
   isExportAuditEnabled,
-  sanitizeExportAuditData
+  sanitizeExportAuditData,
+  createEmptyErrorMetricsState,
+  bumpErrorMetric,
+  markThresholdEmitted,
+  trimErrorMetricsState,
+  countThresholdSessionsForScope,
+  ERROR_METRIC_THRESHOLD
 } = require("../lib/app-log-core");
 const { getInstallRoot } = require("./install-path");
 
@@ -19,8 +25,16 @@ function getAppSettings() {
 
 const VERBOSE = process.env.MANI_PDF_LOG_VERBOSE === "1";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
+const METRICS_FLUSH_MS = 30 * 1000;
+const METRICS_SESSION_ID = `${Date.now()}-${process.pid}`;
 
 let logFilePath = null;
+/** @type {ReturnType<typeof createEmptyErrorMetricsState>} */
+let errorMetricsState = createEmptyErrorMetricsState();
+let errorMetricsDirty = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let errorMetricsFlushTimer = null;
+let errorMetricsLoaded = false;
 
 function canWriteToDirectory(dirPath) {
   try {
@@ -56,6 +70,11 @@ function getLogFilePath() {
   const userDataLog = getUserDataLogFilePath();
   if (userDataLog && canWriteToDirectory(path.dirname(userDataLog))) return userDataLog;
   return userDataLog || installLog;
+}
+
+function getErrorMetricsPath() {
+  if (process.env.EDITRADOC_ERROR_METRICS_PATH) return process.env.EDITRADOC_ERROR_METRICS_PATH;
+  return path.join(path.dirname(getLogFilePath()), "error-metrics.json");
 }
 
 function isExportAuditEnabledEffective() {
@@ -138,6 +157,121 @@ function appendLineWithFallback(line) {
   }
 }
 
+function atomicWriteJson(filePath, json) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = path.join(dir, `.${path.basename(filePath)}.${process.pid}.tmp`);
+  fs.writeFileSync(tmp, json, "utf8");
+  fs.renameSync(tmp, filePath);
+}
+
+function loadErrorMetricsState() {
+  if (errorMetricsLoaded) return;
+  errorMetricsLoaded = true;
+  try {
+    const metricsPath = getErrorMetricsPath();
+    if (!fs.existsSync(metricsPath)) {
+      errorMetricsState = createEmptyErrorMetricsState();
+      return;
+    }
+    const raw = JSON.parse(fs.readFileSync(metricsPath, "utf8"));
+    if (!raw || typeof raw !== "object") {
+      errorMetricsState = createEmptyErrorMetricsState();
+      return;
+    }
+    errorMetricsState = {
+      version: 1,
+      updatedAt: raw.updatedAt || null,
+      entries: raw.entries && typeof raw.entries === "object" ? raw.entries : Object.create(null),
+      thresholdSessions:
+        raw.thresholdSessions && typeof raw.thresholdSessions === "object"
+          ? raw.thresholdSessions
+          : Object.create(null)
+    };
+    const trimmed = trimErrorMetricsState(errorMetricsState);
+    errorMetricsState = trimmed.state;
+  } catch {
+    errorMetricsState = createEmptyErrorMetricsState();
+  }
+}
+
+function flushErrorMetricsSync() {
+  try {
+    loadErrorMetricsState();
+    const trimmed = trimErrorMetricsState(errorMetricsState);
+    errorMetricsState = trimmed.state;
+    atomicWriteJson(getErrorMetricsPath(), trimmed.json);
+    errorMetricsDirty = false;
+  } catch {
+    /* intentional: metrics flush must never throw */
+  }
+}
+
+function scheduleErrorMetricsFlush() {
+  if (errorMetricsFlushTimer != null) return;
+  errorMetricsFlushTimer = setTimeout(() => {
+    errorMetricsFlushTimer = null;
+    if (errorMetricsDirty) flushErrorMetricsSync();
+  }, METRICS_FLUSH_MS);
+  if (typeof errorMetricsFlushTimer.unref === "function") {
+    errorMetricsFlushTimer.unref();
+  }
+}
+
+/**
+ * Incrémente les compteurs locaux (E4) — appelé depuis appendLog (pipeline unique).
+ * @param {string} level
+ * @param {string} scope
+ * @param {string} message
+ */
+function recordErrorMetric(level, scope, message) {
+  try {
+    loadErrorMetricsState();
+    const bumped = bumpErrorMetric(errorMetricsState, {
+      level,
+      scope,
+      message,
+      sessionId: METRICS_SESSION_ID
+    });
+    errorMetricsState = bumped.state;
+    errorMetricsDirty = true;
+    scheduleErrorMetricsFlush();
+
+    if (bumped.shouldEmitThreshold && bumped.entry) {
+      errorMetricsState = markThresholdEmitted(errorMetricsState, {
+        scope: bumped.entry.scope,
+        level: bumped.entry.level,
+        sessionId: METRICS_SESSION_ID
+      });
+      errorMetricsDirty = true;
+      const sessions = countThresholdSessionsForScope(errorMetricsState, bumped.entry.scope);
+      // Écriture directe pour éviter la re-entrée métriques (scope monitor:threshold ignoré).
+      const line = formatLogLine({
+        level: "warn",
+        scope: "monitor:threshold",
+        message: `Seuil soft atteint (≥${ERROR_METRIC_THRESHOLD} / 15 min) pour scope=${bumped.entry.scope}`,
+        data: {
+          scope: bumped.entry.scope,
+          level: bumped.entry.level,
+          count: bumped.scopeCount,
+          messageHash: bumped.entry.messageHash,
+          thresholdSessions: sessions
+        },
+        pid: process.pid
+      });
+      try {
+        appendLineWithFallback(line);
+      } catch {
+        /* intentional: threshold log must never throw */
+      }
+      console.warn(line);
+      flushErrorMetricsSync();
+    }
+  } catch {
+    /* intentional: metrics recording must never throw */
+  }
+}
+
 /**
  * @param {string} level
  * @param {string} scope
@@ -146,6 +280,9 @@ function appendLineWithFallback(line) {
  */
 function appendLog(level, scope, message, data) {
   if (!shouldLogLevel(level, VERBOSE, scope)) return;
+  if (level === "error" || level === "warn") {
+    recordErrorMetric(level, scope, message);
+  }
   const line = formatLogLine({
     level,
     scope,
@@ -184,7 +321,7 @@ function logDebug(scope, message, data) {
 }
 
 /**
- * Journal diagnostic export (activé par défaut ; désactiver via EDITRADOC_EXPORT_AUDIT=0).
+ * Journal diagnostic export (S19 opt-in strict via EDITRADOC_EXPORT_AUDIT=1).
  * @param {string} scope
  * @param {string} message
  * @param {unknown} [data]
@@ -231,6 +368,7 @@ function logStartupBanner() {
     packaged: app.isPackaged,
     installRoot: getInstallRoot(),
     logFile: getLogFilePath(),
+    errorMetrics: getErrorMetricsPath(),
     exportAudit: isExportAuditEnabledEffective(),
     platform: process.platform,
     arch: process.arch
@@ -240,9 +378,11 @@ function logStartupBanner() {
 module.exports = {
   getInstallRoot,
   getLogFilePath,
+  getErrorMetricsPath,
   isExportAuditEnabledEffective,
   resetLogFileCache,
   reloadLogConfiguration,
+  flushErrorMetricsSync,
   log,
   logError,
   logWarn,

@@ -16,6 +16,15 @@ const SENSITIVE_KEY = /password|token|secret|authorization|api[_-]?key|credentia
 const EXPORT_AUDIT_PATH_KEY = /^(input_path|output_path|input|output|path)$/i;
 const EXPORT_AUDIT_PREVIEW_KEY = /^(textPreview|plain_preview|textHtml)$/i;
 
+/** Fenêtre glissante / seuil soft (E4 monitoring). */
+const ERROR_METRIC_WINDOW_MS = 15 * 60 * 1000;
+const ERROR_METRIC_THRESHOLD = 5;
+const ERROR_METRIC_MESSAGE_MAX = 80;
+const ERROR_METRIC_MAX_KEYS = 120;
+const ERROR_METRIC_MAX_FILE_BYTES = 64 * 1024;
+const ERROR_METRIC_MAX_TIMESTAMPS = 40;
+const ERROR_METRIC_MAX_THRESHOLD_SESSIONS = 10;
+
 /**
  * Audit export (S19) : opt-in strict — uniquement EDITRADOC_EXPORT_AUDIT=1.
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
@@ -150,14 +159,358 @@ function formatLogLine(row) {
   return `[${ts}] [${level}] [pid:${pid}] [${scope}] ${message}${suffix}`;
 }
 
+/**
+ * Message métrique : troncature + chemins masqués — jamais de contenu annotation (S19).
+ * @param {unknown} message
+ */
+function normalizeMetricMessage(message) {
+  let s = String(message ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  s = s.replace(/[A-Za-z]:\\[^\s"'<>]+/g, "[chemin]");
+  s = s.replace(/\/(?:Users|home|tmp|var|private)\/[^\s"'<>]+/gi, "[chemin]");
+  // Refus explicite de payloads HTML / base64 longs dans le message normalisé.
+  if (/<\s*img\b|textHtml|src_base64|data:image\//i.test(s)) {
+    s = "[contenu-refuse]";
+  }
+  if (s.length > ERROR_METRIC_MESSAGE_MAX) {
+    s = `${s.slice(0, ERROR_METRIC_MESSAGE_MAX)}…`;
+  }
+  return s;
+}
+
+/**
+ * Hash non crypto (fingerprint stable pour regrouper).
+ * @param {string} text
+ */
+function hashMetricMessage(text) {
+  let h = 5381;
+  const s = String(text || "");
+  for (let i = 0; i < s.length; i += 1) {
+    h = (h * 33) ^ s.charCodeAt(i);
+  }
+  return (h >>> 0).toString(16);
+}
+
+/**
+ * @returns {{ version: number, updatedAt: string | null, entries: Record<string, object>, thresholdSessions: Record<string, string[]> }}
+ */
+function createEmptyErrorMetricsState() {
+  return {
+    version: 1,
+    updatedAt: null,
+    entries: Object.create(null),
+    /** scope → ids de session process ayant franchi le seuil (suivi TKT-ERR). */
+    thresholdSessions: Object.create(null)
+  };
+}
+
+/**
+ * @param {string} level
+ * @param {string} scope
+ */
+function errorMetricKey(level, scope) {
+  return `${String(level || "error").toLowerCase()}|${String(scope || "app")}`;
+}
+
+/**
+ * @param {number[]} timestamps
+ * @param {number} now
+ * @param {number} windowMs
+ */
+function pruneTimestamps(timestamps, now, windowMs) {
+  const cutoff = now - windowMs;
+  return timestamps.filter((t) => typeof t === "number" && t >= cutoff);
+}
+
+/**
+ * Compte les événements d'un scope dans la fenêtre (tous niveaux).
+ * @param {ReturnType<typeof createEmptyErrorMetricsState>} state
+ * @param {string} scope
+ * @param {number} now
+ * @param {number} windowMs
+ */
+function countScopeInWindow(state, scope, now, windowMs) {
+  let n = 0;
+  const entries = state?.entries || {};
+  for (const entry of Object.values(entries)) {
+    if (!entry || entry.scope !== scope) continue;
+    const ts = pruneTimestamps(Array.isArray(entry.timestamps) ? entry.timestamps : [], now, windowMs);
+    n += ts.length;
+  }
+  return n;
+}
+
+/**
+ * @param {ReturnType<typeof createEmptyErrorMetricsState>} state
+ * @param {{ level: string, scope: string, message?: string, now?: number, windowMs?: number, threshold?: number, sessionId?: string, maxKeys?: number }} event
+ */
+function bumpErrorMetric(state, event) {
+  const level = String(event.level || "error").toLowerCase();
+  const scope = String(event.scope || "app");
+  const now = typeof event.now === "number" ? event.now : Date.now();
+  const windowMs = event.windowMs ?? ERROR_METRIC_WINDOW_MS;
+  const threshold = event.threshold ?? ERROR_METRIC_THRESHOLD;
+  const maxKeys = event.maxKeys ?? ERROR_METRIC_MAX_KEYS;
+
+  /** @type {ReturnType<typeof createEmptyErrorMetricsState>} */
+  const next = {
+    version: 1,
+    updatedAt: new Date(now).toISOString(),
+    entries: { ...(state?.entries || {}) },
+    thresholdSessions: { ...(state?.thresholdSessions || {}) }
+  };
+
+  // Ne pas métriquer l'alerte elle-même ni l'audit export (S19).
+  if (scope === "monitor:threshold" || scope === "export-audit") {
+    return {
+      state: next,
+      key: errorMetricKey(level, scope),
+      entry: null,
+      scopeCount: 0,
+      shouldEmitThreshold: false
+    };
+  }
+
+  if (level !== "error" && level !== "warn") {
+    return {
+      state: next,
+      key: errorMetricKey(level, scope),
+      entry: null,
+      scopeCount: 0,
+      shouldEmitThreshold: false
+    };
+  }
+
+  const key = errorMetricKey(level, scope);
+  const messageNorm = normalizeMetricMessage(event.message);
+  const prev = next.entries[key] || {
+    level,
+    scope,
+    count: 0,
+    lastAt: null,
+    messageNorm: "",
+    messageHash: "",
+    timestamps: [],
+    thresholdEmittedAt: null
+  };
+
+  let timestamps = pruneTimestamps(
+    Array.isArray(prev.timestamps) ? prev.timestamps.concat([now]) : [now],
+    now,
+    windowMs
+  );
+  if (timestamps.length > ERROR_METRIC_MAX_TIMESTAMPS) {
+    timestamps = timestamps.slice(timestamps.length - ERROR_METRIC_MAX_TIMESTAMPS);
+  }
+
+  let thresholdEmittedAt = prev.thresholdEmittedAt;
+  if (thresholdEmittedAt != null && now - Number(thresholdEmittedAt) > windowMs) {
+    thresholdEmittedAt = null;
+  }
+
+  const entry = {
+    level,
+    scope,
+    count: timestamps.length,
+    lastAt: new Date(now).toISOString(),
+    messageNorm,
+    messageHash: hashMetricMessage(messageNorm),
+    timestamps,
+    thresholdEmittedAt
+  };
+  next.entries[key] = entry;
+
+  const keys = Object.keys(next.entries);
+  if (keys.length > maxKeys) {
+    keys
+      .map((k) => ({ k, t: Date.parse(String(next.entries[k].lastAt || 0)) || 0 }))
+      .sort((a, b) => a.t - b.t)
+      .slice(0, keys.length - maxKeys)
+      .forEach(({ k }) => {
+        delete next.entries[k];
+      });
+  }
+
+  const scopeCount = countScopeInWindow(next, scope, now, windowMs);
+  const emit = shouldEmitThreshold(entry, { threshold, now, windowMs, scopeCount });
+
+  return {
+    state: next,
+    key,
+    entry,
+    scopeCount,
+    shouldEmitThreshold: emit
+  };
+}
+
+/**
+ * Marque le seuil émis pour le scope (évite spam) + enregistre la session (suivi TKT-ERR).
+ * @param {ReturnType<typeof createEmptyErrorMetricsState>} state
+ * @param {{ scope: string, level?: string, now?: number, sessionId?: string }} opts
+ */
+function markThresholdEmitted(state, opts) {
+  const scope = String(opts.scope || "app");
+  const level = String(opts.level || "error").toLowerCase();
+  const now = typeof opts.now === "number" ? opts.now : Date.now();
+  const sessionId = opts.sessionId ? String(opts.sessionId) : "";
+
+  /** @type {ReturnType<typeof createEmptyErrorMetricsState>} */
+  const next = {
+    version: 1,
+    updatedAt: new Date(now).toISOString(),
+    entries: { ...(state?.entries || {}) },
+    thresholdSessions: { ...(state?.thresholdSessions || {}) }
+  };
+
+  for (const [key, entry] of Object.entries(next.entries)) {
+    if (entry && entry.scope === scope) {
+      next.entries[key] = { ...entry, thresholdEmittedAt: now };
+    }
+  }
+  const key = errorMetricKey(level, scope);
+  if (next.entries[key]) {
+    next.entries[key] = { ...next.entries[key], thresholdEmittedAt: now };
+  }
+
+  if (sessionId) {
+    const prev = Array.isArray(next.thresholdSessions[scope])
+      ? next.thresholdSessions[scope].slice()
+      : [];
+    if (!prev.includes(sessionId)) prev.push(sessionId);
+    next.thresholdSessions[scope] = prev.slice(-ERROR_METRIC_MAX_THRESHOLD_SESSIONS);
+  }
+
+  return next;
+}
+
+/**
+ * @param {{ count?: number, timestamps?: number[], thresholdEmittedAt?: number | null }} entry
+ * @param {{ threshold?: number, now?: number, windowMs?: number, scopeCount?: number }} [opts]
+ */
+function shouldEmitThreshold(entry, opts = {}) {
+  const threshold = opts.threshold ?? ERROR_METRIC_THRESHOLD;
+  const now = typeof opts.now === "number" ? opts.now : Date.now();
+  const windowMs = opts.windowMs ?? ERROR_METRIC_WINDOW_MS;
+  const scopeCount =
+    typeof opts.scopeCount === "number"
+      ? opts.scopeCount
+      : Array.isArray(entry?.timestamps)
+        ? pruneTimestamps(entry.timestamps, now, windowMs).length
+        : Number(entry?.count) || 0;
+  if (scopeCount < threshold) return false;
+  const emittedAt = entry?.thresholdEmittedAt;
+  if (emittedAt != null && now - Number(emittedAt) <= windowMs) return false;
+  return true;
+}
+
+/**
+ * Sérialise / borne le JSON métriques (comme sensitive-actions).
+ * @param {ReturnType<typeof createEmptyErrorMetricsState>} state
+ * @param {{ maxKeys?: number, maxFileBytes?: number, now?: number, windowMs?: number }} [limits]
+ */
+function trimErrorMetricsState(state, limits = {}) {
+  const maxKeys = limits.maxKeys ?? ERROR_METRIC_MAX_KEYS;
+  const maxFileBytes = limits.maxFileBytes ?? ERROR_METRIC_MAX_FILE_BYTES;
+  const now = typeof limits.now === "number" ? limits.now : Date.now();
+  const windowMs = limits.windowMs ?? ERROR_METRIC_WINDOW_MS;
+
+  /** @type {ReturnType<typeof createEmptyErrorMetricsState>} */
+  let next = {
+    version: 1,
+    updatedAt: state?.updatedAt || new Date(now).toISOString(),
+    entries: { ...(state?.entries || {}) },
+    thresholdSessions: { ...(state?.thresholdSessions || {}) }
+  };
+
+  for (const [key, entry] of Object.entries(next.entries)) {
+    if (!entry) {
+      delete next.entries[key];
+      continue;
+    }
+    const timestamps = pruneTimestamps(
+      Array.isArray(entry.timestamps) ? entry.timestamps : [],
+      now,
+      windowMs
+    );
+    if (!timestamps.length && (!entry.lastAt || now - Date.parse(String(entry.lastAt)) > windowMs * 4)) {
+      delete next.entries[key];
+      continue;
+    }
+    next.entries[key] = {
+      ...entry,
+      timestamps,
+      count: timestamps.length,
+      messageNorm: normalizeMetricMessage(entry.messageNorm)
+    };
+  }
+
+  const keys = Object.keys(next.entries);
+  if (keys.length > maxKeys) {
+    keys
+      .map((k) => ({ k, t: Date.parse(String(next.entries[k].lastAt || 0)) || 0 }))
+      .sort((a, b) => a.t - b.t)
+      .slice(0, keys.length - maxKeys)
+      .forEach(({ k }) => {
+        delete next.entries[k];
+      });
+  }
+
+  let json = JSON.stringify(next, null, 2);
+  let bytes = Buffer.byteLength(json, "utf8");
+  while (bytes > maxFileBytes && Object.keys(next.entries).length > 0) {
+    const oldest = Object.keys(next.entries)
+      .map((k) => ({ k, t: Date.parse(String(next.entries[k].lastAt || 0)) || 0 }))
+      .sort((a, b) => a.t - b.t)[0];
+    if (!oldest) break;
+    delete next.entries[oldest.k];
+    json = JSON.stringify(next, null, 2);
+    bytes = Buffer.byteLength(json, "utf8");
+  }
+
+  while (bytes > maxFileBytes && Object.keys(next.thresholdSessions).length > 0) {
+    const k = Object.keys(next.thresholdSessions)[0];
+    delete next.thresholdSessions[k];
+    json = JSON.stringify(next, null, 2);
+    bytes = Buffer.byteLength(json, "utf8");
+  }
+
+  return { state: next, json, bytes };
+}
+
+/**
+ * Sessions distinctes ayant franchi le seuil pour un scope (≥3 → ouvrir TKT-ERR).
+ * @param {ReturnType<typeof createEmptyErrorMetricsState>} state
+ * @param {string} scope
+ */
+function countThresholdSessionsForScope(state, scope) {
+  const list = state?.thresholdSessions?.[scope];
+  return Array.isArray(list) ? list.length : 0;
+}
+
 module.exports = {
   LEVEL_RANK,
   ALWAYS_LOG_SCOPES,
+  ERROR_METRIC_WINDOW_MS,
+  ERROR_METRIC_THRESHOLD,
+  ERROR_METRIC_MESSAGE_MAX,
+  ERROR_METRIC_MAX_KEYS,
+  ERROR_METRIC_MAX_FILE_BYTES,
   isExportAuditEnabled,
   redactPathForLog,
   redactTextPreviewForLog,
   sanitizeExportAuditData,
   sanitizeData,
   shouldLogLevel,
-  formatLogLine
+  formatLogLine,
+  normalizeMetricMessage,
+  hashMetricMessage,
+  createEmptyErrorMetricsState,
+  errorMetricKey,
+  countScopeInWindow,
+  bumpErrorMetric,
+  shouldEmitThreshold,
+  markThresholdEmitted,
+  trimErrorMetricsState,
+  countThresholdSessionsForScope
 };

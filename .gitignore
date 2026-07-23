@@ -28,6 +28,7 @@ _bmad-output/
 *.log
 logs.txt
 logs.txt.1
+error-metrics.json
 *.tmp
 __pycache__/
 *.pyc

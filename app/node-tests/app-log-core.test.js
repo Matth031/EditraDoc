@@ -10,7 +10,17 @@ const {
   isExportAuditEnabled,
   redactTextPreviewForLog,
   redactPathForLog,
-  sanitizeExportAuditData
+  sanitizeExportAuditData,
+  createEmptyErrorMetricsState,
+  bumpErrorMetric,
+  shouldEmitThreshold,
+  markThresholdEmitted,
+  trimErrorMetricsState,
+  normalizeMetricMessage,
+  countThresholdSessionsForScope,
+  ERROR_METRIC_WINDOW_MS,
+  ERROR_METRIC_THRESHOLD,
+  ERROR_METRIC_MAX_FILE_BYTES
 } = require("../src/lib/app-log-core");
 
 test("sanitizeData redacte les champs sensibles", () => {
@@ -103,4 +113,126 @@ test("formatLogLine produit une ligne lisible", () => {
   });
   assert.match(line, /\[ERROR\]/);
   assert.match(line, /\[test\] boom/);
+});
+
+test("normalizeMetricMessage : chemins masqués, pas de textHtml (S19)", () => {
+  const out = normalizeMetricMessage(
+    `fail C:\\Users\\me\\secret.pdf textHtml=<img src=x onerror=1> ${"x".repeat(200)}`
+  );
+  assert.equal(out, "[contenu-refuse]");
+  const pathOnly = normalizeMetricMessage("Impossible d'ouvrir C:\\Users\\me\\docs\\a.pdf");
+  assert.match(pathOnly, /\[chemin\]/);
+  assert.doesNotMatch(pathOnly, /Users\\me/);
+  assert.ok(pathOnly.length <= 81);
+});
+
+test("bumpErrorMetric : compteur + seuil à 5 (pas à 4)", () => {
+  let state = createEmptyErrorMetricsState();
+  const t0 = Date.UTC(2026, 6, 23, 12, 0, 0);
+  for (let i = 0; i < 4; i += 1) {
+    const r = bumpErrorMetric(state, {
+      level: "error",
+      scope: "text:sync",
+      message: "sync failed",
+      now: t0 + i * 1000
+    });
+    state = r.state;
+    assert.equal(r.shouldEmitThreshold, false);
+    assert.equal(r.scopeCount, i + 1);
+  }
+  const at5 = bumpErrorMetric(state, {
+    level: "error",
+    scope: "text:sync",
+    message: "sync failed",
+    now: t0 + 5000
+  });
+  assert.equal(at5.scopeCount, 5);
+  assert.equal(at5.shouldEmitThreshold, true);
+  assert.equal(shouldEmitThreshold(at5.entry, { scopeCount: 5, now: t0 + 5000 }), true);
+});
+
+test("shouldEmitThreshold : pas de re-émission dans la même fenêtre", () => {
+  const t0 = Date.UTC(2026, 6, 23, 12, 0, 0);
+  let state = createEmptyErrorMetricsState();
+  for (let i = 0; i < 5; i += 1) {
+    state = bumpErrorMetric(state, {
+      level: "warn",
+      scope: "session:load",
+      message: "load ko",
+      now: t0 + i * 1000
+    }).state;
+  }
+  const hit = bumpErrorMetric(state, {
+    level: "warn",
+    scope: "session:load",
+    message: "load ko",
+    now: t0 + 6000
+  });
+  assert.equal(hit.shouldEmitThreshold, true);
+  state = markThresholdEmitted(hit.state, {
+    scope: "session:load",
+    level: "warn",
+    now: t0 + 6000,
+    sessionId: "sess-a"
+  });
+  const again = bumpErrorMetric(state, {
+    level: "warn",
+    scope: "session:load",
+    message: "load ko",
+    now: t0 + 7000
+  });
+  assert.equal(again.shouldEmitThreshold, false);
+  assert.equal(countThresholdSessionsForScope(again.state, "session:load"), 1);
+});
+
+test("bumpErrorMetric : fenêtre glissante 15 min ignore les vieux hits", () => {
+  let state = createEmptyErrorMetricsState();
+  const t0 = Date.UTC(2026, 6, 23, 12, 0, 0);
+  for (let i = 0; i < 5; i += 1) {
+    state = bumpErrorMetric(state, {
+      level: "error",
+      scope: "i18n:setLanguage",
+      message: "lang",
+      now: t0 + i * 1000
+    }).state;
+  }
+  const later = bumpErrorMetric(state, {
+    level: "error",
+    scope: "i18n:setLanguage",
+    message: "lang",
+    now: t0 + ERROR_METRIC_WINDOW_MS + 60_000
+  });
+  assert.equal(later.scopeCount, 1);
+  assert.equal(later.shouldEmitThreshold, false);
+});
+
+test("bumpErrorMetric : ignore export-audit et monitor:threshold (S19 / anti-récursion)", () => {
+  const state = createEmptyErrorMetricsState();
+  const a = bumpErrorMetric(state, { level: "error", scope: "export-audit", message: "x" });
+  assert.equal(a.entry, null);
+  const b = bumpErrorMetric(state, { level: "warn", scope: "monitor:threshold", message: "x" });
+  assert.equal(b.entry, null);
+});
+
+test("trimErrorMetricsState : fichier borné (pas de croissance illimitée)", () => {
+  let state = createEmptyErrorMetricsState();
+  const t0 = Date.now();
+  for (let i = 0; i < 80; i += 1) {
+    state = bumpErrorMetric(state, {
+      level: "error",
+      scope: `scope-${i}`,
+      message: `m-${i}-${"pad".repeat(20)}`,
+      now: t0 + i,
+      maxKeys: 200
+    }).state;
+  }
+  const trimmed = trimErrorMetricsState(state, {
+    maxKeys: 30,
+    maxFileBytes: 8 * 1024,
+    now: t0 + 1000
+  });
+  assert.ok(Object.keys(trimmed.state.entries).length <= 30);
+  assert.ok(trimmed.bytes <= 8 * 1024);
+  assert.ok(trimmed.bytes < ERROR_METRIC_MAX_FILE_BYTES);
+  assert.equal(ERROR_METRIC_THRESHOLD, 5);
 });
