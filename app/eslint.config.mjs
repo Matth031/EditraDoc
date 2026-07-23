@@ -1,23 +1,35 @@
 import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
+import editifyPlugin from "./eslint-rules/intentional-catch.mjs";
 
 /**
  * Lint progressif : e2e, scripts, processus principal Electron (`src/main`),
- * modules renderer légers (+ `renderer-text-html.js`, etc.) - pas `renderer.js` / `renderer-i18n-data.js` (gros fichiers).
- * `renderer-pdf-viewer.js` et `renderer-pdf-save.js` : lintés comme les autres modules renderer.
+ * modules renderer légers — pas le monolithe `renderer-i18n-data.js`.
+ *
+ * Politique catch (E0) : `editify/intentional-catch` en **warn** jusqu’à fin E3
+ * (puis error). Voir `src/renderer/ERROR-POLICY.md`.
+ *
+ * `renderer.js` reste hors `recommended` (trop bruyant) mais est ciblé
+ * uniquement par la règle intentional-catch.
  */
+
+/** @type {import("eslint").Linter.Config[]} */
 export default [
   js.configs.recommended,
   eslintConfigPrettier,
   {
     ignores: [
       "node_modules/**",
-      "src/renderer/renderer.js",
       "src/renderer/renderer-i18n-data.js",
       "scripts/_html-convert-runner.cjs",
       "scripts/spikes/**/_electron-runner.cjs"
     ]
+  },
+  {
+    plugins: {
+      editify: editifyPlugin
+    }
   },
   {
     files: ["e2e/**/*.js"],
@@ -30,7 +42,9 @@ export default [
       }
     },
     rules: {
-      "no-empty": ["error", { allowEmptyCatch: true }]
+      // Remplacé par editify/intentional-catch (warn E0–E3).
+      "no-empty": ["error", { allowEmptyCatch: true }],
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -41,6 +55,9 @@ export default [
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -51,6 +68,9 @@ export default [
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -61,6 +81,9 @@ export default [
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -73,7 +96,8 @@ export default [
       }
     },
     rules: {
-      "no-empty": ["error", { allowEmptyCatch: true }]
+      "no-empty": ["error", { allowEmptyCatch: true }],
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -87,7 +111,8 @@ export default [
       }
     },
     rules: {
-      "no-empty": ["error", { allowEmptyCatch: true }]
+      "no-empty": ["error", { allowEmptyCatch: true }],
+      "editify/intentional-catch": "warn"
     }
   },
   {
@@ -133,6 +158,26 @@ export default [
       globals: {
         ...globals.browser
       }
+    },
+    rules: {
+      "editify/intentional-catch": "warn"
+    }
+  },
+  {
+    // Monolithe : uniquement la politique catch (pas recommended).
+    files: ["src/renderer/renderer.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: {
+        ...globals.browser
+      }
+    },
+    rules: {
+      ...Object.fromEntries(
+        Object.entries(js.configs.recommended.rules || {}).map(([key]) => [key, "off"])
+      ),
+      "editify/intentional-catch": "warn"
     }
   }
 ];

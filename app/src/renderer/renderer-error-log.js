@@ -1,6 +1,8 @@
 /**
  * Capture globale des erreurs renderer → fichier logs.txt via IPC main process.
  * Chargé en premier dans index.html (après le preload Electron).
+ *
+ * Politique catch / niveaux : voir `ERROR-POLICY.md` (même dossier).
  */
 (function () {
   "use strict";

@@ -412,9 +412,36 @@ function hasUnsavedRiskForTab(tab) {
 function cancelPointerInteraction() {
   try {
     if (pointer.activePointerCleanup) pointer.activePointerCleanup();
-  } catch {}
+  } catch {
+    /* intentional: cleanup pointeur best-effort */
+  }
   pointer.activePointerCleanup = null;
   pointer.interactionMode = null;
+}
+
+/**
+ * Erreur catchée : log + statut utilisateur optionnel (politique ERROR-POLICY.md).
+ * @param {string} scope
+ * @param {unknown} error
+ * @param {string} [statusKey] clé i18n `t(...)`
+ */
+function reportCaughtError(scope, error, statusKey) {
+  const message =
+    error instanceof Error ? error.message || String(error) : String(error ?? "unknown");
+  try {
+    globalThis.__editifyReportError?.(scope, message, {
+      name: error instanceof Error ? error.name : undefined
+    });
+  } catch {
+    /* intentional: reporting must never throw */
+  }
+  if (statusKey) {
+    try {
+      setStatus(t(statusKey));
+    } catch {
+      /* intentional: status UI best-effort */
+    }
+  }
 }
 
 /** Persiste le texte en cours si l’utilisateur ouvre le menu sur une autre annotation. */
@@ -431,7 +458,9 @@ function commitActiveTextEditIfNeeded(targetAnnotationId) {
       captureSnapshot(tab);
       syncTextFromEditor(item, ed);
       finalizeTextAnnotationLayout(item);
-    } catch {}
+    } catch (error) {
+      reportCaughtError("text:sync", error, "stTextSyncFailed");
+    }
     session.scheduleAutoSave();
   }
   state.editingAnnotationId = null;
@@ -518,10 +547,8 @@ function ensureChangesContextMenu() {
   del.setAttribute("role", "menuitem");
   del.textContent = t("del");
   del.onclick = () => {
-    try {
-      hideChangesContextMenu();
-      deleteSelected();
-    } catch {}
+    hideChangesContextMenu();
+    deleteSelected();
   };
   node.appendChild(del);
   document.body.appendChild(node);
@@ -731,7 +758,9 @@ function wireTextEditorInteraction(tab, item, node, ed) {
         syncTextFromEditor(item, ed);
         finalizeTextAnnotationLayout(item);
         session.scheduleAutoSave();
-      } catch {}
+      } catch (error) {
+        reportCaughtError("text:sync", error, "stTextSyncFailed");
+      }
     },
     { capture: true }
   );
@@ -1138,7 +1167,11 @@ function addShapeByType(shapeType) {
 }
 
 function deleteSelected() {
-  annotationsMod.deleteSelected();
+  try {
+    annotationsMod.deleteSelected();
+  } catch (error) {
+    reportCaughtError("annotation:delete", error, "stDeleteFailed");
+  }
 }
 
 function finishUndoRedoUi() {
@@ -1807,7 +1840,9 @@ document.addEventListener("mousedown", (event) => {
         syncTextFromEditor(item, ed);
         finalizeTextAnnotationLayout(item);
       }
-    } catch {}
+    } catch (error) {
+      reportCaughtError("text:sync", error, "stTextSyncFailed");
+    }
     session.scheduleAutoSave();
   }
 
@@ -1848,13 +1883,17 @@ function endTextEditOnEscape() {
         finalizeTextAnnotationLayout(item);
         session.scheduleAutoSave();
       }
-    } catch {}
+    } catch (error) {
+      reportCaughtError("text:sync", error, "stTextSyncFailed");
+    }
   }
   state.editingAnnotationId = null;
   state.selectedAnnotationId = null;
   try {
     document.activeElement?.blur?.();
-  } catch {}
+  } catch {
+    /* intentional: blur focus API best-effort */
+  }
   syncPropertyInputs();
   renderAnnotations();
 }
