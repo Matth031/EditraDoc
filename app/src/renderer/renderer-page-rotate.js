@@ -121,7 +121,7 @@
           }
         });
       } catch {
-        /* ignore */
+        /* intentional: page rotate session log append best-effort */
       }
       d.session.scheduleAutoSave();
     } finally {
@@ -136,7 +136,7 @@
         try {
           globalThis.__editifyReportError?.("page-rotate:left", String(error?.message || error));
         } catch {
-          /* ignore */
+          /* intentional: reporting must never throw */
         }
       });
     });
@@ -145,7 +145,7 @@
         try {
           globalThis.__editifyReportError?.("page-rotate:right", String(error?.message || error));
         } catch {
-          /* ignore */
+          /* intentional: reporting must never throw */
         }
       });
     });

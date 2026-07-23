@@ -73,7 +73,7 @@
           message: d.tr("logHtmlConvert", { input: inputStem, name: outName })
         });
       } catch {
-        /* ignore */
+        /* intentional: session log append after html convert */
       }
       const toast = d.showToastBrief;
       if (toast) {
@@ -106,7 +106,7 @@
     try {
       d.closeMenus?.();
     } catch {
-      /* ignore */
+      /* intentional: close menus before html convert prompt */
     }
     const dlg = await window.maniPdfApi.openHtmlDialog();
     if (!dlg?.ok || dlg.cancelled || !dlg.path) return;
@@ -123,8 +123,8 @@
       window.maniPdfApi?.onHtmlToPdfRequested?.(() => {
         void promptAndConvert();
       });
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("html-convert:ipc-subscribe", String(error?.message || error));
     }
   }
 

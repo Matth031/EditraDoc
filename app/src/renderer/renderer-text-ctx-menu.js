@@ -39,12 +39,12 @@
     try {
       window.__editifyUtils.logText("ctxTextMenuHide", { hadTarget: Boolean(textCtxMenuTargetId) });
     } catch {
-      /* ignore */
+      /* intentional: ctxTextMenuHide debug log best-effort */
     }
     try {
       ensureTextAnnotationCtxMenuEl()?.classList?.add?.("hidden");
     } catch {
-      /* ignore */
+      /* intentional: hide text annotation ctx menu DOM */
     }
     textCtxMenuTargetId = null;
     globalThis.__maniCtxTextBackup = undefined;
@@ -68,7 +68,7 @@
     try {
       window.syncManiColorSwatches?.();
     } catch {
-      /* ignore */
+      /* intentional: sync color swatches in text ctx */
     }
   }
 
@@ -347,7 +347,7 @@
           };
         }
       } catch {
-        /* ignore */
+        /* intentional: spellcheck dictionary IPC actions best-effort */
       }
     }
   }
@@ -428,7 +428,7 @@
       try {
         document.execCommand(cmd, false, null);
       } catch {
-        /* ignore */
+        /* intentional: execCommand format may be unsupported */
       }
       d.syncTextFromEditor(loc.item, ed);
       d.scheduleAutoSave();
@@ -470,7 +470,7 @@
         if (bg) bg.dataset.ctxTouched = "1";
         document.getElementById("ctxTextBgLabel")?.classList?.remove?.("is-transparent");
       } catch {
-        /* ignore */
+        /* intentional: bg touched label DOM before apply */
       }
       applyTextCtxMenuBoxProps();
     });

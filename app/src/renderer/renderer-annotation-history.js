@@ -82,7 +82,7 @@
     try {
       document.activeElement?.blur?.();
     } catch {
-      /* ignore */
+      /* intentional: blur after undo snapshot restore best-effort */
     }
     const syncPropertyInputs = /** @type {() => void} */ (d.syncPropertyInputs);
     const renderAnnotations = /** @type {() => void} */ (d.renderAnnotations);

@@ -82,8 +82,8 @@
       if (res?.ok) {
         applyStartupToggleUi(Boolean(res.settings?.checkUpdatesOnStartup));
       }
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("update:getSettings", String(error?.message || error));
     }
   }
 
@@ -91,8 +91,8 @@
     try {
       const res = await window.maniPdfApi?.getUpdateStatus?.();
       if (res?.ok) applyStatus(res.status);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("update:getStatus", String(error?.message || error));
     }
   }
 

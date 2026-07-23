@@ -41,12 +41,12 @@
         hadTarget: Boolean(shapeCtxMenuTargetId)
       });
     } catch {
-      /* ignore */
+      /* intentional: ctxShapeMenuHide debug log best-effort */
     }
     try {
       ensureShapeAnnotationCtxMenuEl()?.classList?.add?.("hidden");
     } catch {
-      /* ignore */
+      /* intentional: hide shape annotation ctx menu DOM */
     }
     shapeCtxMenuTargetId = null;
     globalThis.__maniCtxShapeBackup = undefined;
@@ -62,7 +62,7 @@
     try {
       ensureImageAnnotationCtxMenuEl()?.classList?.add?.("hidden");
     } catch {
-      /* ignore */
+      /* intentional: hide image annotation ctx menu DOM */
     }
     imageCtxMenuTargetId = null;
   }
@@ -165,7 +165,7 @@
     try {
       window.syncManiColorSwatches?.();
     } catch {
-      /* ignore */
+      /* intentional: sync color swatches in shape ctx */
     }
   }
 
@@ -323,7 +323,7 @@
       try {
         if (bd) bd.dataset.ctxTouched = "1";
       } catch {
-        /* ignore */
+        /* intentional: backdrop touched dataset flag best-effort */
       }
       applyShapeCtxMenuProps();
     });

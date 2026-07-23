@@ -63,8 +63,8 @@
       try {
         renderThumbnails();
         renderChanges();
-      } catch {
-        /* ignore */
+      } catch (error) {
+        globalThis.__editifyReportWarn?.("sidebars:scheduleUpdate", String(error?.message || error));
       }
     }, 60);
   }
@@ -122,23 +122,23 @@
               const node = d.annotationLayer?.querySelector?.(`[data-id="${a.id}"]`);
               node?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
             } catch {
-              /* ignore */
+              /* intentional: scroll annotation into view after select */
             }
           });
         } catch {
-          /* ignore */
+          /* intentional: select change row navigate best-effort */
         }
       });
       row.oncontextmenu = (ev) => {
         try {
           ev.preventDefault();
         } catch {
-          /* ignore */
+          /* intentional: preventDefault on changes contextmenu */
         }
         try {
           row.click();
         } catch {
-          /* ignore */
+          /* intentional: row click before showing changes menu */
         }
         try {
           const menu = d.ensureChangesContextMenu();
@@ -149,7 +149,7 @@
           menu.style.left = `${x}px`;
           menu.style.top = `${y}px`;
         } catch {
-          /* ignore */
+          /* intentional: changes context menu position clamp */
         }
       };
       d.changesList.appendChild(row);
@@ -193,7 +193,7 @@
         const annos = tab.annotationsByPage?.[String(pageNumber)] || [];
         drawThumbOverlay(cctx, annos, ratio);
       } catch {
-        /* ignore */
+        /* intentional: thumbnail canvas draw overlay best-effort */
       }
 
       const meta = document.createElement("div");
@@ -221,8 +221,8 @@
           pageNode.scrollIntoView({ block: "start", inline: "nearest" });
           renderThumbnails();
           renderChanges();
-        } catch {
-          /* ignore */
+        } catch (error) {
+          globalThis.__editifyReportWarn?.("sidebars:thumbNavigate", String(error?.message || error));
         }
       };
       d.thumbsList.appendChild(item);

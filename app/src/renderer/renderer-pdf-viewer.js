@@ -191,7 +191,7 @@
           path: tab.path
         });
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
       setStatus(t("stPdfRenderError"));
     });
@@ -359,7 +359,7 @@
         try {
           d.scheduleAutoSave?.();
         } catch {
-          /* ignore */
+          /* intentional: schedule autosave after same-file reload */
         }
       }
     }
@@ -375,7 +375,7 @@
     try {
       pdfRenderCache.doc?.destroy?.();
     } catch {
-      /* ignore */
+      /* intentional: destroy pdf.js doc cache cleanup */
     }
     pdfRenderCache.path = null;
     pdfRenderCache.base64 = null;
@@ -486,7 +486,7 @@
     try {
       activePdfRenderTasks.forEach((task) => task?.cancel?.());
     } catch {
-      /* ignore */
+      /* intentional: cancel active pdf render tasks */
     }
     activePdfRenderTasks = [];
 
@@ -499,7 +499,7 @@
     try {
       setStatus(tr("stRendering", { a: "0", b: String(count) }));
     } catch {
-      /* ignore */
+      /* intentional: setStatus rendering progress start */
     }
     let lastProgressAt = 0;
 
@@ -511,7 +511,7 @@
         try {
           setStatus(tr("stRendering", { a: String(pageNumber), b: String(count) }));
         } catch {
-          /* ignore */
+          /* intentional: setStatus rendering progress tick */
         }
       }
       const page = await doc.getPage(pageNumber);
@@ -535,7 +535,7 @@
     try {
       setStatus(t("stPdfLoadedHint"));
     } catch {
-      /* ignore */
+      /* intentional: setStatus pdf loaded hint best-effort */
     }
   }
 
@@ -566,7 +566,7 @@
         return true;
       }
     } catch {
-      /* ignore */
+      /* intentional: restore text selection range best-effort */
     }
     return false;
   }
@@ -659,7 +659,7 @@
         true
       );
     } catch {
-      /* ignore */
+      /* intentional: wire drag-drop listeners once best-effort */
     }
   }
 

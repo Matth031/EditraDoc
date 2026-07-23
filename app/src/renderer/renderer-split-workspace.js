@@ -138,7 +138,7 @@
     try {
       clearTimeout(splitAutosaveTimer);
     } catch {
-      /* ignore */
+      /* intentional: clearTimeout split autosave timer */
     }
     splitAutosaveTimer = setTimeout(() => {
       try {
@@ -155,8 +155,8 @@
           nextGroupId: st.nextGroupId
         };
         localStorage.setItem(draftKey(st.tabPath), JSON.stringify(payload));
-      } catch {
-        /* ignore */
+      } catch (error) {
+        globalThis.__editifyReportWarn?.("split:draft-autosave", String(error?.message || error));
       }
     }, 320);
   }
@@ -175,7 +175,7 @@
     try {
       g2d.drawImage(srcCanvas, 0, 0, canvas.width, canvas.height);
     } catch {
-      /* ignore */
+      /* intentional: split thumb drawImage best-effort */
     }
     return canvas;
   }
@@ -269,7 +269,7 @@
       try {
         splitDragGhost.remove();
       } catch {
-        /* ignore */
+        /* intentional: remove split drag ghost DOM node */
       }
       splitDragGhost = null;
     }
@@ -483,7 +483,7 @@
             st.groups = st.groups.filter((x) => x.id !== g.id);
             st.selected.clear();
           } catch {
-            /* ignore: état incohérent transitoire */
+            /* intentional: état incohérent transitoire merge groupes */
           }
           renderSplitWorkspace();
           scheduleSplitWorkspaceAutosave();
@@ -535,7 +535,7 @@
     try {
       deps.splitWorkspaceValidateBtn?.focus?.();
     } catch {
-      /* ignore */
+      /* intentional: focus validate btn after open split */
     }
   }
 
@@ -576,7 +576,7 @@
     try {
       localStorage.removeItem(draftKey(tab.path));
     } catch {
-      /* ignore */
+      /* intentional: remove split draft after enqueue job */
     }
     closeSplitWorkspace();
   }

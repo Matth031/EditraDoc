@@ -75,7 +75,7 @@
       try {
         globalThis.__editifyReportError?.("session:save", String(error?.message || error));
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
     }
   }
@@ -131,7 +131,7 @@
       try {
         globalThis.__editifyReportError?.("session:load", String(error?.message || error));
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
     }
   }
@@ -144,7 +144,7 @@
         try {
           globalThis.__editifyReportError?.("session:autosave", String(error?.message || error));
         } catch {
-          /* ignore */
+          /* intentional: reporting must never throw */
         }
       });
     }, 600);

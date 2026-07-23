@@ -47,7 +47,7 @@
       try {
         e.preventDefault();
       } catch {
-        /* ignore */
+        /* intentional: preventDefault during panel drag best-effort */
       }
     });
 

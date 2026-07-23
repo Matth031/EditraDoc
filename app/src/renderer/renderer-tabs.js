@@ -40,8 +40,8 @@
     try {
       if (!window.maniPdfApi?.unregisterOpenPdfPath || !filePath) return;
       await window.maniPdfApi.unregisterOpenPdfPath(filePath);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("tabs:unregisterOpenPdfPath", String(error?.message || error));
     }
   }
 
@@ -215,7 +215,7 @@
         setStatus(t("stPdfLoadedHint2"));
       }, 250);
     } catch {
-      /* ignore */
+      /* intentional: delayed loaded hint status after open */
     }
   }
 

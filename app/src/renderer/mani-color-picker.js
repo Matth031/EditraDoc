@@ -162,7 +162,7 @@
         })
       );
     } catch {
-      /* ignore */
+      /* intentional: mani-color-open CustomEvent dispatch best-effort */
     }
     const { modal: m } = getEls();
     if (!m) return;
@@ -192,7 +192,7 @@
     try {
       document.dispatchEvent(new CustomEvent("mani-color-close", { bubbles: true }));
     } catch {
-      /* ignore */
+      /* intentional: mani-color-close CustomEvent dispatch best-effort */
     }
   }
 
@@ -201,7 +201,7 @@
       try {
         console.info("[mani-color] commit skipped (no targetInput)");
       } catch {
-        /* ignore */
+        /* intentional: console.info may throw in locked console */
       }
       closeModal();
       return;
@@ -218,7 +218,7 @@
     try {
       console.info("[mani-color] commit", { id: inp.id, hex: inp.value });
     } catch {
-      /* ignore */
+      /* intentional: console.info commit log best-effort */
     }
     try {
       const apply =
@@ -238,7 +238,7 @@
               err: String(err)
             });
           } catch {
-            /* ignore */
+            /* intentional: secondary commit exception log best-effort */
           }
         }
       } else {
@@ -260,14 +260,14 @@
           const bid = map[id];
           if (bid) document.getElementById(bid)?.click?.();
         } catch {
-          /* ignore */
+          /* intentional: ctx validate button auto-click best-effort */
         }
       }
     } catch (e) {
       try {
         console.error("[mani-color] maniAfterColorCommit erreur", e);
       } catch {
-        /* ignore */
+        /* intentional: console.error after commit best-effort */
       }
     }
     try {
@@ -284,7 +284,7 @@
         });
       }
     } catch {
-      /* ignore */
+      /* intentional: post-commit panel sync log best-effort */
     }
     closeModal();
   }
@@ -373,7 +373,7 @@
           new CustomEvent("mani-color-capture-text-selection", { bubbles: true })
         );
       } catch {
-        /* ignore */
+        /* intentional: capture text selection event best-effort */
       }
     });
     els.validateBtn?.addEventListener("click", commit);
@@ -395,7 +395,7 @@
           syncRgbFields();
         }
       } catch {
-        /* annulé */
+        /* intentional: EyeDropper cancel or unsupported API */
       }
     });
 
@@ -424,7 +424,7 @@
               })
             );
           } catch {
-            /* ignore */
+            /* intentional: capture selection before open best-effort */
           }
         });
       }

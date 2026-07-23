@@ -50,7 +50,7 @@
     try {
       sessionLogCloseBtn?.focus?.();
     } catch {
-      /* ignore */
+      /* intentional: focus close btn after open session log */
     }
   }
 
@@ -73,7 +73,7 @@
     try {
       deps?.sessionLog?.clear?.();
     } catch {
-      /* ignore */
+      /* intentional: clear session log on unload best-effort */
     }
   }
 

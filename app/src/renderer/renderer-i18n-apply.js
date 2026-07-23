@@ -268,7 +268,7 @@
       const logFileSettingsModal = document.getElementById("logFileSettingsModal");
       logFileSettingsModal?.setAttribute("aria-label", t("logFileSettingsTitle"));
     } catch {
-      /* ignore */
+      /* intentional: log settings modal aria-label i18n */
     }
     if (thumbsTitle) thumbsTitle.textContent = t("thumbs");
     if (changesTitle) changesTitle.textContent = t("changes");
@@ -277,19 +277,19 @@
     try {
       if (aboutRgpd) aboutRgpd.innerHTML = t("rgpdHtml");
     } catch {
-      /* ignore */
+      /* intentional: about RGPD html i18n DOM best-effort */
     }
     try {
       if (aboutTitleEl) aboutTitleEl.textContent = t("aboutTitle");
       if (aboutCreditsEl) aboutCreditsEl.innerHTML = t("aboutCreditsHtml");
     } catch {
-      /* ignore */
+      /* intentional: about title credits i18n best-effort */
     }
     try {
       if (mergeBtn) mergeBtn.textContent = t("merge");
       if (splitBtn) splitBtn.textContent = t("split");
     } catch {
-      /* ignore */
+      /* intentional: merge split button labels i18n */
     }
     try {
       document.title = t("appName");
@@ -302,7 +302,7 @@
       const wOpen = document.getElementById("welcomeOpenPdfBtn");
       if (wOpen) wOpen.textContent = t("openPdf");
     } catch {
-      /* ignore */
+      /* intentional: welcome screen strings i18n best-effort */
     }
     setLabelPrefix("propWidth", t("width"));
     setLabelPrefix("propHeight", t("height"));
@@ -318,7 +318,7 @@
       const propFontSizeLabel = document.getElementById("propFontSizeLabel");
       if (propFontSizeLabel) propFontSizeLabel.textContent = t("size");
     } catch {
-      /* ignore */
+      /* intentional: props panel labels i18n best-effort */
     }
     const sfl = document.getElementById("shapeFillLabel");
     const sfol = document.getElementById("shapeFillOpLabel");
@@ -351,12 +351,12 @@
       const rd = document.getElementById("ctxSpellRemoveDict");
       if (rd) rd.textContent = t("ctxSpellRemoveDict");
     } catch {
-      /* ignore */
+      /* intentional: spell ctx menu strings i18n best-effort */
     }
     try {
       applyContextMenusLanguage();
     } catch {
-      /* ignore */
+      /* intentional: applyContextMenusLanguage cascade best-effort */
     }
     applyDataTooltipsFromMap();
     applyShapeGridLanguage();
@@ -365,7 +365,7 @@
       if (smt) smt.textContent = t("shapePickerTitle");
       if (shapeModal) shapeModal.setAttribute("aria-label", t("shapeModalAria"));
     } catch {
-      /* ignore */
+      /* intentional: shape modal title aria i18n */
     }
     try {
       const swt = document.getElementById("splitWorkspaceTitle");
@@ -376,7 +376,7 @@
       if (splitWorkspaceValidateBtn) splitWorkspaceValidateBtn.textContent = t("splitValidate");
       splitWorkspaceCloseBtn?.setAttribute("aria-label", t("closeAria"));
     } catch {
-      /* ignore */
+      /* intentional: split workspace chrome i18n best-effort */
     }
     try {
       const mct = document.getElementById("maniColorModalTitle");
@@ -393,20 +393,20 @@
         .querySelector("#maniColorModal .mani-color-rgb-grid")
         ?.setAttribute("aria-label", t("maniColorRgbAria"));
     } catch {
-      /* ignore */
+      /* intentional: mani color modal aria i18n */
     }
     try {
       const del = document.getElementById("changesCtxDeleteBtn");
       if (del) del.textContent = t("del");
     } catch {
-      /* ignore */
+      /* intentional: changes delete button label i18n */
     }
     try {
       document.getElementById("ctxTextBold")?.setAttribute("title", t("ctxFmtBold"));
       document.getElementById("ctxTextItalic")?.setAttribute("title", t("ctxFmtItalic"));
       document.getElementById("ctxTextUnderline")?.setAttribute("title", t("ctxFmtUnderline"));
     } catch {
-      /* ignore */
+      /* intentional: text format button titles i18n */
     }
     try {
       thumbsBar?.setAttribute("aria-label", t("thumbs"));
@@ -420,23 +420,23 @@
       aboutCloseBtn?.setAttribute("aria-label", t("closeAria"));
       closeShapeModalBtn?.setAttribute("aria-label", t("closeAria"));
     } catch {
-      /* ignore */
+      /* intentional: toolbar about aria labels i18n */
     }
     try {
       const tr = ensureToastRoot();
       tr?.setAttribute?.("aria-label", t("toastAria"));
     } catch {
-      /* ignore */
+      /* intentional: toast root aria-label i18n best-effort */
     }
     try {
       pdfv.updateZoomUI();
     } catch {
-      /* ignore */
+      /* intentional: updateZoomUI after language apply */
     }
     try {
       globalThis.__editifyLogFileSettingsUi?.applyLanguage?.();
     } catch {
-      /* ignore */
+      /* intentional: log file settings ui i18n best-effort */
     }
   }
 

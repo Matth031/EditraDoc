@@ -112,7 +112,7 @@
       try {
         globalThis.__editifyReportError?.("save:log", String(error), { step });
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
     }
   }
@@ -139,7 +139,7 @@
       try {
         globalThis.__editifyReportError?.("save:export-audit", String(error), { step });
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
     }
   }
@@ -682,7 +682,7 @@
     try {
       tab.dirty = false;
     } catch {
-      /* ignore */
+      /* intentional: clear dirty flag after export best-effort */
     }
     const out = String(outputPath || "").trim();
     if (!out || !tab.path) return;

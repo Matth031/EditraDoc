@@ -23,12 +23,12 @@
     try {
       if (entry.timeout) clearTimeout(entry.timeout);
     } catch {
-      /* ignore */
+      /* intentional: clearTimeout toast dismiss timer */
     }
     try {
       entry.node?.remove?.();
     } catch {
-      /* ignore */
+      /* intentional: remove toast DOM node best-effort */
     }
   }
 

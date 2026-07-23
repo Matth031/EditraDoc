@@ -108,7 +108,7 @@
     try {
       window.syncManiColorSwatches?.();
     } catch {
-      /* ignore */
+      /* intentional: sync color swatches after props best-effort */
     }
   }
 
@@ -228,7 +228,7 @@
       if (propBgColor) propBgColor.dataset.touched = "1";
       propBgColorLabel?.classList?.remove?.("is-transparent");
     } catch {
-      /* ignore */
+      /* intentional: bg color touched label DOM best-effort */
     }
     applySelectedPropertiesLive();
   }
@@ -298,7 +298,7 @@
           backup: globalThis.__maniColorSelectionBackup
         });
       } catch {
-        /* ignore */
+        /* intentional: maniColorApply debug log best-effort */
       }
       if (!id) return;
 
@@ -322,7 +322,7 @@
         try {
           tcm.ensureTextAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
         } catch {
-          /* ignore */
+          /* intentional: show text ctx menu after color best-effort */
         }
         logText("maniColorBranchCtxText", {
           id,
@@ -338,8 +338,8 @@
         } catch {
           try {
             tcm.applyTextCtxMenuBoxProps();
-          } catch {
-            /* ignore */
+          } catch (error) {
+            globalThis.__editifyReportWarn?.("props:textCtxColorFallback", String(error?.message || error));
           }
         }
         globalThis.__maniCtxTextBackup = undefined;
@@ -355,7 +355,7 @@
         try {
           sim.ensureShapeAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
         } catch {
-          /* ignore */
+          /* intentional: show shape ctx menu after color best-effort */
         }
         logText("maniColorBranchCtxShape", {
           id,
@@ -371,8 +371,8 @@
         } catch {
           try {
             sim.applyShapeCtxMenuProps();
-          } catch {
-            /* ignore */
+          } catch (error) {
+            globalThis.__editifyReportWarn?.("props:shapeCtxColorFallback", String(error?.message || error));
           }
         }
         globalThis.__maniCtxShapeBackup = undefined;
@@ -431,8 +431,8 @@
       } catch {
         try {
           applySelectedProperties();
-        } catch {
-          /* ignore */
+        } catch (error) {
+          globalThis.__editifyReportWarn?.("props:applySelectedFallback", String(error?.message || error));
         }
       }
     } catch (e) {

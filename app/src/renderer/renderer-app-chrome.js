@@ -69,7 +69,7 @@
     try {
       requireDeps().blankCanvasCtxMenu?.classList?.add?.("hidden");
     } catch {
-      /* ignore */
+      /* intentional: hide blank canvas ctx menu best-effort */
     }
   }
 
@@ -84,7 +84,7 @@
       event.preventDefault();
       event.stopPropagation();
     } catch {
-      /* ignore */
+      /* intentional: event preventDefault stopPropagation best-effort */
     }
     d.capturePointerInPage(event);
     closeAllFlyoutMenus();
@@ -101,7 +101,7 @@
       d.blankCanvasCtxMenu.style.left = `${x}px`;
       d.blankCanvasCtxMenu.style.top = `${y}px`;
     } catch {
-      /* ignore */
+      /* intentional: blank canvas menu position clamp best-effort */
     }
     d.blankCanvasCtxMenu.classList.remove("hidden");
   }
@@ -110,7 +110,7 @@
     try {
       requireDeps().aboutPopover?.classList?.add?.("hidden");
     } catch {
-      /* ignore */
+      /* intentional: hide about popover DOM best-effort */
     }
   }
 
@@ -148,7 +148,7 @@
         return;
       }
     } catch {
-      /* ignore */
+      /* intentional: about version IPC fetch falls back */
     }
     d.aboutVersion.textContent = "v?";
   }
@@ -204,7 +204,7 @@
           return true;
       }
     } catch {
-      /* ignore */
+      /* intentional: composedPath color modal hit check */
     }
     return false;
   }
@@ -224,7 +224,7 @@
       try {
         closeAllFlyoutMenus();
       } catch {
-        /* ignore */
+        /* intentional: close flyouts when toolbar hidden */
       }
     }
   }
@@ -238,8 +238,8 @@
     try {
       const r = await window.maniPdfApi?.getWindowFullscreen?.();
       electronWindowFullscreen = Boolean(r?.full);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("chrome:fullscreen-sync", String(error?.message || error));
     }
     updateAppToolbarDom();
   }
@@ -298,7 +298,7 @@
       try {
         d.pdfToolsMenu.querySelector("button[role='menuitem']")?.focus?.();
       } catch {
-        /* ignore */
+        /* intentional: pdf tools menu first item focus */
       }
     });
   }
@@ -319,7 +319,7 @@
       try {
         d.toolbarFileMenu.querySelector("button[role='menuitem']")?.focus?.();
       } catch {
-        /* ignore */
+        /* intentional: file menu first item focus best-effort */
       }
     });
   }
@@ -340,7 +340,7 @@
       try {
         d.toolbarOptionsMenu.querySelector("button[role='menuitem']")?.focus?.();
       } catch {
-        /* ignore */
+        /* intentional: options menu first item focus best-effort */
       }
     });
   }
@@ -352,7 +352,7 @@
       try {
         window.close();
       } catch {
-        /* ignore */
+        /* intentional: window.close quit fallback best-effort */
       }
     }
   }
@@ -370,7 +370,7 @@
             return;
           showBlankCanvasCtxMenu(e);
         } catch {
-          /* ignore */
+          /* intentional: blank canvas contextmenu handler best-effort */
         }
       },
       true
@@ -415,7 +415,7 @@
               inManiColor
             });
           } catch {
-            /* ignore */
+            /* intentional: shape dismiss debug log best-effort */
           }
           d.sim.hideShapeAnnotationCtxMenu();
         }
@@ -476,13 +476,14 @@
       e.preventDefault();
       closeAllFlyoutMenus();
       d0.savePdfAs().catch((error) => {
+        globalThis.__editifyReportError?.("chrome:saveAs", String(error?.message || error));
         try {
           d0.logText?.("save", {
             step: "toolbar_exception",
             error: String(error?.message || error)
           });
         } catch {
-          /* ignore */
+          /* intentional: saveAs secondary logText best-effort */
         }
       });
     });
@@ -501,8 +502,8 @@
       if (!btn) return;
       try {
         d0.setLanguage(btn.dataset.lang);
-      } catch {
-        /* ignore */
+      } catch (error) {
+        globalThis.__editifyReportWarn?.("chrome:setLanguage", String(error?.message || error));
       }
       closeAllFlyoutMenus();
     });
@@ -533,7 +534,7 @@
       try {
         closeToolbarOptionsMenu();
       } catch {
-        /* ignore */
+        /* intentional: close options before about popover */
       }
       showAboutPopoverNearOptions();
     });

@@ -83,7 +83,7 @@
           })
         });
       } catch {
-        /* ignore */
+        /* intentional: session log append after image convert */
       }
       const toast = d.showToastBrief;
       if (toast) {
@@ -110,7 +110,7 @@
     try {
       d.closeMenus?.();
     } catch {
-      /* ignore */
+      /* intentional: close menus before image convert prompt */
     }
     const dlg = await window.maniPdfApi.openImagesDialog();
     if (!dlg?.ok || dlg.cancelled || !Array.isArray(dlg.paths) || !dlg.paths.length) return;
@@ -127,8 +127,8 @@
       window.maniPdfApi?.onImagesToPdfRequested?.(() => {
         void promptAndConvert();
       });
-    } catch {
-      /* ignore */
+    } catch (error) {
+      globalThis.__editifyReportWarn?.("image-convert:ipc-subscribe", String(error?.message || error));
     }
   }
 

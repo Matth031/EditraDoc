@@ -176,7 +176,7 @@
         }
         lastTop = top;
       } catch {
-        /* ignore */
+        /* intentional: line break offset probe range rect */
       }
     }
     return offsets;
@@ -306,7 +306,7 @@
     try {
       if (contentRoot.querySelectorAll("div, p, li").length > 1) return true;
     } catch {
-      /* ignore */
+      /* intentional: querySelector multi-block detect best-effort */
     }
     return false;
   }
@@ -513,7 +513,7 @@
           span.appendChild(frag);
           range.insertNode(span);
         } catch {
-          /* ignore */
+          /* intentional: wrap selection extractContents fallback */
         }
       }
     }

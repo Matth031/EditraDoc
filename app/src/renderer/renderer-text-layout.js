@@ -274,7 +274,7 @@
       setSanitizedHtml(div, html);
       if (div.querySelectorAll("div, p, li").length > 1) return true;
     } catch {
-      /* ignore */
+      /* intentional: sanitize html multi-block detect best-effort */
     }
     return false;
   }
@@ -434,7 +434,7 @@
             restoreCaret();
             ed.focus();
           } catch {
-            /* ignore */
+            /* intentional: restore caret focus after autoGrow */
           }
         });
       }
@@ -475,7 +475,7 @@
             source
           });
         } catch {
-          /* ignore */
+          /* intentional: reporting must never throw */
         }
       }
     };

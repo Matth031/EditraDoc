@@ -301,7 +301,7 @@
           try {
             ed.focus();
           } catch {
-            /* ignore */
+            /* intentional: e2e focus editor after selection */
           }
           return true;
         } catch {
@@ -717,7 +717,7 @@
         }
       };
     } catch {
-      /* ignore */
+      /* intentional: e2e helpers install on window best-effort */
     }
   }
 

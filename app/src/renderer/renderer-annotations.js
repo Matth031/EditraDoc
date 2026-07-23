@@ -116,7 +116,7 @@
         }
       });
     } catch {
-      /* ignore */
+      /* intentional: annotation create debug log best-effort */
     }
   }
 
@@ -218,7 +218,7 @@
         try {
           node.contentEditable = "false";
         } catch {
-          /* ignore */
+          /* intentional: contentEditable false assign best-effort */
         }
         if (isEditing) node.classList.add("editing");
         node.dataset.placeholder = "Nouveau texte";
@@ -262,7 +262,7 @@
           try {
             ed.setAttribute("lang", getSpellcheckBcp47FromUiLang(state.language));
           } catch {
-            /* ignore */
+            /* intentional: editor lang spellcheck attr best-effort */
           }
           if (a.textHtml && String(a.textHtml).trim()) {
             setSanitizedHtml(ed, a.textHtml);
@@ -280,7 +280,7 @@
             try {
               ed.focus();
             } catch {
-              /* ignore */
+              /* intentional: focus text editor after enter best-effort */
             }
           });
         }
@@ -300,7 +300,7 @@
             try {
               event.stopPropagation();
             } catch {
-              /* ignore */
+              /* intentional: stopPropagation while already editing */
             }
             return;
           }
@@ -309,7 +309,7 @@
           try {
             event.preventDefault();
           } catch {
-            /* ignore */
+            /* intentional: preventDefault before enter edit mode */
           }
           event.stopPropagation();
           cancelPointerInteraction();
@@ -384,7 +384,7 @@
             try {
               event.preventDefault();
             } catch {
-              /* ignore */
+              /* intentional: preventDefault before shape create edit */
             }
             event.stopPropagation();
             state.selectedAnnotationId = a.id;
@@ -545,7 +545,7 @@
           // On ne doit empêcher le comportement par défaut qu'une fois le drag confirmé.
           // (Sinon dblclick devient flaky sous Chromium/Electron.)
         } catch {
-          /* ignore */
+          /* intentional: drag confirm placeholder try unused */
         }
       }
       const zone = getSafeZoneSize();
@@ -563,7 +563,7 @@
         try {
           ev.preventDefault();
         } catch {
-          /* ignore */
+          /* intentional: preventDefault once drag confirmed */
         }
       }
       applyDragAt(ev.clientX, ev.clientY);
@@ -764,7 +764,7 @@
             minLogical: 1
           });
         } catch {
-          /* ignore */
+          /* intentional: resize clamp debug log best-effort */
         }
       }
       session.scheduleAutoSave();

@@ -22,18 +22,18 @@
           data
         });
       } catch {
-        /* ignore */
+        /* intentional: logEvent secondary channel best-effort */
       }
       try {
         globalThis.maniPdfApi?.log?.(tag, data);
       } catch {
-        /* ignore */
+        /* intentional: maniPdfApi.log secondary channel */
       }
     } catch (error) {
       try {
         globalThis.__editifyReportError?.("renderer:logText", String(error), { tag });
       } catch {
-        /* ignore */
+        /* intentional: reporting must never throw */
       }
     }
   }

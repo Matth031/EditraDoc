@@ -67,7 +67,7 @@
     try {
       deps.logFileCloseBtn?.focus?.();
     } catch {
-      /* ignore */
+      /* intentional: focus close btn after open settings */
     }
   }
 
