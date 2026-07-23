@@ -30,7 +30,8 @@ const {
 const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const {
   validatePdfReadBytesRequestContract,
-  validatePdfOpenRequestContract
+  validatePdfOpenRequestContract,
+  validateApplyAnnotationsRequestContract
 } = require("../contracts/dist/validate");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
@@ -729,8 +730,20 @@ function postToPython(route, payload) {
 }
 
 async function exportPdfWithAnnotationsMain(payload) {
-  const input_path = String(payload?.input_path || "").trim();
-  const output_path = String(payload?.output_path || "").trim();
+  const contract = validateApplyAnnotationsRequestContract(payload);
+  if (!contract.ok) {
+    logWarn("pdf:export-with-annotations", contract.error, {
+      errorCode: contract.errorCode
+    });
+    return {
+      ok: false,
+      error: contract.error,
+      errorCode: contract.errorCode
+    };
+  }
+
+  const input_path = String(contract.value.input_path || "").trim();
+  const output_path = String(contract.value.output_path || "").trim();
   const audit = (message, data) => {
     logExportAudit("export", message, data ?? null);
   };
@@ -758,7 +771,7 @@ async function exportPdfWithAnnotationsMain(payload) {
     return { ok: false, error: `Impossible de creer le dossier de sortie: ${msg}` };
   }
 
-  const annotationCount = Object.values(payload?.annotations_by_page || {}).reduce(
+  const annotationCount = Object.values(contract.value.annotations_by_page || {}).reduce(
     (n, arr) => n + (Array.isArray(arr) ? arr.length : 0),
     0
   );
@@ -766,9 +779,9 @@ async function exportPdfWithAnnotationsMain(payload) {
     input_path,
     output_path,
     annotationCount,
-    pageKeys: Object.keys(payload?.canvases_px_by_page || {}).slice(0, 20),
+    pageKeys: Object.keys(contract.value.canvases_px_by_page || {}).slice(0, 20),
     annotationsByPage: Object.fromEntries(
-      Object.entries(payload?.annotations_by_page || {}).map(([k, arr]) => [
+      Object.entries(contract.value.annotations_by_page || {}).map(([k, arr]) => [
         k,
         (Array.isArray(arr) ? arr : []).map((a) => ({
           id: a?.id,
@@ -786,7 +799,7 @@ async function exportPdfWithAnnotationsMain(payload) {
     )
   });
 
-  const result = await postToPython("/apply-annotations", payload);
+  const result = await postToPython("/apply-annotations", contract.value);
   if (!result?.ok) {
     audit("fail", {
       reason: "python_error",

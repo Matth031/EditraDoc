@@ -42,3 +42,8 @@ def validate_against_schema(filename: str, payload: object) -> tuple[bool, str |
 def validate_pdf_validate_request(payload: object) -> tuple[bool, str | None]:
     """Contrat POST /validate — avant validate_pdf_path."""
     return validate_against_schema("pdf-validate.request.json", payload)
+
+
+def validate_apply_annotations_request(payload: object) -> tuple[bool, str | None]:
+    """Contrat POST /apply-annotations — avant apply_annotations."""
+    return validate_against_schema("apply-annotations.request.json", payload)

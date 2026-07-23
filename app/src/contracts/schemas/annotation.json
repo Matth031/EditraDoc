@@ -1,0 +1,41 @@
+{
+  "$id": "editradoc.annotation",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "text"
+        }
+      },
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "image"
+        }
+      },
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": ["text", "image"]
+          },
+          "description": "Forme : string libre (rect, ellipse, … ou inconnu → fallback Python rect). Pas d’enum stricte."
+        }
+      },
+      "additionalProperties": true
+    }
+  ]
+}

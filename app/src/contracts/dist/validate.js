@@ -16,6 +16,7 @@ exports.normalizePdfReadBytesArg = normalizePdfReadBytesArg;
 exports.validatePdfReadBytesRequestContract = validatePdfReadBytesRequestContract;
 exports.validatePdfOpenRequestContract = validatePdfOpenRequestContract;
 exports.validateValidatePdfRequestContract = validateValidatePdfRequestContract;
+exports.validateApplyAnnotationsRequestContract = validateApplyAnnotationsRequestContract;
 /**
  * Validation runtime Ajv pour les contrats IPC / Python (P1).
  */
@@ -23,6 +24,8 @@ const ajv_1 = __importDefault(require("ajv"));
 const pdf_read_bytes_js_1 = require("./pdf-read-bytes.js");
 const pdf_open_js_1 = require("./pdf-open.js");
 const pdf_validate_js_1 = require("./pdf-validate.js");
+const apply_annotations_js_1 = require("./apply-annotations.js");
+const annotation_js_1 = require("./annotation.js");
 const ajv = new ajv_1.default({
     allErrors: true,
     strict: true,
@@ -31,6 +34,7 @@ const ajv = new ajv_1.default({
 const validateReadBytesRequest = ajv.compile(pdf_read_bytes_js_1.PdfReadBytesRequestSchema);
 const validateOpenRequest = ajv.compile(pdf_open_js_1.PdfOpenRequestSchema);
 const validateValidateRequest = ajv.compile(pdf_validate_js_1.ValidatePdfRequestSchema);
+const validateApplyAnnotationsRequest = ajv.compile(apply_annotations_js_1.ApplyAnnotationsRequestSchema);
 function formatAjvErrors(errors, fallback) {
     return (errors?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim()).join("; ") || fallback);
 }
@@ -84,6 +88,17 @@ function validateValidatePdfRequestContract(raw) {
         details: validateValidateRequest.errors || undefined
     };
 }
+function validateApplyAnnotationsRequestContract(raw) {
+    if (validateApplyAnnotationsRequest(raw)) {
+        return { ok: true, value: raw };
+    }
+    return {
+        ok: false,
+        error: `Contrat IPC invalide: ${formatAjvErrors(validateApplyAnnotationsRequest.errors, "Requête apply-annotations invalide.")}`,
+        errorCode: "CONTRACT_INVALID",
+        details: validateApplyAnnotationsRequest.errors || undefined
+    };
+}
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 exports.schemas = {
     "pdf-read-bytes.request.json": pdf_read_bytes_js_1.PdfReadBytesRequestSchema,
@@ -91,5 +106,8 @@ exports.schemas = {
     "pdf-open.request.json": pdf_open_js_1.PdfOpenRequestSchema,
     "pdf-open.response.json": pdf_open_js_1.PdfOpenResponseSchema,
     "pdf-validate.request.json": pdf_validate_js_1.ValidatePdfRequestSchema,
-    "pdf-validate.response.json": pdf_validate_js_1.ValidatePdfResponseSchema
+    "pdf-validate.response.json": pdf_validate_js_1.ValidatePdfResponseSchema,
+    "annotation.json": annotation_js_1.AnnotationSchema,
+    "apply-annotations.request.json": apply_annotations_js_1.ApplyAnnotationsRequestSchema,
+    "apply-annotations.response.json": apply_annotations_js_1.ApplyAnnotationsResponseSchema
 };

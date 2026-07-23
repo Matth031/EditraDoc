@@ -24,7 +24,7 @@ from pdf_ops import (
     split_pdf_groups,
     unprotect_pdf,
 )
-from contract_validation import validate_pdf_validate_request
+from contract_validation import validate_pdf_validate_request, validate_apply_annotations_request
 from pdf_validation import validate_pdf_path
 
 LOG_VERBOSE = os.environ.get("MANI_PDF_PY_LOGS") != "0"
@@ -192,6 +192,18 @@ class Handler(BaseHTTPRequestHandler):
 
             if self.path == "/apply-annotations":
                 _sync_log_env_from_headers(self)
+                # Frontière contrat (jsonschema) AVANT apply_annotations.
+                schema_ok, schema_err = validate_apply_annotations_request(payload)
+                if not schema_ok:
+                    self._json_response(
+                        400,
+                        {
+                            "ok": False,
+                            "error": f"Contrat invalide: {schema_err}",
+                            "errorCode": "CONTRACT_INVALID",
+                        },
+                    )
+                    return
                 input_path = str(payload.get("input_path", "") or "")
                 output_path = str(payload.get("output_path", "") or "")
                 ann = payload.get("annotations_by_page", {}) or {}

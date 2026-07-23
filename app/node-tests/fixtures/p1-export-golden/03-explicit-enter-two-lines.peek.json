@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-07-23T11:57:24.623Z",
+  "scenario": "03-explicit-enter-two-lines",
+  "payload": {
+    "ok": true,
+    "inputPath": "E:\\Workspace\\IAs\\07-EditraDoc\\tests\\formulaire_test.pdf",
+    "canvases": {
+      "1": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "2": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "3": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "4": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "5": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "6": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      }
+    },
+    "annotationsByPage": {
+      "1": [
+        {
+          "id": "1784807844597-0.01620845374131019",
+          "type": "text",
+          "x": 78.32573684210527,
+          "y": 763.5640631578949,
+          "w": 280,
+          "h": 72,
+          "rotation": 0,
+          "opacity": 100,
+          "textColor": "#111111",
+          "bgColor": null,
+          "padding": 6,
+          "fontFamily": "Arial",
+          "fontSize": 14,
+          "text": "on ajoute un texte sur 2 lignes voir si ça marche encore !",
+          "textWrapManual": true,
+          "textHtml": "<div>on ajoute un texte <u>sur 2 lignes</u> <br><b>voir si</b> ça marche <font color=\"#00aa00\">encore !</font></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>",
+          "canvas_w": 280,
+          "canvas_h": 72,
+          "pdf_ex": [
+            219.31206315789476,
+            0
+          ],
+          "pdf_ey": [
+            0,
+            -56.39453052631575
+          ],
+          "coords_space": "pdf_user"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-07-23T11:57:22.301Z",
+  "scenario": "02-soft-wrap",
+  "payload": {
+    "ok": true,
+    "inputPath": "E:\\Workspace\\IAs\\07-EditraDoc\\tests\\formulaire_test.pdf",
+    "canvases": {
+      "1": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "2": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "3": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "4": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "5": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      },
+      "6": {
+        "w": 760,
+        "h": 1074,
+        "rotation": 0
+      }
+    },
+    "annotationsByPage": {
+      "1": [
+        {
+          "id": "1784807841866-0.36083748932348925",
+          "type": "text",
+          "x": 78.32573684210527,
+          "y": 763.5640631578949,
+          "w": 200,
+          "h": 60,
+          "rotation": 0,
+          "opacity": 100,
+          "textColor": "#111111",
+          "bgColor": null,
+          "padding": 6,
+          "fontFamily": "Arial",
+          "fontSize": 14,
+          "text": "on ajoute un texte voir si ça marche encore !",
+          "textWrapManual": true,
+          "textHtml": "<div>on ajoute un texte <b>voir si</b> ça <br>marche <font color=\"#00aa00\">encore !</font></div>",
+          "canvas_w": 200,
+          "canvas_h": 60,
+          "pdf_ex": [
+            156.65147368421054,
+            0
+          ],
+          "pdf_ey": [
+            0,
+            -46.99544210526312
+          ],
+          "coords_space": "pdf_user"
+        }
+      ]
+    }
+  }
+}

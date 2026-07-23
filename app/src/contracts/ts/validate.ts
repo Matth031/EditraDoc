@@ -17,6 +17,12 @@ import {
   ValidatePdfResponseSchema,
   type ValidatePdfRequest
 } from "./pdf-validate.js";
+import {
+  ApplyAnnotationsRequestSchema,
+  ApplyAnnotationsResponseSchema,
+  type ApplyAnnotationsRequest
+} from "./apply-annotations.js";
+import { AnnotationSchema } from "./annotation.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -27,6 +33,9 @@ const ajv = new Ajv({
 const validateReadBytesRequest: ValidateFunction = ajv.compile(PdfReadBytesRequestSchema);
 const validateOpenRequest: ValidateFunction = ajv.compile(PdfOpenRequestSchema);
 const validateValidateRequest: ValidateFunction = ajv.compile(ValidatePdfRequestSchema);
+const validateApplyAnnotationsRequest: ValidateFunction = ajv.compile(
+  ApplyAnnotationsRequestSchema
+);
 
 export type ContractValidationOk<T> = { ok: true; value: T };
 export type ContractValidationErr = {
@@ -103,6 +112,20 @@ export function validateValidatePdfRequestContract(
   };
 }
 
+export function validateApplyAnnotationsRequestContract(
+  raw: unknown
+): ContractValidationOk<ApplyAnnotationsRequest> | ContractValidationErr {
+  if (validateApplyAnnotationsRequest(raw)) {
+    return { ok: true, value: raw as ApplyAnnotationsRequest };
+  }
+  return {
+    ok: false,
+    error: `Contrat IPC invalide: ${formatAjvErrors(validateApplyAnnotationsRequest.errors, "Requête apply-annotations invalide.")}`,
+    errorCode: "CONTRACT_INVALID",
+    details: validateApplyAnnotationsRequest.errors || undefined
+  };
+}
+
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export const schemas = {
   "pdf-read-bytes.request.json": PdfReadBytesRequestSchema,
@@ -110,5 +133,8 @@ export const schemas = {
   "pdf-open.request.json": PdfOpenRequestSchema,
   "pdf-open.response.json": PdfOpenResponseSchema,
   "pdf-validate.request.json": ValidatePdfRequestSchema,
-  "pdf-validate.response.json": ValidatePdfResponseSchema
+  "pdf-validate.response.json": ValidatePdfResponseSchema,
+  "annotation.json": AnnotationSchema,
+  "apply-annotations.request.json": ApplyAnnotationsRequestSchema,
+  "apply-annotations.response.json": ApplyAnnotationsResponseSchema
 };

@@ -1,12 +1,18 @@
 /**
  * Harness volontairement incorrect — doit faire échouer `tsc --noEmit`.
  */
-import type { PdfOpenRequest } from "../ts/pdf-open.js";
-import type { ValidatePdfRequest } from "../ts/pdf-validate.js";
+import type { ApplyAnnotationsRequest } from "../ts/apply-annotations.js";
+import type { TextAnnotation } from "../ts/annotation.js";
 
-// Erreurs attendues : path doit être string.
-const badOpen: PdfOpenRequest = { path: 42 };
-const badValidate: ValidatePdfRequest = { path: null };
+// Erreurs attendues : input_path doit être string ; fontSize doit être number.
+const badApply: ApplyAnnotationsRequest = {
+  input_path: 42,
+  output_path: "out.pdf",
+  canvases_px_by_page: {},
+  annotations_by_page: {}
+};
 
-void badOpen;
-void badValidate;
+const badText: TextAnnotation = { type: "text", fontSize: "xx" };
+
+void badApply;
+void badText;

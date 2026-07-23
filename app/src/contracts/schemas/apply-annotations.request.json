@@ -1,0 +1,83 @@
+{
+  "$id": "editradoc.ipc.apply-annotations.request",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["input_path", "output_path", "canvases_px_by_page", "annotations_by_page"],
+  "properties": {
+    "input_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "PDF source (validé aussi côté Python via validate_pdf_path)."
+    },
+    "output_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Sortie — MAY hors dossier source (exception S1 / Enregistrer sous)."
+    },
+    "canvases_px_by_page": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["w", "h"],
+        "properties": {
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          },
+          "rotation": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "annotations_by_page": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "const": "text"
+                }
+              },
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "const": "image"
+                }
+              },
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "minLength": 1,
+                  "not": {
+                    "enum": ["text", "image"]
+                  },
+                  "description": "Forme : string libre (rect, ellipse, … ou inconnu → fallback Python rect). Pas d’enum stricte."
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}
