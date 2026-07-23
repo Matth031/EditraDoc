@@ -21,6 +21,8 @@
   let deps = null;
 
   let autosaveDebounce = null;
+  /** Échecs autosave consécutifs (signal UI seulement à partir de 3). */
+  let autosaveFailStreak = 0;
 
   /** @param {SessionDeps} next */
   function bind(next) {
@@ -40,14 +42,28 @@
     try {
       return JSON.parse(JSON.stringify(obj));
     } catch {
+      /* intentional: clone session fallback to original object */
       return obj;
     }
   }
 
-  async function saveSession() {
+  function getApi() {
+    // Seam E2E : objet de remplacement (contextBridge fige maniPdfApi).
+    return globalThis.__editifySessionApiOverride || window.maniPdfApi;
+  }
+
+  /**
+   * @param {{ quietStatus?: boolean, source?: string }} [opts]
+   *   quietStatus: autosave — pas de setStatus à chaque échec générique (sauf plafond 50 Mo).
+   * @returns {Promise<{ ok: boolean, error?: string, errorCode?: string } | void>}
+   */
+  async function saveSession(opts = {}) {
+    const quietStatus = opts.quietStatus === true;
+    const source = opts.source || "save";
     try {
       const d = requireDeps();
-      if (window.maniPdfApi?.isE2E?.()) return;
+      const api = getApi();
+      if (api?.isE2E?.()) return { ok: true };
       const tabsPayload = d.state.tabs.map((t) => ({
         id: t.id,
         name: t.name,
@@ -60,36 +76,65 @@
         undoStack: Array.isArray(t.undoStack) ? cloneForSession(t.undoStack) : [],
         redoStack: Array.isArray(t.redoStack) ? cloneForSession(t.redoStack) : []
       }));
-      const saveResult = await window.maniPdfApi.saveSession({
+      const saveResult = await api.saveSession({
         tabs: tabsPayload,
         activeTabId: d.state.activeTabId
       });
       if (saveResult && !saveResult.ok) {
-        const msg =
-          saveResult.errorCode === "SESSION_PAYLOAD_TOO_LARGE"
-            ? d.t("stSessionSaveTooLarge")
-            : saveResult.error || d.t("stSessionSaveFailed");
-        d.setStatus(msg);
+        // Plafond 50 Mo (E-AUDIT-02.5) : géré côté main via prepareSessionSavePayload —
+        // on affiche le message i18n, on ne recalcule pas la taille ici.
+        const tooLarge = saveResult.errorCode === "SESSION_PAYLOAD_TOO_LARGE";
+        const msg = tooLarge
+          ? d.t("stSessionSaveTooLarge")
+          : saveResult.error || d.t("stSessionSaveFailed");
+        try {
+          globalThis.__editifyReportWarn?.(`session:${source}`, msg, {
+            errorCode: saveResult.errorCode || undefined
+          });
+        } catch {
+          /* intentional: reporting must never throw */
+        }
+        if (tooLarge || !quietStatus) {
+          d.setStatus(msg);
+          autosaveFailStreak = 0;
+        } else {
+          autosaveFailStreak += 1;
+          if (autosaveFailStreak >= 3) {
+            d.setStatus(d.t("stSessionSaveFailed"));
+            autosaveFailStreak = 0;
+          }
+        }
+        return saveResult;
       }
+      autosaveFailStreak = 0;
+      return saveResult || { ok: true };
     } catch (error) {
-      try {
-        globalThis.__editifyReportError?.("session:save", String(error?.message || error));
-      } catch {
-        /* intentional: reporting must never throw */
-      }
+      // Propager pour les .catch appelants (IPC autosave / debounce) → reportCaughtError.
+      throw error instanceof Error ? error : new Error(String(error ?? "session save failed"));
     }
   }
 
   async function loadSession() {
     try {
       const d = requireDeps();
-      if (window.maniPdfApi?.isE2E?.()) return;
-      const r = await window.maniPdfApi.loadSession();
+      const api = getApi();
+      if (api?.isE2E?.()) return;
+      const r = await api.loadSession();
+      if (r && r.ok === false) {
+        const msg = r.error || d.t("stSessionLoadFailed");
+        try {
+          globalThis.__editifyReportError?.("session:load", msg);
+        } catch {
+          /* intentional: reporting must never throw */
+        }
+        d.setStatus(d.t("stSessionLoadFailed"));
+        return;
+      }
       if (!r?.ok || !r.data?.tabs?.length) return;
       const restored = [];
       for (const row of r.data.tabs) {
         if (!row?.path) continue;
-        const open = await window.maniPdfApi.openPdf(row.path);
+        const open = await api.openPdf(row.path);
         if (!open.ok) continue;
         restored.push({
           id: row.id || `${Date.now()}-${Math.random()}`,
@@ -128,11 +173,7 @@
       d.scheduleSidebarUpdate();
       if (r.recovered) d.setStatus(d.t("stSessionRecovered"));
     } catch (error) {
-      try {
-        globalThis.__editifyReportError?.("session:load", String(error?.message || error));
-      } catch {
-        /* intentional: reporting must never throw */
-      }
+      throw error instanceof Error ? error : new Error(String(error ?? "session load failed"));
     }
   }
 
@@ -140,11 +181,20 @@
     if (autosaveDebounce) clearTimeout(autosaveDebounce);
     autosaveDebounce = setTimeout(() => {
       autosaveDebounce = null;
-      saveSession().catch((error) => {
+      saveSession({ quietStatus: true, source: "autosave" }).catch((error) => {
         try {
           globalThis.__editifyReportError?.("session:autosave", String(error?.message || error));
         } catch {
           /* intentional: reporting must never throw */
+        }
+        autosaveFailStreak += 1;
+        if (autosaveFailStreak >= 3) {
+          try {
+            requireDeps().setStatus(requireDeps().t("stSessionSaveFailed"));
+          } catch {
+            /* intentional: status after autosave streak best-effort */
+          }
+          autosaveFailStreak = 0;
         }
       });
     }, 600);

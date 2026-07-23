@@ -1813,7 +1813,9 @@ window.maniPdfApi?.onSaveAsRequested?.(() => {
   });
 });
 window.maniPdfApi?.onAutosaveRequested?.(() => {
-  session.saveSession().catch(() => {});
+  session.saveSession({ quietStatus: true, source: "autosave-ipc" }).catch((error) => {
+    reportCaughtError("session:autosave", error, undefined, "warn");
+  });
 });
 
 // Quitte le mode edition texte uniquement si clic en dehors de la case texte en edition.
@@ -2035,10 +2037,14 @@ try {
 } catch (error) {
   reportCaughtError("ipc:onSessionLogUi", error, undefined, "warn");
 }
-chrome.syncFullscreenFromMain().catch(() => {});
+chrome.syncFullscreenFromMain().catch(() => {
+  /* intentional: fullscreen sync already handled inside chrome helper */
+});
 pdfv.updateZoomUI();
 updateWelcomeVisibility();
-session.loadSession().catch(() => {});
+session.loadSession().catch((error) => {
+  reportCaughtError("session:load", error, "stSessionLoadFailed");
+});
 jobs.refreshJobs();
 jobs.refreshSensitiveActions();
 jobs.refreshPythonHealth();

@@ -218,6 +218,7 @@ window.__EDITIFY_I18N = {
     stSessionSaveTooLarge:
       "Sauvegarde session refusee : trop d'annotations (limite 50 Mo). Exportez ou retirez des elements.",
     stSessionSaveFailed: "Sauvegarde session echouee.",
+    stSessionLoadFailed: "Impossible de restaurer la session precedente.",
     stTextSyncFailed: "Impossible d'enregistrer le texte en cours d'edition.",
     stDeleteFailed: "Suppression impossible.",
     stPythonUnavailable: "Service Python indisponible.",
@@ -495,6 +496,7 @@ window.__EDITIFY_I18N = {
     stSessionSaveTooLarge:
       "Session save refused: too many annotations (50 MB limit). Export or remove items.",
     stSessionSaveFailed: "Session save failed.",
+    stSessionLoadFailed: "Could not restore the previous session.",
     stTextSyncFailed: "Could not save the text being edited.",
     stDeleteFailed: "Could not delete the selection.",
     stPythonUnavailable: "Python service unavailable.",
@@ -772,6 +774,7 @@ window.__EDITIFY_I18N = {
     stSessionSaveTooLarge:
       "Guardado de sesion rechazado: demasiadas anotaciones (limite 50 Mo). Exporte o elimine elementos.",
     stSessionSaveFailed: "Error al guardar la sesion.",
+    stSessionLoadFailed: "No se pudo restaurar la sesion anterior.",
     stTextSyncFailed: "No se pudo guardar el texto en edicion.",
     stDeleteFailed: "No se pudo eliminar la seleccion.",
     stPythonUnavailable: "Servicio Python no disponible.",
@@ -1049,6 +1052,7 @@ window.__EDITIFY_I18N = {
     stSessionSaveTooLarge:
       "Gravacao da sessao recusada: demasiadas anotacoes (limite 50 Mo). Exporte ou remova elementos.",
     stSessionSaveFailed: "Falha ao gravar a sessao.",
+    stSessionLoadFailed: "Nao foi possivel restaurar a sessao anterior.",
     stTextSyncFailed: "Nao foi possivel gravar o texto em edicao.",
     stDeleteFailed: "Nao foi possivel eliminar a selecao.",
     stPythonUnavailable: "Servico Python indisponivel.",

@@ -50,14 +50,13 @@ Règle ESLint locale `editify/intentional-catch` :
 | E0 | Cette doc + lint **warn** (CI non bloquante) |
 | E1 | Cluster sync texte / delete (impact utilisateur) |
 | E2 | Annoter les (a) restants + e2e/main `/* ignore */` — **fait** (`intentional:` + quelques (b)/(c) via report/logWarn) |
-| E3 | Promesses boot + passage lint en **error** |
+| E3 | Promesses boot + passage lint en **error** — **fait** |
 | E4 | Métriques locales (`error-metrics.json`) |
 
-## Lint — mode signalement (E0–E3)
+## Lint — mode bloquant (fin E3)
 
-- Règle `editify/intentional-catch` : **`warn`** (pas `error`)
-- `npm run lint` / CI : **exit 0** tant qu’il n’y a que des warnings (pas de `--max-warnings 0`)
-- Fin E3 : passer la règle en **`error`** pour bloquer les nouveaux catch silencieux
+- Règle `editify/intentional-catch` : **`error`**
+- `npm run lint` / CI : exit ≠ 0 si catch silencieux sans `intentional:`
 
 ### Impact mesuré à l’activation E0 (~2026-07-23)
 

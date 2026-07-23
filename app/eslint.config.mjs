@@ -7,8 +7,8 @@ import editifyPlugin from "./eslint-rules/intentional-catch.mjs";
  * Lint progressif : e2e, scripts, processus principal Electron (`src/main`),
  * modules renderer légers — pas le monolithe `renderer-i18n-data.js`.
  *
- * Politique catch (E0) : `editify/intentional-catch` en **warn** jusqu’à fin E3
- * (puis error). Voir `src/renderer/ERROR-POLICY.md`.
+ * Politique catch (E0–E3) : `editify/intentional-catch` en **error** (fin E3).
+ * Voir `src/renderer/ERROR-POLICY.md`.
  *
  * `renderer.js` reste hors `recommended` (trop bruyant) mais est ciblé
  * uniquement par la règle intentional-catch.
@@ -42,9 +42,9 @@ export default [
       }
     },
     rules: {
-      // Remplacé par editify/intentional-catch (warn E0–E3).
+      // Remplacé par editify/intentional-catch (error depuis fin E3).
       "no-empty": ["error", { allowEmptyCatch: true }],
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -57,7 +57,7 @@ export default [
       }
     },
     rules: {
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -70,7 +70,7 @@ export default [
       }
     },
     rules: {
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -83,7 +83,7 @@ export default [
       }
     },
     rules: {
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -97,7 +97,7 @@ export default [
     },
     rules: {
       "no-empty": ["error", { allowEmptyCatch: true }],
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -112,7 +112,7 @@ export default [
     },
     rules: {
       "no-empty": ["error", { allowEmptyCatch: true }],
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -160,7 +160,7 @@ export default [
       }
     },
     rules: {
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   },
   {
@@ -177,7 +177,7 @@ export default [
       ...Object.fromEntries(
         Object.entries(js.configs.recommended.rules || {}).map(([key]) => [key, "off"])
       ),
-      "editify/intentional-catch": "warn"
+      "editify/intentional-catch": "error"
     }
   }
 ];
