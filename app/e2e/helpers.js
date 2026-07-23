@@ -140,7 +140,8 @@ function cleanupGeneratedPdf(outputPath, deleteAfterTest, alsoRemove = []) {
   for (const p of [outputPath, ...alsoRemove]) {
     try {
       if (p && fs.existsSync(p)) fs.unlinkSync(p);
-    } catch {
+  } catch {
+    /* intentional: unlink temp fixture best-effort */
       /* ignore */
     }
   }

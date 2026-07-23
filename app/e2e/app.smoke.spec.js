@@ -38,7 +38,9 @@ async function openPdfFromUi(app, page) {
     try {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
-    } catch {}
+    } catch {
+      /* intentional: clear storage in e2e setup best-effort */
+    }
   });
   // Ouverture via menu natif: simule l'action File > Open PDF.
   const pdfPath = getRepoPdfFixture();

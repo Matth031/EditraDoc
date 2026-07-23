@@ -68,7 +68,9 @@ test("packagé : service Python embarqué + export PDF avec image", async () => 
       try {
         window.localStorage?.clear?.();
         window.sessionStorage?.clear?.();
-      } catch {}
+      } catch {
+        /* intentional: clear storage in e2e setup best-effort */
+      }
     });
 
     await app.evaluate(({ BrowserWindow }, p) => {

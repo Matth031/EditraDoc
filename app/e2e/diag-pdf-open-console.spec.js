@@ -72,7 +72,9 @@ test("DIAG: console + bootstrap + ouverture PDF", async () => {
     try {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
-    } catch {}
+    } catch {
+      /* intentional: clear storage in e2e setup best-effort */
+    }
   });
 
   await app.evaluate(({ BrowserWindow }, p) => {

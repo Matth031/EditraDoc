@@ -68,7 +68,9 @@ test("export PDF : image raptor.png embarquée puis fichier supprimé", async ()
     try {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
-    } catch {}
+    } catch {
+      /* intentional: clear storage in e2e setup best-effort */
+    }
   });
   await app.evaluate(({ BrowserWindow }, p) => {
     const win = BrowserWindow.getAllWindows()[0];
@@ -96,7 +98,9 @@ test("export PDF : image raptor.png embarquée puis fichier supprimé", async ()
     try {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
-    } catch {}
+    } catch {
+      /* intentional: clear storage in e2e setup best-effort */
+    }
   });
   await app.evaluate(({ BrowserWindow }, p) => {
     const win = BrowserWindow.getAllWindows()[0];

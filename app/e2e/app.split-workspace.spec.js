@@ -39,7 +39,9 @@ async function openPdfFromMenu(app, page) {
     try {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
-    } catch {}
+    } catch {
+      /* intentional: clear storage in e2e setup best-effort */
+    }
   });
   const pdfPath = getRepoPdfFixture();
   await app.evaluate(({ BrowserWindow }, p) => {

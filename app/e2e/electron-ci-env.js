@@ -51,6 +51,7 @@ function killElectronProcess(proc) {
   try {
     proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
   } catch {
+    /* intentional: kill electron child best-effort */
     /* ignore */
   }
 }
@@ -106,7 +107,7 @@ async function closeElectronApp(app, closeMs) {
       try {
         execSync(`pkill -KILL -P ${proc.pid}`, { stdio: "ignore" });
       } catch {
-        /* pas d'enfants ou déjà morts */
+        /* intentional: pkill children already exited */
       }
     }
     await waitChildExitOrKill(proc, 8000);

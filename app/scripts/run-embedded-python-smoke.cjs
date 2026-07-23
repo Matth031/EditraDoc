@@ -82,7 +82,8 @@ async function main() {
   const kill = () => {
     try {
       child.kill();
-    } catch {
+  } catch {
+    /* intentional: kill embedded python smoke child best-effort */
       /* ignore */
     }
   };

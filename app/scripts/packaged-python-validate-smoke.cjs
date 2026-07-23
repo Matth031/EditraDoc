@@ -82,7 +82,7 @@ async function waitHealth(timeoutMs) {
       const r = await request("GET", "/health");
       if (r.status === 200 && r.body.ok) return r.body;
     } catch {
-      /* retry */
+      /* intentional: health probe retry until timeout */
     }
     if (Date.now() - started > timeoutMs) throw new Error("Timeout /health");
     await new Promise((r) => setTimeout(r, 250));
@@ -147,7 +147,7 @@ async function main() {
         child.kill();
       }
     } catch {
-      /* ignore */
+      /* intentional: smoke cleanup or probe best-effort */
     }
   };
 
@@ -192,7 +192,7 @@ async function main() {
     try {
       fs.unlinkSync(tmpPdf);
     } catch {
-      /* ignore */
+      /* intentional: smoke cleanup or probe best-effort */
     }
 
     console.log("[packaged-python-validate] PASS");
