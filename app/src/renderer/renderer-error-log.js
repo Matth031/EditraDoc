@@ -31,7 +31,7 @@
         return true;
       }
     } catch {
-      /* ignore */
+      /* intentional: IPC logEvent may be unavailable during boot */
     }
     return false;
   }
@@ -73,12 +73,17 @@
         console.warn(`[editify:${scope}]`, message, data || "");
       }
     } catch {
-      /* ignore */
+      /* intentional: console mirror must never throw */
     }
   }
 
   globalThis.__editifyReportError = (scope, message, data) => {
     report("error", scope, message, data);
+  };
+
+  /** Niveau warn (politique ERROR-POLICY.md classe b). */
+  globalThis.__editifyReportWarn = (scope, message, data) => {
+    report("warn", scope, message, data);
   };
 
   globalThis.addEventListener(

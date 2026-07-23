@@ -49,7 +49,7 @@ Règle ESLint locale `editify/intentional-catch` :
 |-----|---------|
 | E0 | Cette doc + lint **warn** (CI non bloquante) |
 | E1 | Cluster sync texte / delete (impact utilisateur) |
-| E2 | Annoter les (a) restants + e2e/main `/* ignore */` |
+| E2 | Annoter les (a) restants + e2e/main `/* ignore */` — **fait** (`intentional:` + quelques (b)/(c) via report/logWarn) |
 | E3 | Promesses boot + passage lint en **error** |
 | E4 | Métriques locales (`error-metrics.json`) |
 

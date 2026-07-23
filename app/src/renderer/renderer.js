@@ -324,7 +324,7 @@ function loadPreferredLanguage() {
     const next = String(raw || "").toLowerCase();
     if (I18N[next]) state.language = next;
   } catch {
-    /* ignore */
+    /* intentional: localStorage lang read best-effort */
   }
 }
 /** État pointeur partagé avec `renderer-annotations.js` (drag / resize / double-clic texte). */
@@ -424,14 +424,20 @@ function cancelPointerInteraction() {
  * @param {string} scope
  * @param {unknown} error
  * @param {string} [statusKey] clé i18n `t(...)`
+ * @param {"error"|"warn"} [level="error"]
  */
-function reportCaughtError(scope, error, statusKey) {
+function reportCaughtError(scope, error, statusKey, level = "error") {
   const message =
     error instanceof Error ? error.message || String(error) : String(error ?? "unknown");
   try {
-    globalThis.__editifyReportError?.(scope, message, {
+    const payload = {
       name: error instanceof Error ? error.name : undefined
-    });
+    };
+    if (level === "warn") {
+      globalThis.__editifyReportWarn?.(scope, message, payload);
+    } else {
+      globalThis.__editifyReportError?.(scope, message, payload);
+    }
   } catch {
     /* intentional: reporting must never throw */
   }
@@ -500,7 +506,9 @@ function capturePointerInPage(event) {
     const sx = rect.width > 0 ? canvas.width / rect.width : 1;
     const sy = rect.height > 0 ? canvas.height / rect.height : 1;
     state.lastPointer = { page, x: x * sx, y: y * sy };
-  } catch {}
+  } catch {
+    /* intentional: pointer capture for paste position best-effort */
+  }
 }
 
 document.addEventListener(
@@ -526,7 +534,9 @@ document.addEventListener(
       if (now - lastPointerMoveAt < 40) return; // throttle ~25Hz
       lastPointerMoveAt = now;
       capturePointerInPage(e);
-    } catch {}
+    } catch {
+      /* intentional: pointer mousemove tracking best-effort */
+    }
   },
   true
 );
@@ -559,7 +569,9 @@ function ensureChangesContextMenu() {
 function hideChangesContextMenu() {
   try {
     changesContextMenu?.classList?.add?.("hidden");
-  } catch {}
+  } catch {
+    /* intentional: hide changes ctx menu DOM best-effort */
+  }
 }
 
 // Menu contextuel (fenêtre texte) : renderer-text-ctx-menu.js - `tcm`, `tcm.bind()` après `syncPropertyInputs`.
@@ -711,7 +723,7 @@ function wireTextEditorInteraction(tab, item, node, ed) {
         try {
           document.execCommand("insertLineBreak");
         } catch {
-          /* ignore */
+          /* intentional: insertLineBreak execCommand may be unsupported */
         }
         syncTextFromEditor(item, ed);
         applyEditingTextAutoGrow(tab, item, node);
@@ -741,7 +753,7 @@ function wireTextEditorInteraction(tab, item, node, ed) {
               caretBefore.collapsed ? caretBefore.start : caretBefore.end
             );
           } catch {
-            /* ignore */
+            /* intentional: caret restore after input best-effort */
           }
         });
       }
@@ -832,7 +844,7 @@ function captureTextColorSelectionBackup() {
       }
     }
   } catch {
-    /* ignore */
+    /* intentional: selection range backup best-effort */
   }
 }
 
@@ -885,7 +897,7 @@ function applyTextColorToTextAnnotation(item, color) {
       try {
         ed.focus();
       } catch {
-        /* ignore */
+        /* intentional: editor focus after text color best-effort */
       }
     }
     return;
@@ -965,21 +977,21 @@ function setLanguage(lang) {
   try {
     localStorage.setItem("editify:lang", next);
   } catch {
-    /* ignore */
+    /* intentional: persist lang localStorage best-effort */
   }
   i18nApply.applyLanguage();
   applySpellcheckLanguageBestEffort();
   try {
     window.maniPdfApi?.notifyUiLanguage?.(next);
   } catch {
-    /* ignore */
+    /* intentional: notify main UI language best-effort */
   }
   try {
     renderThumbnails();
     renderChanges();
     sw.renderSplitWorkspaceIfOpen();
-  } catch {
-    /* ignore */
+  } catch (error) {
+    reportCaughtError("i18n:refreshUi", error, undefined, "warn");
   }
   setStatus(t("ready"));
 }
@@ -997,7 +1009,9 @@ function applySpellcheckLanguageBestEffort() {
   const bcp47 = getSpellcheckBcp47FromUiLang(state.language);
   try {
     document.documentElement.lang = bcp47;
-  } catch {}
+  } catch {
+    /* intentional: documentElement.lang set best-effort */
+  }
 
   // Applique immédiatement aux éditeurs de texte ouverts (édition en cours).
   try {
@@ -1006,15 +1020,19 @@ function applySpellcheckLanguageBestEffort() {
       try {
         ed.spellcheck = true;
         ed.setAttribute("lang", bcp47);
-      } catch {}
+      } catch {
+        /* intentional: per-editor spellcheck attrs best-effort */
+      }
     });
-  } catch {}
+  } catch {
+    /* intentional: query text editors for spellcheck best-effort */
+  }
 
   // Active le dictionnaire côté Electron (si supporté).
   try {
     window.maniPdfApi?.setSpellcheckLanguages?.([bcp47]);
   } catch {
-    /* ignore */
+    /* intentional: Electron spellcheck IPC best-effort */
   }
 }
 
@@ -1067,7 +1085,9 @@ function setStatus(message) {
     const arr = (window.__maniStatusHistory = window.__maniStatusHistory || []);
     arr.push(safe);
     if (arr.length > 60) arr.splice(0, arr.length - 60);
-  } catch {}
+  } catch {
+    /* intentional: status history ring buffer best-effort */
+  }
   if (statusText) statusText.textContent = safe;
   else statusBar.textContent = safe;
 }
@@ -1082,7 +1102,7 @@ function updateWelcomeVisibility() {
   try {
     window.__editifyPageRotate?.syncRotateButtonsState?.();
   } catch {
-    /* ignore */
+    /* intentional: rotate buttons sync best-effort */
   }
 }
 
@@ -1425,7 +1445,7 @@ const showToastBrief = (msg) => {
   try {
     showToast({ message: msg, timeoutMs: 5200 });
   } catch {
-    /* ignore */
+    /* intentional: toast display best-effort */
   }
 };
 jobs.bind({
@@ -1723,7 +1743,9 @@ applyBgBtn?.addEventListener?.("click", () => {
   try {
     propBgColor.dataset.touched = "1";
     propBgColorLabel?.classList?.remove?.("is-transparent");
-  } catch {}
+  } catch {
+    /* intentional: bg color label DOM touch best-effort */
+  }
   applySelectedProperties();
 });
 // Champs hidden + nuancier : input/change déclenchés au commit ; « Valider » panneau / modale pour figer sur l'annotation.
@@ -1780,7 +1802,9 @@ window.maniPdfApi?.onOpenFromMenu?.(async (filePath) => {
 window.maniPdfApi?.onSetLanguage?.((lang) => {
   try {
     setLanguage(lang);
-  } catch {}
+  } catch (error) {
+    reportCaughtError("i18n:setLanguage", error);
+  }
 });
 
 window.maniPdfApi?.onSaveAsRequested?.(() => {
@@ -1825,7 +1849,9 @@ document.addEventListener("mousedown", (event) => {
       }
     });
     if (hit) return;
-  } catch {}
+  } catch {
+    /* intentional: composedPath hit check best-effort */
+  }
   if (editingNode.contains(event.target)) return;
 
   // On clique hors du champ texte: on sort du mode édition et on persiste le contenu.
@@ -1860,7 +1886,9 @@ document.addEventListener("mousedown", (event) => {
   }
   try {
     document.activeElement?.blur?.();
-  } catch {}
+  } catch {
+    /* intentional: blur after leave text edit best-effort */
+  }
   renderAnnotations();
 });
 
@@ -1936,12 +1964,12 @@ loadPreferredLanguage();
 try {
   window.initManiColorPickers?.();
 } catch {
-  /* ignore */
+  /* intentional: color pickers init best-effort */
 }
 try {
   window.wireManiFloatingCtxMenus?.();
 } catch {
-  /* ignore */
+  /* intentional: floating ctx menus wire best-effort */
 }
 i18nApply.applyLanguage();
 applySpellcheckLanguageBestEffort();
@@ -1949,7 +1977,7 @@ void updateUi.init();
 try {
   window.maniPdfApi?.notifyUiLanguage?.(state.language);
 } catch {
-  /* ignore */
+  /* intentional: boot notify UI language best-effort */
 }
 tcm.wireTextAnnotationCtxMenu();
 document.addEventListener("selectionchange", () => {
@@ -1960,21 +1988,21 @@ document.addEventListener("selectionchange", () => {
     tcm.syncCtxTextFormatButtons();
     void tcm.refreshTextSpellContextMenu();
   } catch {
-    /* ignore */
+    /* intentional: text ctx format sync on selection best-effort */
   }
 });
 setInterval(() => {
   try {
     tcm.runBackgroundSpellScanForTextAnnotations();
   } catch {
-    /* ignore */
+    /* intentional: background spell scan interval best-effort */
   }
 }, 6000);
 setTimeout(() => {
   try {
     tcm.runBackgroundSpellScanForTextAnnotations();
   } catch {
-    /* ignore */
+    /* intentional: initial spell scan best-effort */
   }
 }, 800);
 sim.wireShapeAnnotationCtxMenu();
@@ -1985,15 +2013,15 @@ try {
     if (action === "merge") void jobs.createMergeJob();
     else if (action === "split") jobs.createSplitJob();
   });
-} catch {
-  /* ignore */
+} catch (error) {
+  reportCaughtError("ipc:onPdfToolAction", error, undefined, "warn");
 }
 try {
   window.maniPdfApi?.onAboutRequested?.(() => {
     chrome.showAboutPopoverNearOptions();
   });
-} catch {
-  /* ignore */
+} catch (error) {
+  reportCaughtError("ipc:onAboutRequested", error, undefined, "warn");
 }
 try {
   window.maniPdfApi?.onSessionLogRequested?.(() => {
@@ -2004,8 +2032,8 @@ try {
     chrome.closeAllFlyoutMenus();
     logFileSettingsUi.open();
   });
-} catch {
-  /* ignore */
+} catch (error) {
+  reportCaughtError("ipc:onSessionLogUi", error, undefined, "warn");
 }
 chrome.syncFullscreenFromMain().catch(() => {});
 pdfv.updateZoomUI();
@@ -2055,4 +2083,6 @@ try {
     exportActivePdfToPath: pdfSave.exportActivePdfToPath,
     peekExportPayloadForTest: pdfSave.peekExportPayloadForTest
   });
-} catch {}
+} catch {
+  /* intentional: e2e helpers optional bind best-effort */
+}
