@@ -233,7 +233,7 @@
     applySelectedPropertiesLive();
   }
 
-  function clickManiColorValidateButtonForInputId(id) {
+  function clickEditifyColorValidateButtonForInputId(id) {
     const d = requireDeps();
     const logText = /** @type {(tag: string, data?: object) => void} */ (d.logText);
     const map = {
@@ -263,7 +263,7 @@
     return true;
   }
 
-  function applyManiColorAfterPicker(inputEl) {
+  function applyEditifyColorAfterPicker(inputEl) {
     const d = requireDeps();
     const state = /** @type {{ selectedAnnotationId: string | null }} */ (d.state);
     const getActiveTab = /** @type {() => object | null} */ (d.getActiveTab);
@@ -330,7 +330,7 @@
           hex
         });
         try {
-          if (!clickManiColorValidateButtonForInputId(id)) {
+          if (!clickEditifyColorValidateButtonForInputId(id)) {
             logText("maniColorCtxTextFallbackApply", { id });
             tcm.applyTextCtxMenuBoxProps();
           }
@@ -363,7 +363,7 @@
           hex
         });
         try {
-          if (!clickManiColorValidateButtonForInputId(id)) {
+          if (!clickEditifyColorValidateButtonForInputId(id)) {
             logText("maniColorCtxShapeFallbackApply", { id });
             sim.applyShapeCtxMenuProps();
           }
@@ -411,7 +411,7 @@
       }
 
       try {
-        if (!clickManiColorValidateButtonForInputId(id)) {
+        if (!clickEditifyColorValidateButtonForInputId(id)) {
           applySelectedProperties();
         }
         const after = getSelectedAnnotation();
@@ -440,7 +440,7 @@
     }
   }
 
-  function wireManiColorHandlers() {
+  function wireEditifyColorHandlers() {
     if (maniHandlersWired) return;
     maniHandlersWired = true;
     const d = requireDeps();
@@ -476,7 +476,7 @@
       captureTextColorSelectionBackup();
     });
 
-    globalThis.maniAfterColorCommit = applyManiColorAfterPicker;
+    globalThis.maniAfterColorCommit = applyEditifyColorAfterPicker;
 
     document.addEventListener("mani-color-close", () => {
       globalThis.__editifyTextColorRangeBackup = null;
@@ -489,8 +489,8 @@
     applySelectedProperties,
     applySelectedPropertiesLive,
     markBgTouchedAndApply,
-    clickManiColorValidateButtonForInputId,
-    applyManiColorAfterPicker,
-    wireManiColorHandlers
+    clickEditifyColorValidateButtonForInputId,
+    applyEditifyColorAfterPicker,
+    wireEditifyColorHandlers
   };
 })();

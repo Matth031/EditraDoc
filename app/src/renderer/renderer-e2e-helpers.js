@@ -57,8 +57,8 @@
       const pasteClipboardIntoActivePage = /** @type {() => void} */ (
         d.pasteClipboardIntoActivePage
       );
-      const clickManiColorValidateButtonForInputId = /** @type {(id: string) => void} */ (
-        d.clickManiColorValidateButtonForInputId
+      const clickEditifyColorValidateButtonForInputId = /** @type {(id: string) => void} */ (
+        d.clickEditifyColorValidateButtonForInputId
       );
       const exportActivePdfToPath =
         /** @type {(outputPath: string) => Promise<Record<string, unknown>>} */ (
@@ -553,7 +553,7 @@
           if (typeof globalThis.maniAfterColorCommit === "function") {
             globalThis.maniAfterColorCommit(el);
           } else {
-            clickManiColorValidateButtonForInputId(inputId);
+            clickEditifyColorValidateButtonForInputId(inputId);
           }
           return true;
         } catch {

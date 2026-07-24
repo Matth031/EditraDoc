@@ -174,7 +174,7 @@ let syncPropertyInputs;
 let applySelectedProperties;
 let applySelectedPropertiesLive;
 let markBgTouchedAndApply;
-let clickManiColorValidateButtonForInputId;
+let clickEditifyColorValidateButtonForInputId;
 
 const welcomeScreen = document.getElementById("welcomeScreen");
 const addTextBtn = document.getElementById("addTextBtn");
@@ -947,8 +947,8 @@ syncPropertyInputs = annotationProps.syncPropertyInputs;
 applySelectedProperties = annotationProps.applySelectedProperties;
 applySelectedPropertiesLive = annotationProps.applySelectedPropertiesLive;
 markBgTouchedAndApply = annotationProps.markBgTouchedAndApply;
-clickManiColorValidateButtonForInputId = annotationProps.clickManiColorValidateButtonForInputId;
-annotationProps.wireManiColorHandlers();
+clickEditifyColorValidateButtonForInputId = annotationProps.clickEditifyColorValidateButtonForInputId;
+annotationProps.wireEditifyColorHandlers();
 
 function getAnnotationTextEditor(root) {
   return root?.querySelector?.(".text-editor");
@@ -2083,7 +2083,7 @@ try {
     getSafeZoneSize,
     tcm,
     pasteClipboardIntoActivePage,
-    clickManiColorValidateButtonForInputId,
+    clickEditifyColorValidateButtonForInputId,
     setLanguage,
     undo,
     exportActivePdfToPath: pdfSave.exportActivePdfToPath,

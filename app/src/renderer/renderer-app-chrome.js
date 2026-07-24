@@ -195,7 +195,7 @@
     }
   }
 
-  function eventTargetsManiColorModal(event) {
+  function eventTargetsEditifyColorModal(event) {
     try {
       if (event.target?.closest?.("#maniColorModal")) return true;
       const path = event.composedPath?.() || [];
@@ -381,7 +381,7 @@
       (e) => {
         if (e.button !== 0) return;
         const d = requireDeps();
-        const inManiColor = eventTargetsManiColorModal(e);
+        const inEditifyColor = eventTargetsEditifyColorModal(e);
         const textCtxEl = document.getElementById("textAnnotationCtxMenu");
         const shapeCtxEl = document.getElementById("shapeAnnotationCtxMenu");
         const imageCtxEl = document.getElementById("imageAnnotationCtxMenu");
@@ -396,14 +396,14 @@
         if (
           !e.target?.closest?.("#textAnnotationCtxMenu") &&
           !pointerEventInsideElementBox(e, textCtxEl) &&
-          !inManiColor
+          !inEditifyColor
         ) {
           d.tcm.hideTextAnnotationCtxMenu();
         }
         if (
           !e.target?.closest?.("#shapeAnnotationCtxMenu") &&
           !pointerEventInsideElementBox(e, shapeCtxEl) &&
-          !inManiColor
+          !inEditifyColor
         ) {
           try {
             d.logText("ctxShapeDismissMouseDown", {
@@ -412,7 +412,7 @@
               x: e.clientX,
               y: e.clientY,
               inMenuBox: pointerEventInsideElementBox(e, shapeCtxEl),
-              inManiColor
+              inEditifyColor
             });
           } catch {
             /* intentional: shape dismiss debug log best-effort */
@@ -422,7 +422,7 @@
         if (
           !e.target?.closest?.("#imageAnnotationCtxMenu") &&
           !pointerEventInsideElementBox(e, imageCtxEl) &&
-          !inManiColor
+          !inEditifyColor
         ) {
           d.sim.hideImageAnnotationCtxMenu();
         }
