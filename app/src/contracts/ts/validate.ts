@@ -27,6 +27,11 @@ import {
   SplitGroupsJobPayloadSchema,
   type JobCreateRequest
 } from "./job-create.js";
+import {
+  SessionSaveRequestSchema,
+  SessionSaveResponseSchema,
+  type SessionSaveRequest
+} from "./session-save.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -41,6 +46,7 @@ const validateApplyAnnotationsRequest: ValidateFunction = ajv.compile(
   ApplyAnnotationsRequestSchema
 );
 const validateJobCreateRequest: ValidateFunction = ajv.compile(JobCreateRequestSchema);
+const validateSessionSaveRequest: ValidateFunction = ajv.compile(SessionSaveRequestSchema);
 
 export type ContractValidationOk<T> = { ok: true; value: T };
 export type ContractValidationErr = {
@@ -145,6 +151,20 @@ export function validateJobCreateRequestContract(
   };
 }
 
+export function validateSessionSaveRequestContract(
+  raw: unknown
+): ContractValidationOk<SessionSaveRequest> | ContractValidationErr {
+  if (validateSessionSaveRequest(raw)) {
+    return { ok: true, value: raw as SessionSaveRequest };
+  }
+  return {
+    ok: false,
+    error: `Contrat IPC invalide: ${formatAjvErrors(validateSessionSaveRequest.errors, "Requête session:save invalide.")}`,
+    errorCode: "CONTRACT_INVALID",
+    details: validateSessionSaveRequest.errors || undefined
+  };
+}
+
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export const schemas = {
   "pdf-read-bytes.request.json": PdfReadBytesRequestSchema,
@@ -160,5 +180,7 @@ export const schemas = {
   "job-create.response.json": JobCreateResponseSchema,
   "merge.request.json": MergeJobPayloadSchema,
   "split.request.json": SplitJobPayloadSchema,
-  "split-groups.request.json": SplitGroupsJobPayloadSchema
+  "split-groups.request.json": SplitGroupsJobPayloadSchema,
+  "session-save.request.json": SessionSaveRequestSchema,
+  "session-save.response.json": SessionSaveResponseSchema
 };

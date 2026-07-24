@@ -9,8 +9,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": [
-    "src/contracts/harness/bad-call.ts",
-    "src/contracts/ts/job-create.ts"
-  ]
+  "include": ["src/contracts/harness/bad-call.ts", "src/contracts/ts/session-save.ts"]
 }

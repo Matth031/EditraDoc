@@ -1,0 +1,31 @@
+{
+  "tabs": [
+    {
+      "id": "tab-golden-1",
+      "name": "demo.pdf",
+      "path": "C:\\tmp\\editradoc-session\\demo.pdf",
+      "currentPage": 1,
+      "annotationsByPage": {
+        "1": [
+          {
+            "id": "ann-1",
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "w": 100,
+            "h": 40,
+            "text": "hello"
+          }
+        ]
+      },
+      "pageRotationsByPage": { "1": 0 },
+      "pageRotationsUserTouched": {},
+      "viewportByPage": {
+        "1": { "width": 595, "height": 842 }
+      },
+      "undoStack": [],
+      "redoStack": []
+    }
+  ],
+  "activeTabId": "tab-golden-1"
+}

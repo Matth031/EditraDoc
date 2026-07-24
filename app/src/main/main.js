@@ -32,7 +32,8 @@ const {
   validatePdfReadBytesRequestContract,
   validatePdfOpenRequestContract,
   validateApplyAnnotationsRequestContract,
-  validateJobCreateRequestContract
+  validateJobCreateRequestContract,
+  validateSessionSaveRequestContract
 } = require("../contracts/dist/validate");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
@@ -1051,7 +1052,17 @@ ipcMain.handle("convert:images-to-pdf", async (_, payload) => {
 
 ipcMain.handle("session:save", async (_, payload) => {
   try {
-    const prepared = prepareSessionSavePayload(payload);
+    // Frontière contrat (Ajv, Node-only) AVANT prepareSessionSavePayload (S10 / 50 Mo).
+    const contract = validateSessionSaveRequestContract(payload);
+    if (!contract.ok) {
+      logWarn("session:save", contract.error, { errorCode: contract.errorCode });
+      return {
+        ok: false,
+        error: contract.error,
+        errorCode: contract.errorCode
+      };
+    }
+    const prepared = prepareSessionSavePayload(contract.value);
     if (!prepared.ok) {
       logWarn("session:save", prepared.error, { errorCode: prepared.errorCode });
       return prepared;

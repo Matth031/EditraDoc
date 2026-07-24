@@ -7,6 +7,7 @@ import { type PdfOpenRequest } from "./pdf-open.js";
 import { type ValidatePdfRequest } from "./pdf-validate.js";
 import { type ApplyAnnotationsRequest } from "./apply-annotations.js";
 import { type JobCreateRequest } from "./job-create.js";
+import { type SessionSaveRequest } from "./session-save.js";
 export type ContractValidationOk<T> = {
     ok: true;
     value: T;
@@ -29,6 +30,7 @@ export declare function validatePdfOpenRequestContract(raw: unknown): ContractVa
 export declare function validateValidatePdfRequestContract(raw: unknown): ContractValidationOk<ValidatePdfRequest> | ContractValidationErr;
 export declare function validateApplyAnnotationsRequestContract(raw: unknown): ContractValidationOk<ApplyAnnotationsRequest> | ContractValidationErr;
 export declare function validateJobCreateRequestContract(raw: unknown): ContractValidationOk<JobCreateRequest> | ContractValidationErr;
+export declare function validateSessionSaveRequestContract(raw: unknown): ContractValidationOk<SessionSaveRequest> | ContractValidationErr;
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export declare const schemas: {
     "pdf-read-bytes.request.json": {
@@ -545,5 +547,124 @@ export declare const schemas: {
                 };
             };
         };
+    };
+    "session-save.request.json": {
+        readonly $id: "editradoc.ipc.session-save.request";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly type: "object";
+        readonly additionalProperties: false;
+        readonly required: readonly ["tabs", "activeTabId"];
+        readonly properties: {
+            readonly tabs: {
+                readonly type: "array";
+                readonly items: {
+                    readonly type: "object";
+                    readonly additionalProperties: false;
+                    readonly required: readonly ["id", "name", "path", "currentPage", "annotationsByPage", "pageRotationsByPage", "pageRotationsUserTouched", "viewportByPage", "undoStack", "redoStack"];
+                    readonly properties: {
+                        readonly id: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly name: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly currentPage: {
+                            readonly type: "number";
+                            readonly minimum: 1;
+                        };
+                        readonly annotationsByPage: {
+                            readonly type: "object";
+                            readonly additionalProperties: {
+                                readonly type: "array";
+                                readonly items: {
+                                    readonly type: "object";
+                                };
+                            };
+                        };
+                        readonly pageRotationsByPage: {
+                            readonly type: "object";
+                            readonly additionalProperties: {
+                                readonly type: "number";
+                            };
+                        };
+                        readonly pageRotationsUserTouched: {
+                            readonly type: "object";
+                            readonly additionalProperties: {
+                                readonly type: "boolean";
+                            };
+                        };
+                        readonly viewportByPage: {
+                            readonly type: "object";
+                            readonly additionalProperties: {
+                                readonly type: "object";
+                                readonly additionalProperties: false;
+                                readonly required: readonly ["width", "height"];
+                                readonly properties: {
+                                    readonly width: {
+                                        readonly type: "number";
+                                    };
+                                    readonly height: {
+                                        readonly type: "number";
+                                    };
+                                };
+                            };
+                        };
+                        readonly undoStack: {
+                            readonly type: "array";
+                            readonly items: {
+                                readonly type: "string";
+                            };
+                        };
+                        readonly redoStack: {
+                            readonly type: "array";
+                            readonly items: {
+                                readonly type: "string";
+                            };
+                        };
+                    };
+                };
+            };
+            readonly activeTabId: {
+                readonly type: readonly ["string", "null"];
+                readonly description: "Id onglet actif, ou null si aucun.";
+            };
+        };
+    };
+    "session-save.response.json": {
+        readonly $id: "editradoc.ipc.session-save.response";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly oneOf: readonly [{
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["ok"];
+            readonly properties: {
+                readonly ok: {
+                    readonly const: true;
+                };
+            };
+        }, {
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["ok", "error"];
+            readonly properties: {
+                readonly ok: {
+                    readonly const: false;
+                };
+                readonly error: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+                readonly errorCode: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+            };
+        }];
     };
 };

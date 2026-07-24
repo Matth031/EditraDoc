@@ -1,0 +1,99 @@
+{
+  "$id": "editradoc.ipc.session-save.request",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tabs", "activeTabId"],
+  "properties": {
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "path",
+          "currentPage",
+          "annotationsByPage",
+          "pageRotationsByPage",
+          "pageRotationsUserTouched",
+          "viewportByPage",
+          "undoStack",
+          "redoStack"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "currentPage": {
+            "type": "number",
+            "minimum": 1
+          },
+          "annotationsByPage": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "pageRotationsByPage": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "pageRotationsUserTouched": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "viewportByPage": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["width", "height"],
+              "properties": {
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "undoStack": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redoStack": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "activeTabId": {
+      "type": ["string", "null"],
+      "description": "Id onglet actif, ou null si aucun."
+    }
+  }
+}

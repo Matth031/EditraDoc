@@ -18,6 +18,7 @@ exports.validatePdfOpenRequestContract = validatePdfOpenRequestContract;
 exports.validateValidatePdfRequestContract = validateValidatePdfRequestContract;
 exports.validateApplyAnnotationsRequestContract = validateApplyAnnotationsRequestContract;
 exports.validateJobCreateRequestContract = validateJobCreateRequestContract;
+exports.validateSessionSaveRequestContract = validateSessionSaveRequestContract;
 /**
  * Validation runtime Ajv pour les contrats IPC / Python (P1).
  */
@@ -28,6 +29,7 @@ const pdf_validate_js_1 = require("./pdf-validate.js");
 const apply_annotations_js_1 = require("./apply-annotations.js");
 const annotation_js_1 = require("./annotation.js");
 const job_create_js_1 = require("./job-create.js");
+const session_save_js_1 = require("./session-save.js");
 const ajv = new ajv_1.default({
     allErrors: true,
     strict: true,
@@ -38,6 +40,7 @@ const validateOpenRequest = ajv.compile(pdf_open_js_1.PdfOpenRequestSchema);
 const validateValidateRequest = ajv.compile(pdf_validate_js_1.ValidatePdfRequestSchema);
 const validateApplyAnnotationsRequest = ajv.compile(apply_annotations_js_1.ApplyAnnotationsRequestSchema);
 const validateJobCreateRequest = ajv.compile(job_create_js_1.JobCreateRequestSchema);
+const validateSessionSaveRequest = ajv.compile(session_save_js_1.SessionSaveRequestSchema);
 function formatAjvErrors(errors, fallback) {
     return (errors?.map((e) => `${e.instancePath || "/"} ${e.message || ""}`.trim()).join("; ") || fallback);
 }
@@ -113,6 +116,17 @@ function validateJobCreateRequestContract(raw) {
         details: validateJobCreateRequest.errors || undefined
     };
 }
+function validateSessionSaveRequestContract(raw) {
+    if (validateSessionSaveRequest(raw)) {
+        return { ok: true, value: raw };
+    }
+    return {
+        ok: false,
+        error: `Contrat IPC invalide: ${formatAjvErrors(validateSessionSaveRequest.errors, "Requête session:save invalide.")}`,
+        errorCode: "CONTRACT_INVALID",
+        details: validateSessionSaveRequest.errors || undefined
+    };
+}
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 exports.schemas = {
     "pdf-read-bytes.request.json": pdf_read_bytes_js_1.PdfReadBytesRequestSchema,
@@ -128,5 +142,7 @@ exports.schemas = {
     "job-create.response.json": job_create_js_1.JobCreateResponseSchema,
     "merge.request.json": job_create_js_1.MergeJobPayloadSchema,
     "split.request.json": job_create_js_1.SplitJobPayloadSchema,
-    "split-groups.request.json": job_create_js_1.SplitGroupsJobPayloadSchema
+    "split-groups.request.json": job_create_js_1.SplitGroupsJobPayloadSchema,
+    "session-save.request.json": session_save_js_1.SessionSaveRequestSchema,
+    "session-save.response.json": session_save_js_1.SessionSaveResponseSchema
 };

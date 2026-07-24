@@ -1,22 +1,12 @@
 /**
  * Harness volontairement incorrect — doit faire échouer `tsc --noEmit`.
  */
-import type { JobCreateRequest } from "../ts/job-create.js";
-import type { MergeJobPayload } from "../ts/job-create.js";
+import type { SessionSaveRequest } from "../ts/session-save.js";
 
-// Erreurs attendues : inputs doit être string[] ; from_page doit être number.
-const badMerge: JobCreateRequest = {
-  type: "merge",
-  payload: {
-    inputs: 42,
-    output_path: "out.pdf"
-  }
+// Erreurs attendues : tabs doit être un tableau ; activeTabId pas un number.
+const badSession: SessionSaveRequest = {
+  tabs: 42,
+  activeTabId: 7
 };
 
-const badSplitPages: MergeJobPayload = {
-  inputs: ["a.pdf"],
-  output_path: null
-};
-
-void badMerge;
-void badSplitPages;
+void badSession;

@@ -6,7 +6,8 @@ const ERROR_CODES = {
 };
 
 /**
- * Valide le payload session:save avant écriture disque (E-AUDIT-02.5).
+ * Valide le payload session:save avant écriture disque (E-AUDIT-02.5 / INVARIANT S10).
+ * Plafond 50 Mo — source de vérité taille (hors JSON Schema P1).
  * @param {unknown} payload
  */
 function prepareSessionSavePayload(payload) {
