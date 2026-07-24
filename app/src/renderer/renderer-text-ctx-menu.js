@@ -47,7 +47,7 @@
       /* intentional: hide text annotation ctx menu DOM */
     }
     textCtxMenuTargetId = null;
-    globalThis.__maniCtxTextBackup = undefined;
+    globalThis.__editifyCtxTextBackup = undefined;
   }
 
   function syncTextCtxMenuFieldsFromItem(item) {
@@ -177,7 +177,7 @@
   async function applySpellSuggestionToContextTarget(replacement) {
     const d = ctx;
     if (!d) return;
-    const spellCtx = globalThis.__maniSpellCtx;
+    const spellCtx = globalThis.__editifySpellCtx;
     const tab = d.getActiveTab();
     if (!spellCtx || !textCtxMenuTargetId || !tab || spellCtx.replaceStart < 0 || !replacement)
       return;
@@ -286,7 +286,7 @@
       dictWord = targetErr.word;
     }
 
-    globalThis.__maniSpellCtx = {
+    globalThis.__editifySpellCtx = {
       replaceStart: targetErr ? targetErr.start : -1,
       replaceEnd: targetErr ? targetErr.end : -1,
       targetWord: targetErr ? targetErr.word : null,
@@ -322,7 +322,7 @@
       });
     }
 
-    const dw = globalThis.__maniSpellCtx?.dictWord;
+    const dw = globalThis.__editifySpellCtx?.dictWord;
     if (dw && addBtn && remBtn && api.spellcheckIsCustomWord) {
       try {
         const r = await api.spellcheckIsCustomWord(dw);

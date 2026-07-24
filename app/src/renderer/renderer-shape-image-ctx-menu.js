@@ -49,7 +49,7 @@
       /* intentional: hide shape annotation ctx menu DOM */
     }
     shapeCtxMenuTargetId = null;
-    globalThis.__maniCtxShapeBackup = undefined;
+    globalThis.__editifyCtxShapeBackup = undefined;
   }
 
   function ensureImageAnnotationCtxMenuEl() {

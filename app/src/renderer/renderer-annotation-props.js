@@ -285,7 +285,7 @@
         id,
         v: hex,
         selectedId: state.selectedAnnotationId,
-        backup: globalThis.__maniColorSelectionBackup,
+        backup: globalThis.__editifyColorSelectionBackup,
         shapeCtx: sim.getShapeCtxMenuTargetId(),
         textCtx: tcm.getTextCtxMenuTargetId(),
         propShapeFillEl: Boolean(propShapeFill),
@@ -295,7 +295,7 @@
         window.maniPdfApi?.log?.("maniColorApply", {
           id,
           selectedId: state.selectedAnnotationId,
-          backup: globalThis.__maniColorSelectionBackup
+          backup: globalThis.__editifyColorSelectionBackup
         });
       } catch {
         /* intentional: maniColorApply debug log best-effort */
@@ -315,8 +315,8 @@
       }
 
       if (id === "ctxTextColor" || id === "ctxTextBg") {
-        if (!tcm.getTextCtxMenuTargetId() && globalThis.__maniCtxTextBackup) {
-          tcm.setTextCtxMenuTargetId(globalThis.__maniCtxTextBackup);
+        if (!tcm.getTextCtxMenuTargetId() && globalThis.__editifyCtxTextBackup) {
+          tcm.setTextCtxMenuTargetId(globalThis.__editifyCtxTextBackup);
           logText("maniColorRestoreTextCtx", { textCtxMenuTargetId: tcm.getTextCtxMenuTargetId() });
         }
         try {
@@ -342,12 +342,12 @@
             globalThis.__editifyReportWarn?.("props:textCtxColorFallback", String(error?.message || error));
           }
         }
-        globalThis.__maniCtxTextBackup = undefined;
+        globalThis.__editifyCtxTextBackup = undefined;
         return;
       }
       if (id.startsWith("ctxShape")) {
-        if (!sim.getShapeCtxMenuTargetId() && globalThis.__maniCtxShapeBackup) {
-          sim.setShapeCtxMenuTargetId(globalThis.__maniCtxShapeBackup);
+        if (!sim.getShapeCtxMenuTargetId() && globalThis.__editifyCtxShapeBackup) {
+          sim.setShapeCtxMenuTargetId(globalThis.__editifyCtxShapeBackup);
           logText("maniColorRestoreShapeCtx", {
             shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId()
           });
@@ -375,7 +375,7 @@
             globalThis.__editifyReportWarn?.("props:shapeCtxColorFallback", String(error?.message || error));
           }
         }
-        globalThis.__maniCtxShapeBackup = undefined;
+        globalThis.__editifyCtxShapeBackup = undefined;
         return;
       }
 
@@ -388,13 +388,13 @@
       const beforeSel = state.selectedAnnotationId;
       if (
         !getSelectedAnnotation() &&
-        globalThis.__maniColorSelectionBackup != null &&
-        globalThis.__maniColorSelectionBackup !== ""
+        globalThis.__editifyColorSelectionBackup != null &&
+        globalThis.__editifyColorSelectionBackup !== ""
       ) {
-        state.selectedAnnotationId = globalThis.__maniColorSelectionBackup;
+        state.selectedAnnotationId = globalThis.__editifyColorSelectionBackup;
         logText("maniColorRestoreSel", { from: beforeSel, to: state.selectedAnnotationId });
       }
-      globalThis.__maniColorSelectionBackup = undefined;
+      globalThis.__editifyColorSelectionBackup = undefined;
 
       const item = getSelectedAnnotation();
       logText("maniColorBeforeApplySelected", {
@@ -453,21 +453,21 @@
     );
 
     document.addEventListener("mani-color-open", (ev) => {
-      globalThis.__maniColorSelectionBackup = state.selectedAnnotationId;
-      globalThis.__maniCtxShapeBackup = sim.getShapeCtxMenuTargetId();
-      globalThis.__maniCtxTextBackup = tcm.getTextCtxMenuTargetId();
+      globalThis.__editifyColorSelectionBackup = state.selectedAnnotationId;
+      globalThis.__editifyCtxShapeBackup = sim.getShapeCtxMenuTargetId();
+      globalThis.__editifyCtxTextBackup = tcm.getTextCtxMenuTargetId();
       const field = ev.detail?.inputId;
       if (field === "propTextColor" || field === "ctxTextColor") {
-        if (!globalThis.__maniTextColorRangeBackup) {
+        if (!globalThis.__editifyTextColorRangeBackup) {
           captureTextColorSelectionBackup();
         }
       } else {
-        globalThis.__maniTextColorRangeBackup = null;
+        globalThis.__editifyTextColorRangeBackup = null;
       }
       logText("maniColorPickerOpen", {
-        backup: globalThis.__maniColorSelectionBackup,
-        shapeCtxBackup: globalThis.__maniCtxShapeBackup,
-        textCtxBackup: globalThis.__maniCtxTextBackup,
+        backup: globalThis.__editifyColorSelectionBackup,
+        shapeCtxBackup: globalThis.__editifyCtxShapeBackup,
+        textCtxBackup: globalThis.__editifyCtxTextBackup,
         field: ev.detail?.inputId
       });
     });
@@ -479,7 +479,7 @@
     globalThis.maniAfterColorCommit = applyManiColorAfterPicker;
 
     document.addEventListener("mani-color-close", () => {
-      globalThis.__maniTextColorRangeBackup = null;
+      globalThis.__editifyTextColorRangeBackup = null;
     });
   }
 

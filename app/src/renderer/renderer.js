@@ -831,7 +831,7 @@ function captureTextColorSelectionBackup() {
     const { saveEditorSelectionRange } = window.__editifyTextCtxHelpers || {};
     const saved = typeof saveEditorSelectionRange === "function" ? saveEditorSelectionRange(ed) : null;
     if (saved && !saved.collapsed) {
-      globalThis.__maniTextColorRangeBackup = saved;
+      globalThis.__editifyTextColorRangeBackup = saved;
       return;
     }
     const sel = window.getSelection();
@@ -840,7 +840,7 @@ function captureTextColorSelectionBackup() {
       const node = range.commonAncestorContainer;
       const ancestor = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
       if (ancestor?.closest?.(".text-editor") === ed) {
-        globalThis.__maniTextColorRangeBackup = range.cloneRange();
+        globalThis.__editifyTextColorRangeBackup = range.cloneRange();
       }
     }
   } catch {
@@ -863,7 +863,7 @@ function applyTextColorToTextAnnotation(item, color) {
   if (ed && state.editingAnnotationId === item.id) {
     let partial = hasNonemptyTextSelectionInEditor(ed);
     /** @type {Range | null} */
-    let savedRange = globalThis.__maniTextColorRangeBackup || null;
+    let savedRange = globalThis.__editifyTextColorRangeBackup || null;
     if (!partial && savedRange) {
       try {
         if (
@@ -892,7 +892,7 @@ function applyTextColorToTextAnnotation(item, color) {
       if (!partial) {
         item.textColor = hex;
       } else {
-        globalThis.__maniTextColorRangeBackup = null;
+        globalThis.__editifyTextColorRangeBackup = null;
       }
       try {
         ed.focus();
@@ -902,7 +902,7 @@ function applyTextColorToTextAnnotation(item, color) {
     }
     return;
   }
-  globalThis.__maniTextColorRangeBackup = null;
+  globalThis.__editifyTextColorRangeBackup = null;
   item.textColor = hex;
 }
 
