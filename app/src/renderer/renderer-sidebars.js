@@ -64,7 +64,10 @@
         renderThumbnails();
         renderChanges();
       } catch (error) {
-        globalThis.__editifyReportWarn?.("sidebars:scheduleUpdate", String(error?.message || error));
+        globalThis.__editifyReportWarn?.(
+          "sidebars:scheduleUpdate",
+          String(error?.message || error)
+        );
       }
     }, 60);
   }
@@ -222,7 +225,10 @@
           renderThumbnails();
           renderChanges();
         } catch (error) {
-          globalThis.__editifyReportWarn?.("sidebars:thumbNavigate", String(error?.message || error));
+          globalThis.__editifyReportWarn?.(
+            "sidebars:thumbNavigate",
+            String(error?.message || error)
+          );
         }
       };
       d.thumbsList.appendChild(item);

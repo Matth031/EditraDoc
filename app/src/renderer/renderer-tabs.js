@@ -41,7 +41,10 @@
       if (!window.maniPdfApi?.unregisterOpenPdfPath || !filePath) return;
       await window.maniPdfApi.unregisterOpenPdfPath(filePath);
     } catch (error) {
-      globalThis.__editifyReportWarn?.("tabs:unregisterOpenPdfPath", String(error?.message || error));
+      globalThis.__editifyReportWarn?.(
+        "tabs:unregisterOpenPdfPath",
+        String(error?.message || error)
+      );
     }
   }
 

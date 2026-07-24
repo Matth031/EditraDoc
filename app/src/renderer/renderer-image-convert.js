@@ -128,7 +128,10 @@
         void promptAndConvert();
       });
     } catch (error) {
-      globalThis.__editifyReportWarn?.("image-convert:ipc-subscribe", String(error?.message || error));
+      globalThis.__editifyReportWarn?.(
+        "image-convert:ipc-subscribe",
+        String(error?.message || error)
+      );
     }
   }
 

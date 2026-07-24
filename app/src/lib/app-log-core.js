@@ -235,7 +235,11 @@ function countScopeInWindow(state, scope, now, windowMs) {
   const entries = state?.entries || {};
   for (const entry of Object.values(entries)) {
     if (!entry || entry.scope !== scope) continue;
-    const ts = pruneTimestamps(Array.isArray(entry.timestamps) ? entry.timestamps : [], now, windowMs);
+    const ts = pruneTimestamps(
+      Array.isArray(entry.timestamps) ? entry.timestamps : [],
+      now,
+      windowMs
+    );
     n += ts.length;
   }
   return n;
@@ -433,7 +437,10 @@ function trimErrorMetricsState(state, limits = {}) {
       now,
       windowMs
     );
-    if (!timestamps.length && (!entry.lastAt || now - Date.parse(String(entry.lastAt)) > windowMs * 4)) {
+    if (
+      !timestamps.length &&
+      (!entry.lastAt || now - Date.parse(String(entry.lastAt)) > windowMs * 4)
+    ) {
       delete next.entries[key];
       continue;
     }

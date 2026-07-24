@@ -16,6 +16,21 @@ Si un test échoue → **corriger le CODE**, jamais le test.
 - mock changé pour contourner une vérification
 - skip / todo ajouté pour masquer un échec
 
+## Gate verte = `npm run test:all` uniquement
+
+La **seule** preuve autorisée qu’une suite est « verte » est :
+
+```bash
+cd app && npm run test:all
+```
+
+Cette commande inclut **`format:check`** (Prettier) ainsi que lint, coverage, audit, tests Node/Python/spell et e2e.
+
+**Interdit** pour revendiquer une suite verte :
+- suites partielles (`lint` + `e2e` seuls, `test` sans `format:check`, etc.)
+- omettre `format:check` tout en affirmant que la gate CI/locale passe
+- agréger mentalement des runs séparés sans un `test:all` complet et réussi
+
 ## Test réellement incorrect ou obsolète
 
 Si le test a tort (pas seulement « gênant ») :

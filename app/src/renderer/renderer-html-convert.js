@@ -124,7 +124,10 @@
         void promptAndConvert();
       });
     } catch (error) {
-      globalThis.__editifyReportWarn?.("html-convert:ipc-subscribe", String(error?.message || error));
+      globalThis.__editifyReportWarn?.(
+        "html-convert:ipc-subscribe",
+        String(error?.message || error)
+      );
     }
   }
 

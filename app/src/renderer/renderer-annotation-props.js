@@ -339,7 +339,10 @@
           try {
             tcm.applyTextCtxMenuBoxProps();
           } catch (error) {
-            globalThis.__editifyReportWarn?.("props:textCtxColorFallback", String(error?.message || error));
+            globalThis.__editifyReportWarn?.(
+              "props:textCtxColorFallback",
+              String(error?.message || error)
+            );
           }
         }
         globalThis.__editifyCtxTextBackup = undefined;
@@ -372,7 +375,10 @@
           try {
             sim.applyShapeCtxMenuProps();
           } catch (error) {
-            globalThis.__editifyReportWarn?.("props:shapeCtxColorFallback", String(error?.message || error));
+            globalThis.__editifyReportWarn?.(
+              "props:shapeCtxColorFallback",
+              String(error?.message || error)
+            );
           }
         }
         globalThis.__editifyCtxShapeBackup = undefined;
@@ -432,7 +438,10 @@
         try {
           applySelectedProperties();
         } catch (error) {
-          globalThis.__editifyReportWarn?.("props:applySelectedFallback", String(error?.message || error));
+          globalThis.__editifyReportWarn?.(
+            "props:applySelectedFallback",
+            String(error?.message || error)
+          );
         }
       }
     } catch (e) {

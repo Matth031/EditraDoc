@@ -319,8 +319,8 @@ test("Rotation page : écrasement PDF /Rotate natif + delta utilisateur (AC-ROT-
     await e2eCi.closeElectronApp(app);
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch {
-    /* intentional: temp dir cleanup best-effort */
+    } catch {
+      /* intentional: temp dir cleanup best-effort */
       /* ignore */
     }
   }
@@ -378,8 +378,8 @@ test("Rotation page : écrasement même fichier réinitialise le delta utilisate
     await e2eCi.closeElectronApp(app);
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch {
-    /* intentional: temp dir cleanup best-effort */
+    } catch {
+      /* intentional: temp dir cleanup best-effort */
       /* ignore */
     }
   }
