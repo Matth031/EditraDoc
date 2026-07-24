@@ -405,7 +405,8 @@ test("undo en mode édition : selectedAnnotationId et editingAnnotationId null",
   const { app, page } = await launchApp();
   await openPdf(app, page);
 
-  // Le fix doit vivre dans le module extrait — pas une copie résiduelle dans renderer.js.
+  // Preuve d'extraction F04-L5 (secondaire) : finishUndoRedoUi vit bien dans le module extrait
+  // (pas un résidu resté dans renderer.js) — distincte du contrat comportemental ci-dessous.
   const moduleProbe = await page.evaluate(() => {
     const hist = window.__editifyAnnotationHistory;
     return {
@@ -440,23 +441,8 @@ test("undo en mode édition : selectedAnnotationId et editingAnnotationId null",
   const beforeUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
   expect(beforeUndo?.editingAnnotationId).toBe(id);
 
-  // Spy : undoForTest → wrapper renderer → historyMod.undo (fonction EXTRAITE).
-  const spyHits = await page.evaluate(() => {
-    const hist = window.__editifyAnnotationHistory;
-    let calls = 0;
-    const original = hist.undo;
-    hist.undo = function patchedUndo() {
-      calls += 1;
-      return original.apply(this, arguments);
-    };
-    try {
-      window.__maniE2E.undoForTest();
-    } finally {
-      hist.undo = original;
-    }
-    return calls;
-  });
-  expect(spyHits).toBe(1);
+  // Contrat : undo via façade E2E (pas de spy sur l'implémentation hist.undo).
+  await page.evaluate(() => window.__maniE2E.undoForTest());
 
   const afterUndo = await page.evaluate(() => window.__maniE2E?.getUiState?.());
   expect(afterUndo?.selectedAnnotationId).toBeNull();

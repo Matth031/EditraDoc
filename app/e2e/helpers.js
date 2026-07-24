@@ -6,8 +6,11 @@
  *
  * Un seul poll avec backoff léger (pas deux timeouts 90 s séquentiels) — TKT-FLK-E2E-001.
  * Retour immédiat si pageCount + canvas + thumbs alignés.
- * Si le DOM est cohérent (canvas === thumbs === pages) mais `pageCount` traîne
+ * Soft-path : si le DOM est cohérent (canvas === thumbs === pages) mais `pageCount` traîne
  * (race session / re-entrée updateViewer), accepte après quelques polls stables.
+ * Ce soft-path est un **contournement de test** lié à TKT-BUG-PDF-RENDER-RACE-001
+ * (encore ouvert, `renderer-pdf-viewer.js` — hors scope P6) : quand la race produit
+ * sera corrigée, ce chemin pourra devenir obsolète ; ne pas le retirer avant.
  *
  * @param {import("@playwright/test").Page} page
  * @param {{ timeoutMs?: number }} [options]
@@ -85,7 +88,8 @@ async function waitForPdfPagesRendered(page, options = {}) {
         lastDomKey = key;
         stableDomPolls = 1;
       }
-      // Race connue : pageCount stale alors que paint + thumbs sont déjà cohérents.
+      // Soft-path TKT-FLK-E2E-001 : pageCount stale alors que paint + thumbs sont cohérents.
+      // Lié à TKT-BUG-PDF-RENDER-RACE-001 (ouvert) — workaround test, pas fix produit.
       if (stableDomPolls >= stableDomPollsRequired) return;
     } else {
       lastDomKey = "";
@@ -140,8 +144,8 @@ function cleanupGeneratedPdf(outputPath, deleteAfterTest, alsoRemove = []) {
   for (const p of [outputPath, ...alsoRemove]) {
     try {
       if (p && fs.existsSync(p)) fs.unlinkSync(p);
-  } catch {
-    /* intentional: unlink temp fixture best-effort */
+    } catch {
+      /* intentional: unlink temp fixture best-effort */
       /* ignore */
     }
   }
