@@ -26,6 +26,11 @@ const {
 } = require("../src/main/lib/python-validation");
 const { evaluatePdfOpen } = require("../src/main/lib/pdf-open");
 const openPdfRegistry = require("../src/main/lib/open-pdf-registry");
+const {
+  prepareSessionSavePayload,
+  MAX_SESSION_SAVE_BYTES,
+  ERROR_CODES: SESSION_SAVE_ERROR_CODES
+} = require("../src/main/lib/session-save-guard");
 
 const APP_ROOT = path.join(__dirname, "..");
 const PY_DIR = path.join(APP_ROOT, "python");
@@ -398,4 +403,16 @@ test("INVARIANT S5 : paste handler contentEditable présent (capture avant inser
     "paste doit appeler insertSanitizedClipboardIntoEditor"
   );
   assert.match(rendererJs, /event\.preventDefault\(\)/);
+});
+
+// --- S10 : plafond 50 Mo session:save ---
+
+test("INVARIANT S10 : payload > MAX_SESSION_SAVE_BYTES — rejet explicite (pas de troncature)", () => {
+  const big = "x".repeat(MAX_SESSION_SAVE_BYTES + 1);
+  const result = prepareSessionSavePayload({
+    tabs: [{ annotationsByPage: { 1: [{ data: big }] } }]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, SESSION_SAVE_ERROR_CODES.SESSION_PAYLOAD_TOO_LARGE);
+  assert.match(result.error, /50 Mo/);
 });
