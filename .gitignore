@@ -35,9 +35,12 @@ __pycache__/
 Thumbs.db
 .DS_Store
 
-# Documentation (hors dépôt)
-docs/
+# Documentation produit/process (hors dépôt) — sauf ADR versionnés
+docs/*
+!docs/adr/
+!docs/adr/**
 
 # Artefacts de tests — conserver uniquement le PDF de référence
 tests/*
 !tests/formulaire_test.pdf
+
