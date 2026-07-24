@@ -47,3 +47,18 @@ def validate_pdf_validate_request(payload: object) -> tuple[bool, str | None]:
 def validate_apply_annotations_request(payload: object) -> tuple[bool, str | None]:
     """Contrat POST /apply-annotations — avant apply_annotations."""
     return validate_against_schema("apply-annotations.request.json", payload)
+
+
+def validate_merge_request(payload: object) -> tuple[bool, str | None]:
+    """Contrat POST /merge — avant merge_pdfs. S1 hors schéma (pdf_ops)."""
+    return validate_against_schema("merge.request.json", payload)
+
+
+def validate_split_request(payload: object) -> tuple[bool, str | None]:
+    """Contrat POST /split (legacy) — avant split_pdf. S1 hors schéma."""
+    return validate_against_schema("split.request.json", payload)
+
+
+def validate_split_groups_request(payload: object) -> tuple[bool, str | None]:
+    """Contrat POST /split-groups — avant split_pdf_groups. S1 hors schéma."""
+    return validate_against_schema("split-groups.request.json", payload)

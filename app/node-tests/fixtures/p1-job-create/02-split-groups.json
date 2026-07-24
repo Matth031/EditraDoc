@@ -1,0 +1,16 @@
+{
+  "type": "split_groups",
+  "payload": {
+    "input_path": "C:\\tmp\\editradoc-job\\source.pdf",
+    "groups": [
+      {
+        "output_path": "C:\\tmp\\editradoc-job\\split-1-groupe.pdf",
+        "page_indices": [1, 2]
+      },
+      {
+        "output_path": "C:\\tmp\\editradoc-job\\split-2-reste.pdf",
+        "page_indices": [3]
+      }
+    ]
+  }
+}

@@ -7,11 +7,7 @@ import {
   PdfReadBytesResponseSchema,
   type PdfReadBytesRequest
 } from "./pdf-read-bytes.js";
-import {
-  PdfOpenRequestSchema,
-  PdfOpenResponseSchema,
-  type PdfOpenRequest
-} from "./pdf-open.js";
+import { PdfOpenRequestSchema, PdfOpenResponseSchema, type PdfOpenRequest } from "./pdf-open.js";
 import {
   ValidatePdfRequestSchema,
   ValidatePdfResponseSchema,
@@ -23,6 +19,14 @@ import {
   type ApplyAnnotationsRequest
 } from "./apply-annotations.js";
 import { AnnotationSchema } from "./annotation.js";
+import {
+  JobCreateRequestSchema,
+  JobCreateResponseSchema,
+  MergeJobPayloadSchema,
+  SplitJobPayloadSchema,
+  SplitGroupsJobPayloadSchema,
+  type JobCreateRequest
+} from "./job-create.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -36,6 +40,7 @@ const validateValidateRequest: ValidateFunction = ajv.compile(ValidatePdfRequest
 const validateApplyAnnotationsRequest: ValidateFunction = ajv.compile(
   ApplyAnnotationsRequestSchema
 );
+const validateJobCreateRequest: ValidateFunction = ajv.compile(JobCreateRequestSchema);
 
 export type ContractValidationOk<T> = { ok: true; value: T };
 export type ContractValidationErr = {
@@ -126,6 +131,20 @@ export function validateApplyAnnotationsRequestContract(
   };
 }
 
+export function validateJobCreateRequestContract(
+  raw: unknown
+): ContractValidationOk<JobCreateRequest> | ContractValidationErr {
+  if (validateJobCreateRequest(raw)) {
+    return { ok: true, value: raw as JobCreateRequest };
+  }
+  return {
+    ok: false,
+    error: `Contrat IPC invalide: ${formatAjvErrors(validateJobCreateRequest.errors, "Requête job:create invalide.")}`,
+    errorCode: "CONTRACT_INVALID",
+    details: validateJobCreateRequest.errors || undefined
+  };
+}
+
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export const schemas = {
   "pdf-read-bytes.request.json": PdfReadBytesRequestSchema,
@@ -136,5 +155,10 @@ export const schemas = {
   "pdf-validate.response.json": ValidatePdfResponseSchema,
   "annotation.json": AnnotationSchema,
   "apply-annotations.request.json": ApplyAnnotationsRequestSchema,
-  "apply-annotations.response.json": ApplyAnnotationsResponseSchema
+  "apply-annotations.response.json": ApplyAnnotationsResponseSchema,
+  "job-create.request.json": JobCreateRequestSchema,
+  "job-create.response.json": JobCreateResponseSchema,
+  "merge.request.json": MergeJobPayloadSchema,
+  "split.request.json": SplitJobPayloadSchema,
+  "split-groups.request.json": SplitGroupsJobPayloadSchema
 };

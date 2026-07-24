@@ -1,0 +1,10 @@
+{
+  "type": "merge",
+  "payload": {
+    "inputs": [
+      "C:\\tmp\\editradoc-job\\a.pdf",
+      "C:\\tmp\\editradoc-job\\b.pdf"
+    ],
+    "output_path": "C:\\tmp\\editradoc-job\\merged.pdf"
+  }
+}

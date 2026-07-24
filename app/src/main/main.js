@@ -31,7 +31,8 @@ const { validatePdfReadBytesRequest } = require("./lib/pdf-read-bytes-guard");
 const {
   validatePdfReadBytesRequestContract,
   validatePdfOpenRequestContract,
-  validateApplyAnnotationsRequestContract
+  validateApplyAnnotationsRequestContract,
+  validateJobCreateRequestContract
 } = require("../contracts/dist/validate");
 const { prepareSessionSavePayload } = require("./lib/session-save-guard");
 const {
@@ -1129,8 +1130,18 @@ ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
 });
 
 ipcMain.handle("job:create", async (_, input) => {
-  const jobType = input?.type;
-  const payload = input?.payload || {};
+  // Frontière contrat (Ajv) AVANT validateJobPayload (existence disque + S1 path-guard).
+  const contract = validateJobCreateRequestContract(input);
+  if (!contract.ok) {
+    logWarn("job:create", contract.error, { errorCode: contract.errorCode });
+    return {
+      ok: false,
+      error: contract.error,
+      errorCode: contract.errorCode
+    };
+  }
+  const jobType = contract.value.type;
+  const payload = contract.value.payload;
   const validationError = validateJobPayload(jobType, payload);
   if (validationError) {
     logWarn("job:create", validationError, { jobType });

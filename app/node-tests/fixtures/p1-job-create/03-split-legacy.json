@@ -1,0 +1,9 @@
+{
+  "type": "split",
+  "payload": {
+    "input_path": "C:\\tmp\\editradoc-job\\source.pdf",
+    "output_path": "C:\\tmp\\editradoc-job\\range.pdf",
+    "from_page": 1,
+    "to_page": 2
+  }
+}

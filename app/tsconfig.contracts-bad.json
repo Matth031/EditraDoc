@@ -11,7 +11,6 @@
   },
   "include": [
     "src/contracts/harness/bad-call.ts",
-    "src/contracts/ts/apply-annotations.ts",
-    "src/contracts/ts/annotation.ts"
+    "src/contracts/ts/job-create.ts"
   ]
 }

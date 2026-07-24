@@ -1,18 +1,22 @@
 /**
  * Harness volontairement incorrect — doit faire échouer `tsc --noEmit`.
  */
-import type { ApplyAnnotationsRequest } from "../ts/apply-annotations.js";
-import type { TextAnnotation } from "../ts/annotation.js";
+import type { JobCreateRequest } from "../ts/job-create.js";
+import type { MergeJobPayload } from "../ts/job-create.js";
 
-// Erreurs attendues : input_path doit être string ; fontSize doit être number.
-const badApply: ApplyAnnotationsRequest = {
-  input_path: 42,
-  output_path: "out.pdf",
-  canvases_px_by_page: {},
-  annotations_by_page: {}
+// Erreurs attendues : inputs doit être string[] ; from_page doit être number.
+const badMerge: JobCreateRequest = {
+  type: "merge",
+  payload: {
+    inputs: 42,
+    output_path: "out.pdf"
+  }
 };
 
-const badText: TextAnnotation = { type: "text", fontSize: "xx" };
+const badSplitPages: MergeJobPayload = {
+  inputs: ["a.pdf"],
+  output_path: null
+};
 
-void badApply;
-void badText;
+void badMerge;
+void badSplitPages;

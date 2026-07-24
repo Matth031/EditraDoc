@@ -6,6 +6,7 @@ import { type PdfReadBytesRequest } from "./pdf-read-bytes.js";
 import { type PdfOpenRequest } from "./pdf-open.js";
 import { type ValidatePdfRequest } from "./pdf-validate.js";
 import { type ApplyAnnotationsRequest } from "./apply-annotations.js";
+import { type JobCreateRequest } from "./job-create.js";
 export type ContractValidationOk<T> = {
     ok: true;
     value: T;
@@ -27,6 +28,7 @@ export declare function validatePdfOpenRequestContract(raw: unknown): ContractVa
 /** Même schéma que POST /validate — utile pour tests / alignement Node. */
 export declare function validateValidatePdfRequestContract(raw: unknown): ContractValidationOk<ValidatePdfRequest> | ContractValidationErr;
 export declare function validateApplyAnnotationsRequestContract(raw: unknown): ContractValidationOk<ApplyAnnotationsRequest> | ContractValidationErr;
+export declare function validateJobCreateRequestContract(raw: unknown): ContractValidationOk<JobCreateRequest> | ContractValidationErr;
 /** Schémas exportés pour le build (écriture JSON artefacts). */
 export declare const schemas: {
     "pdf-read-bytes.request.json": {
@@ -322,5 +324,226 @@ export declare const schemas: {
                 };
             };
         }];
+    };
+    "job-create.request.json": {
+        readonly $id: "editradoc.ipc.job-create.request";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly oneOf: readonly [{
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["type", "payload"];
+            readonly properties: {
+                readonly type: {
+                    readonly const: "merge";
+                };
+                readonly payload: {
+                    readonly type: "object";
+                    readonly additionalProperties: false;
+                    readonly required: readonly ["inputs", "output_path"];
+                    readonly properties: {
+                        readonly inputs: {
+                            readonly type: "array";
+                            readonly minItems: 2;
+                            readonly items: {
+                                readonly type: "string";
+                                readonly minLength: 1;
+                            };
+                        };
+                        readonly output_path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                    };
+                };
+            };
+        }, {
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["type", "payload"];
+            readonly properties: {
+                readonly type: {
+                    readonly const: "split";
+                };
+                readonly payload: {
+                    readonly type: "object";
+                    readonly additionalProperties: false;
+                    readonly required: readonly ["input_path", "output_path", "from_page", "to_page"];
+                    readonly properties: {
+                        readonly input_path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly output_path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly from_page: {
+                            readonly type: "number";
+                        };
+                        readonly to_page: {
+                            readonly type: "number";
+                        };
+                    };
+                };
+            };
+        }, {
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["type", "payload"];
+            readonly properties: {
+                readonly type: {
+                    readonly const: "split_groups";
+                };
+                readonly payload: {
+                    readonly type: "object";
+                    readonly additionalProperties: false;
+                    readonly required: readonly ["input_path", "groups"];
+                    readonly properties: {
+                        readonly input_path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly groups: {
+                            readonly type: "array";
+                            readonly items: {
+                                readonly type: "object";
+                                readonly additionalProperties: false;
+                                readonly required: readonly ["output_path", "page_indices"];
+                                readonly properties: {
+                                    readonly output_path: {
+                                        readonly type: "string";
+                                        readonly minLength: 1;
+                                    };
+                                    readonly page_indices: {
+                                        readonly type: "array";
+                                        readonly items: {
+                                            readonly type: "number";
+                                            readonly minimum: 1;
+                                            readonly maximum: 99999;
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        }];
+    };
+    "job-create.response.json": {
+        readonly $id: "editradoc.ipc.job-create.response";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly oneOf: readonly [{
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["ok", "id"];
+            readonly properties: {
+                readonly ok: {
+                    readonly const: true;
+                };
+                readonly id: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+            };
+        }, {
+            readonly type: "object";
+            readonly additionalProperties: false;
+            readonly required: readonly ["ok", "error"];
+            readonly properties: {
+                readonly ok: {
+                    readonly const: false;
+                };
+                readonly error: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+                readonly errorCode: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+            };
+        }];
+    };
+    "merge.request.json": {
+        readonly $id: "editradoc.http.merge.request";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly type: "object";
+        readonly additionalProperties: false;
+        readonly required: readonly ["inputs", "output_path"];
+        readonly properties: {
+            readonly inputs: {
+                readonly type: "array";
+                readonly minItems: 2;
+                readonly items: {
+                    readonly type: "string";
+                    readonly minLength: 1;
+                };
+            };
+            readonly output_path: {
+                readonly type: "string";
+                readonly minLength: 1;
+                readonly description: "Sortie — co-localisation S1 vérifiée hors schéma (main + Python).";
+            };
+        };
+    };
+    "split.request.json": {
+        readonly $id: "editradoc.http.split.request";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly type: "object";
+        readonly additionalProperties: false;
+        readonly required: readonly ["input_path", "output_path", "from_page", "to_page"];
+        readonly properties: {
+            readonly input_path: {
+                readonly type: "string";
+                readonly minLength: 1;
+            };
+            readonly output_path: {
+                readonly type: "string";
+                readonly minLength: 1;
+                readonly description: "Sortie — S1 hors schéma.";
+            };
+            readonly from_page: {
+                readonly type: "number";
+            };
+            readonly to_page: {
+                readonly type: "number";
+            };
+        };
+    };
+    "split-groups.request.json": {
+        readonly $id: "editradoc.http.split-groups.request";
+        readonly $schema: "http://json-schema.org/draft-07/schema#";
+        readonly type: "object";
+        readonly additionalProperties: false;
+        readonly required: readonly ["input_path", "groups"];
+        readonly properties: {
+            readonly input_path: {
+                readonly type: "string";
+                readonly minLength: 1;
+            };
+            readonly groups: {
+                readonly type: "array";
+                readonly items: {
+                    readonly type: "object";
+                    readonly additionalProperties: false;
+                    readonly required: readonly ["output_path", "page_indices"];
+                    readonly properties: {
+                        readonly output_path: {
+                            readonly type: "string";
+                            readonly minLength: 1;
+                        };
+                        readonly page_indices: {
+                            readonly type: "array";
+                            readonly items: {
+                                readonly type: "number";
+                                readonly minimum: 1;
+                                readonly maximum: 99999;
+                            };
+                        };
+                    };
+                };
+            };
+        };
     };
 };

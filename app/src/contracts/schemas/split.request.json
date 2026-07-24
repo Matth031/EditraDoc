@@ -1,0 +1,24 @@
+{
+  "$id": "editradoc.http.split.request",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["input_path", "output_path", "from_page", "to_page"],
+  "properties": {
+    "input_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Sortie — S1 hors schéma."
+    },
+    "from_page": {
+      "type": "number"
+    },
+    "to_page": {
+      "type": "number"
+    }
+  }
+}

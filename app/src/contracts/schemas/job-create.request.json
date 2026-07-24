@@ -1,0 +1,109 @@
+{
+  "$id": "editradoc.ipc.job-create.request",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "payload"],
+      "properties": {
+        "type": {
+          "const": "merge"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["inputs", "output_path"],
+          "properties": {
+            "inputs": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "output_path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "payload"],
+      "properties": {
+        "type": {
+          "const": "split"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["input_path", "output_path", "from_page", "to_page"],
+          "properties": {
+            "input_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "output_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from_page": {
+              "type": "number"
+            },
+            "to_page": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "payload"],
+      "properties": {
+        "type": {
+          "const": "split_groups"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["input_path", "groups"],
+          "properties": {
+            "input_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["output_path", "page_indices"],
+                "properties": {
+                  "output_path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "page_indices": {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 99999
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

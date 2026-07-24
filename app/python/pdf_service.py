@@ -24,7 +24,13 @@ from pdf_ops import (
     split_pdf_groups,
     unprotect_pdf,
 )
-from contract_validation import validate_pdf_validate_request, validate_apply_annotations_request
+from contract_validation import (
+    validate_pdf_validate_request,
+    validate_apply_annotations_request,
+    validate_merge_request,
+    validate_split_request,
+    validate_split_groups_request,
+)
 from pdf_validation import validate_pdf_path
 
 LOG_VERBOSE = os.environ.get("MANI_PDF_PY_LOGS") != "0"
@@ -136,25 +142,55 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             if self.path == "/merge":
-                output = merge_pdfs(payload.get("inputs", []), payload.get("output_path", ""))
+                schema_ok, schema_err = validate_merge_request(payload)
+                if not schema_ok:
+                    self._json_response(
+                        400,
+                        {
+                            "ok": False,
+                            "error": f"Contrat invalide: {schema_err}",
+                            "errorCode": "CONTRACT_INVALID",
+                        },
+                    )
+                    return
+                output = merge_pdfs(payload["inputs"], payload["output_path"])
                 self._json_response(200, {"ok": True, "output_path": output})
                 return
 
             if self.path == "/split":
+                schema_ok, schema_err = validate_split_request(payload)
+                if not schema_ok:
+                    self._json_response(
+                        400,
+                        {
+                            "ok": False,
+                            "error": f"Contrat invalide: {schema_err}",
+                            "errorCode": "CONTRACT_INVALID",
+                        },
+                    )
+                    return
                 output = split_pdf(
-                    payload.get("input_path", ""),
-                    int(payload.get("from_page", 1)),
-                    int(payload.get("to_page", 1)),
-                    payload.get("output_path", ""),
+                    payload["input_path"],
+                    int(payload["from_page"]),
+                    int(payload["to_page"]),
+                    payload["output_path"],
                 )
                 self._json_response(200, {"ok": True, "output_path": output})
                 return
 
             if self.path == "/split-groups":
-                outputs = split_pdf_groups(
-                    payload.get("input_path", ""),
-                    payload.get("groups", []) or [],
-                )
+                schema_ok, schema_err = validate_split_groups_request(payload)
+                if not schema_ok:
+                    self._json_response(
+                        400,
+                        {
+                            "ok": False,
+                            "error": f"Contrat invalide: {schema_err}",
+                            "errorCode": "CONTRACT_INVALID",
+                        },
+                    )
+                    return
+                outputs = split_pdf_groups(payload["input_path"], payload["groups"])
                 self._json_response(200, {"ok": True, "output_paths": outputs})
                 return
 

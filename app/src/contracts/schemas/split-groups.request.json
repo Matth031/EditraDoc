@@ -1,0 +1,35 @@
+{
+  "$id": "editradoc.http.split-groups.request",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["input_path", "groups"],
+  "properties": {
+    "input_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["output_path", "page_indices"],
+        "properties": {
+          "output_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "page_indices": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 99999
+            }
+          }
+        }
+      }
+    }
+  }
+}
