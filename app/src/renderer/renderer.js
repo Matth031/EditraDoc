@@ -1082,7 +1082,7 @@ function setStatus(message) {
   })();
   // Historique minimal pour tests/diagnostic (sans données sensibles).
   try {
-    const arr = (window.__maniStatusHistory = window.__maniStatusHistory || []);
+    const arr = (window.__editifyStatusHistory = window.__editifyStatusHistory || []);
     arr.push(safe);
     if (arr.length > 60) arr.splice(0, arr.length - 60);
   } catch {

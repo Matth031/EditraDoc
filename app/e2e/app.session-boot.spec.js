@@ -47,7 +47,9 @@ test("E3: loadSession ok:false → statut stSessionLoadFailed (pas silencieux)",
     } finally {
       delete globalThis.__editifySessionApiOverride;
     }
-    const hist = Array.isArray(window.__maniStatusHistory) ? window.__maniStatusHistory.slice(-8) : [];
+    const hist = Array.isArray(window.__editifyStatusHistory)
+      ? window.__editifyStatusHistory.slice(-8)
+      : [];
     return hist.map(String);
   });
   expect(
@@ -83,7 +85,9 @@ test("E3: saveSession rejet IPC → statut plafond 50 Mo (garde main inchangée)
     } finally {
       delete globalThis.__editifySessionApiOverride;
     }
-    const hist = Array.isArray(window.__maniStatusHistory) ? window.__maniStatusHistory.slice(-8) : [];
+    const hist = Array.isArray(window.__editifyStatusHistory)
+      ? window.__editifyStatusHistory.slice(-8)
+      : [];
     return { saveResult, hist: hist.map(String) };
   });
   expect(result.saveResult?.ok).toBe(false);

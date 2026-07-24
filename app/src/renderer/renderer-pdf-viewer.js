@@ -696,8 +696,8 @@
 
   function wireResize() {
     window.addEventListener("resize", () => {
-      if (window.__maniPdfResizeDebounce) clearTimeout(window.__maniPdfResizeDebounce);
-      window.__maniPdfResizeDebounce = setTimeout(() => {
+      if (window.__editifyPdfResizeDebounce) clearTimeout(window.__editifyPdfResizeDebounce);
+      window.__editifyPdfResizeDebounce = setTimeout(() => {
         const d = requireDeps();
         if (!d.getActiveTab()) return;
         updateViewer();

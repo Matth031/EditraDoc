@@ -88,7 +88,7 @@ test("DIAG: console + bootstrap + ouverture PDF", async () => {
     tabCount: document.querySelectorAll("#tabs .tab").length,
     pdfPages: document.querySelectorAll("#pagesContainer .pdf-page").length,
     maniE2E_getUiState: typeof window.__maniE2E?.getUiState,
-    statusHistory: window.__maniStatusHistory || []
+    statusHistory: window.__editifyStatusHistory || []
   }));
   push("diag", "after-open-35s", JSON.stringify(afterOpen, null, 2));
 

@@ -62,8 +62,8 @@ async function openPdfFromUi(app, page) {
   // E12: progression de rendu (peut être rapide, donc on se base sur l'historique)
   await page.waitForFunction(
     () =>
-      Array.isArray(window.__maniStatusHistory) &&
-      window.__maniStatusHistory.some((m) => {
+      Array.isArray(window.__editifyStatusHistory) &&
+      window.__editifyStatusHistory.some((m) => {
         const s = String(m || "");
         return /^(Rendu pages|Rendering pages|Renderizando paginas|A renderizar paginas)/i.test(s);
       }),
@@ -73,8 +73,8 @@ async function openPdfFromUi(app, page) {
   // E10: statut post-chargement (libellé i18n : FR « PDF charge », EN « PDF loaded », etc.)
   await page.waitForFunction(
     () =>
-      Array.isArray(window.__maniStatusHistory) &&
-      window.__maniStatusHistory.some((m) => {
+      Array.isArray(window.__editifyStatusHistory) &&
+      window.__editifyStatusHistory.some((m) => {
         const s = String(m || "");
         return /PDF\s+(charg|load|carg|carreg)/i.test(s);
       }),
