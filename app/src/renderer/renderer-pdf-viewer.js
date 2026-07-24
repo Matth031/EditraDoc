@@ -45,6 +45,21 @@
   let scrollPageSyncTimer = null;
   let suppressScrollPageSync = false;
 
+  /** @type {null | ((pdfPath: string) => Promise<{ numPages?: number, getPage: (n: number) => Promise<unknown> }>)} */
+  let loadPdfDocumentOverride = null;
+  /** @type {null | ((...args: unknown[]) => Promise<unknown>)} */
+  let paintPdfPageOnNodeOverride = null;
+  /**
+   * Spy tests (TKT-BUG-PDF-RENDER-RACE-001) : (tokenDuRendu, étape) après stillCurrent OK.
+   * @type {null | ((token: number, step: string) => void)}
+   */
+  let postLoopSpy = null;
+
+  /** @param {number} token */
+  function stillCurrent(token) {
+    return token === activePdfRenderToken;
+  }
+
   const pdfRenderCache = {
     path: /** @type {string | null} */ (null),
     base64: /** @type {string | null} */ (null),
@@ -199,6 +214,9 @@
   }
 
   async function paintPdfPageOnNode(page, pageNumber, pageNode, tab, containerWidth) {
+    if (paintPdfPageOnNodeOverride) {
+      return paintPdfPageOnNodeOverride(page, pageNumber, pageNode, tab, containerWidth);
+    }
     const pageKey = String(pageNumber);
     const intrinsic = page.rotate || 0;
     const userDelta = getUserPageRotation(tab, pageKey, intrinsic);
@@ -333,6 +351,9 @@
   }
 
   async function loadPdfDocument(pdfPath) {
+    if (loadPdfDocumentOverride) {
+      return loadPdfDocumentOverride(pdfPath);
+    }
     const key = String(pdfPath || "");
     if (pdfRenderCache.path === key && pdfRenderCache.doc) return pdfRenderCache.doc;
     const pdfjs = await getPdfJs();
@@ -490,7 +511,11 @@
     }
     activePdfRenderTasks = [];
 
+    // TKT-BUG-PDF-RENDER-RACE-001 : re-check stillCurrent après chaque await,
+    // avant toute mutation modèle/DOM (pas seulement en tête de boucle).
     const doc = await loadPdfDocument(pdfPath);
+    if (!stillCurrent(token)) return;
+
     const count = doc.numPages || 1;
     tab.pageCount = count;
     const containerWidth = Math.max(1, Math.floor((viewer?.clientWidth || 1) - 24));
@@ -504,7 +529,7 @@
     let lastProgressAt = 0;
 
     for (let pageNumber = 1; pageNumber <= count; pageNumber += 1) {
-      if (token !== activePdfRenderToken) return;
+      if (!stillCurrent(token)) return;
       const now = Date.now();
       if (pageNumber === 1 || pageNumber === count || now - lastProgressAt > 140) {
         lastProgressAt = now;
@@ -515,6 +540,7 @@
         }
       }
       const page = await doc.getPage(pageNumber);
+      if (!stillCurrent(token)) return;
 
       const pageNode = document.createElement("div");
       pageNode.className = "pdf-page";
@@ -525,13 +551,18 @@
       pagesContainer.appendChild(pageNode);
 
       await paintPdfPageOnNode(page, pageNumber, pageNode, tab, containerWidth);
+      if (!stillCurrent(token)) return;
     }
 
+    // Check AVANT le bloc post-boucle (pas après) — TKT-BUG-PDF-RENDER-RACE-001.
+    if (!stillCurrent(token)) return;
+    postLoopSpy?.(token, "setActivePage");
     setActivePage(tab.currentPage || 1);
     applyZoomAnchorIfAny();
+    postLoopSpy?.(token, "scheduleSidebarUpdate");
     scheduleSidebarUpdate();
+    postLoopSpy?.(token, "syncActivePageFromScroll");
     syncActivePageFromScroll();
-    if (token !== activePdfRenderToken) return;
     try {
       setStatus(t("stPdfLoadedHint"));
     } catch {
@@ -754,6 +785,26 @@
     rerenderPages,
     syncPageInfoFooter,
     formatPageInfoLabel,
-    getUserPageRotation
+    getUserPageRotation,
+    /** @internal tests TKT-BUG-PDF-RENDER-RACE-001 */
+    renderPdfDocument,
+    __test: {
+      stillCurrent,
+      getActivePdfRenderToken: () => activePdfRenderToken,
+      setLoadPdfDocumentOverride: (fn) => {
+        loadPdfDocumentOverride = fn;
+      },
+      setPaintPdfPageOnNodeOverride: (fn) => {
+        paintPdfPageOnNodeOverride = fn;
+      },
+      setPostLoopSpy: (fn) => {
+        postLoopSpy = fn;
+      },
+      clearOverrides: () => {
+        loadPdfDocumentOverride = null;
+        paintPdfPageOnNodeOverride = null;
+        postLoopSpy = null;
+      }
+    }
   };
 })();

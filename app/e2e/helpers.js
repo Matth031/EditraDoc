@@ -8,9 +8,9 @@
  * Retour immédiat si pageCount + canvas + thumbs alignés.
  * Soft-path : si le DOM est cohérent (canvas === thumbs === pages) mais `pageCount` traîne
  * (race session / re-entrée updateViewer), accepte après quelques polls stables.
- * Ce soft-path est un **contournement de test** lié à TKT-BUG-PDF-RENDER-RACE-001
- * (encore ouvert, `renderer-pdf-viewer.js` — hors scope P6) : quand la race produit
- * sera corrigée, ce chemin pourra devenir obsolète ; ne pas le retirer avant.
+ * Contournement de test lié à TKT-BUG-PDF-RENDER-RACE-001 (`renderer-pdf-viewer.js`).
+ * Une fois la race produit corrigée et stabilisée en CI : **resserrer** (exiger
+ * alignement pageCount strict) plutôt que laisser ce soft-path masquer une régression.
  *
  * @param {import("@playwright/test").Page} page
  * @param {{ timeoutMs?: number }} [options]
@@ -89,7 +89,7 @@ async function waitForPdfPagesRendered(page, options = {}) {
         stableDomPolls = 1;
       }
       // Soft-path TKT-FLK-E2E-001 : pageCount stale alors que paint + thumbs sont cohérents.
-      // Lié à TKT-BUG-PDF-RENDER-RACE-001 (ouvert) — workaround test, pas fix produit.
+      // Lié à TKT-BUG-PDF-RENDER-RACE-001 — workaround test ; à resserrer une fois stabilisé.
       if (stableDomPolls >= stableDomPollsRequired) return;
     } else {
       lastDomKey = "";
