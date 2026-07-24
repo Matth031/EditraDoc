@@ -55,11 +55,15 @@ Ajv **et** Python, puis diverger.
 ### Négatives / à surveiller
 
 - Charge cognitive : contributeur doit lire contrats **et** liste S*.
-- Ticket ouvert ex. `TKT-BUG-PDF-RENDER-RACE-001` n’est pas un S* mais montre qu’un soft-path E2E
-  (FLK-E2E-001) peut compenser un bug produit — à ne pas confondre avec un invariant sécurité.
+- Un soft-path E2E (ex. FLK-E2E-001) peut **compenser** un bug produit et masquer une régression
+  — à ne pas confondre avec un invariant sécurité. Cas documenté : `TKT-BUG-PDF-RENDER-RACE-001`
+  (corrigé `2a906ea` via `stillCurrent` après chaque `await`) ; le helper
+  `waitForPdfPagesRendered` exige désormais l’alignement **strict** `pageCount === pages/canvas/thumbs`
+  (soft-path DOM-sans-pageCount retiré).
 
 ## Lien
 
 - Tests : `app/node-tests/security-lock.test.js`
 - Contrats : `app/src/contracts/`
-- Soft-path E2E documenté : `app/e2e/helpers.js` (`waitForPdfPagesRendered`)
+- Helper E2E rendu : `app/e2e/helpers.js` (`waitForPdfPagesRendered`, alignement strict)
+- Ticket clos : `TKT-BUG-PDF-RENDER-RACE-001` — `2a906ea` + `node-tests/pdf-render-race.test.js`

@@ -1,16 +1,14 @@
 /**
  * Attend que le rendu PDF soit réellement prêt pour les tests :
+ * - `tab.pageCount` aligné (via `__maniE2E.getUiState`)
  * - autant de `.pdf-page` **avec** `canvas.pdf-canvas` (même critère que `renderThumbnails`)
  * - autant de `.thumb-item` dans `#thumbsList`
- * - idéalement `tab.pageCount` aligné (via `__maniE2E.getUiState`)
+ *
+ * Alignement **strict** : `pageCount === pages === canvas === thumbs`.
+ * Soft-path DOM-sans-pageCount retiré après correctif produit TKT-BUG-PDF-RENDER-RACE-001
+ * (`stillCurrent`, commit `2a906ea`) — ne plus masquer une régression `pages > pageCount`.
  *
  * Un seul poll avec backoff léger (pas deux timeouts 90 s séquentiels) — TKT-FLK-E2E-001.
- * Retour immédiat si pageCount + canvas + thumbs alignés.
- * Soft-path : si le DOM est cohérent (canvas === thumbs === pages) mais `pageCount` traîne
- * (race session / re-entrée updateViewer), accepte après quelques polls stables.
- * Contournement de test lié à TKT-BUG-PDF-RENDER-RACE-001 (`renderer-pdf-viewer.js`).
- * Une fois la race produit corrigée et stabilisée en CI : **resserrer** (exiger
- * alignement pageCount strict) plutôt que laisser ce soft-path masquer une régression.
  *
  * @param {import("@playwright/test").Page} page
  * @param {{ timeoutMs?: number }} [options]
@@ -20,10 +18,6 @@ async function waitForPdfPagesRendered(page, options = {}) {
   const started = Date.now();
   let delayMs = 25;
   const maxDelayMs = 200;
-  /** Polls DOM-cohérents consécutifs requis si pageCount désynchronisé. */
-  const stableDomPollsRequired = 3;
-  let stableDomPolls = 0;
-  let lastDomKey = "";
 
   /**
    * @returns {Promise<{
@@ -62,14 +56,6 @@ async function waitForPdfPagesRendered(page, options = {}) {
     return s.withCanvas === s.pageCount && s.thumbs === s.pageCount && s.pdfPages === s.pageCount;
   }
 
-  /**
-   * DOM prêt au sens renderThumbnails (ignore pageCount).
-   * @param {{ pdfPages: number, withCanvas: number, thumbs: number }} s
-   */
-  function isDomConsistent(s) {
-    return s.withCanvas >= 1 && s.withCanvas === s.thumbs && s.withCanvas === s.pdfPages;
-  }
-
   // Premier check immédiat — zéro attente si déjà prêt.
   {
     const s0 = await snapshot();
@@ -80,22 +66,6 @@ async function waitForPdfPagesRendered(page, options = {}) {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     const s = await snapshot();
     if (isFullyAligned(s)) return;
-
-    if (isDomConsistent(s)) {
-      const key = `${s.withCanvas}:${s.thumbs}:${s.pdfPages}`;
-      if (key === lastDomKey) stableDomPolls += 1;
-      else {
-        lastDomKey = key;
-        stableDomPolls = 1;
-      }
-      // Soft-path TKT-FLK-E2E-001 : pageCount stale alors que paint + thumbs sont cohérents.
-      // Lié à TKT-BUG-PDF-RENDER-RACE-001 — workaround test ; à resserrer une fois stabilisé.
-      if (stableDomPolls >= stableDomPollsRequired) return;
-    } else {
-      lastDomKey = "";
-      stableDomPolls = 0;
-    }
-
     delayMs = Math.min(maxDelayMs, Math.round(delayMs * 1.5));
   }
 
