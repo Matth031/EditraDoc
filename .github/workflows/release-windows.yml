@@ -1,5 +1,6 @@
-# Construit l’installateur Windows NSIS (Python embarqué) et le joint aux Releases sur tag v*,
-# ou le dépose en artefact de workflow (exécution manuelle).
+# Construit l’installateur Windows NSIS (Python embarqué) et le joint aux Releases
+# uniquement sur push de tags v* (convention obligatoire : vX.Y.Z).
+# Exécution manuelle (workflow_dispatch) : artefact uniquement, pas d’attache Release.
 name: Release Windows installer
 
 on:
@@ -31,25 +32,61 @@ jobs:
         run: npm ci
 
       - name: Build NSIS installer (embedded Python)
+        # dist:win copie EditraDoc-Setup.exe à la racine du dépôt et génère latest.json
         run: npm run dist:win
 
       - name: Regression export image (Python embeddé + build packagé)
         run: npm run test:embedded-python && npm run test:packaged-export
 
-      - name: Upload installer as workflow artifact
+      - name: Align latest.json tag with GitHub ref (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/write-latest-manifest.mjs ../EditraDoc-Setup.exe
+
+      - name: Verify release assets (fail closed)
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not (Test-Path -LiteralPath "EditraDoc-Setup.exe")) {
+            throw "Asset manquant : EditraDoc-Setup.exe (racine dépôt)"
+          }
+          if (-not (Test-Path -LiteralPath "latest.json")) {
+            throw "Asset manquant : latest.json (racine dépôt) — la release ne doit pas publier l'exe seul"
+          }
+          $manifest = Get-Content -LiteralPath "latest.json" -Raw -Encoding utf8 | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace([string]$manifest.version)) {
+            throw "latest.json invalide : champ version manquant"
+          }
+          if ([string]::IsNullOrWhiteSpace([string]$manifest.assets.windows.sha256)) {
+            throw "latest.json invalide : sha256 manquant"
+          }
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+            $expectedTag = $env:GITHUB_REF_NAME
+            if ([string]$manifest.tag -ne $expectedTag) {
+              throw "latest.json.tag='$($manifest.tag)' != git tag '$expectedTag'"
+            }
+          }
+          Write-Host "OK assets : exe + latest.json (version=$($manifest.version) tag=$($manifest.tag))"
+
+      - name: Upload installer + manifest as workflow artifacts
         uses: actions/upload-artifact@v6
         with:
           name: editify-windows-setup
-          path: EditraDoc-Setup.exe
+          path: |
+            EditraDoc-Setup.exe
+            latest.json
           if-no-files-found: error
 
-      - name: Attach installer to GitHub Release
+      - name: Attach installer + latest.json to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
           files: |
             EditraDoc-Setup.exe
             latest.json
+          fail_on_unmatched_files: true
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

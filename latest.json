@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "product": "EditraDoc",
   "version": "1.1.3",
-  "tag": "v1.1.3",
-  "publishedAt": "2026-07-25T18:03:59.302Z",
-  "releaseNotesUrl": "https://github.com/Matth031/EditraDoc/releases/tag/v1.1.3",
+  "tag": "1.1.3",
+  "publishedAt": "2026-07-25T18:50:00.000Z",
+  "releaseNotesUrl": "https://github.com/Matth031/EditraDoc/releases/tag/1.1.3",
   "assets": {
     "windows": {
       "filename": "EditraDoc-Setup.exe",
-      "url": "https://github.com/Matth031/EditraDoc/releases/download/v1.1.3/EditraDoc-Setup.exe",
+      "url": "https://github.com/Matth031/EditraDoc/releases/download/1.1.3/EditraDoc-Setup.exe",
       "latestUrl": "https://github.com/Matth031/EditraDoc/releases/latest/download/EditraDoc-Setup.exe",
       "sha256": "9f5d6d65120b53b61b3cb5d96c6018c2dcbdec148d68e19a6d6202244207c0b4",
       "size": 147176819

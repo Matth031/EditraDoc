@@ -469,9 +469,13 @@ No command line needed: single **`.exe`** installer (PDF engine included, no sep
 
 Releases are produced by workflow **Release Windows installer** (`.github/workflows/release-windows.yml`): regression tests include `test:embedded-python` and `test:packaged-export`.
 
+**Release tag convention (mandatory):** Git tags **must** be `vX.Y.Z` (e.g. `v1.1.4`). The workflow only runs on `v*` tags and **requires** both `EditraDoc-Setup.exe` and `latest.json` on the GitHub Release (fail closed). See [ADR-007](docs/adr/007-release-tag-and-update-manifest.md). Do **not** publish a bare semver tag like `1.1.3` or upload the installer alone.
+
 ---
 
 **Français —** Installateur **`.exe`** unique, sans Node/Python sur le PC cible. Fichier **`EditraDoc-Setup.exe`** à la racine après `npm run dist:win`, ou téléchargement via **Releases** GitHub (tag `v1.1.1`). Fichier gitignored si build locale. Workflow CI **Release Windows installer** avec tests de régression packagés.
+
+**Convention de tag (obligatoire) :** uniquement `vX.Y.Z` (ex. `v1.1.4`). Le workflow n’accepte que les tags `v*` et exige **exe + `latest.json`** sur la Release (échec sinon). Voir [ADR-007](docs/adr/007-release-tag-and-update-manifest.md).
 
 ---
 

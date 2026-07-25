@@ -13,6 +13,7 @@ Le reste de `docs/` reste gitignoré (process produit interne) ; seul `docs/adr/
 | [ADR-004](./004-error-policy-intentional-catch.md) | Politique d’erreurs E0–E4 | Accepté | 2026-07-24 |
 | [ADR-005](./005-security-invariants-outside-schemas.md) | Invariants sécurité (S*) hors schémas JSON | Accepté | 2026-07-24 |
 | [ADR-006](./006-main-window-sandbox.md) | Sandbox Chromium fenêtre principale (`sandbox: true`) | Accepté | 2026-07-25 |
+| [ADR-007](./007-release-tag-and-update-manifest.md) | Tags release `vX.Y.Z` + asset `latest.json` obligatoire | Accepté | 2026-07-25 |
 
 ## Diagramme
 
