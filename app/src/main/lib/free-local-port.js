@@ -2,17 +2,30 @@ const net = require("node:net");
 const { execSync } = require("node:child_process");
 
 /**
+ * @typedef {{
+ *   connect?: (options: net.NetConnectOpts, connectionListener?: () => void) => import("node:net").Socket,
+ *   timeoutMs?: number
+ * }} IsPortListeningDeps
+ */
+
+/**
+ * Sonde TCP locale : le port accepte-t-il une connexion ?
  * @param {number} port
+ * @param {IsPortListeningDeps} [deps] - seam test : `connect` + `timeoutMs` (défaut 800)
  * @returns {Promise<boolean>}
  */
-function isPortListening(port) {
+function isPortListening(port, deps = {}) {
+  const connect =
+    deps.connect || ((options, connectionListener) => net.connect(options, connectionListener));
+  const timeoutMs = deps.timeoutMs ?? 800;
+
   return new Promise((resolve) => {
-    const socket = net.connect({ host: "127.0.0.1", port }, () => {
+    const socket = connect({ host: "127.0.0.1", port }, () => {
       socket.end();
       resolve(true);
     });
     socket.on("error", () => resolve(false));
-    socket.setTimeout(800, () => {
+    socket.setTimeout(timeoutMs, () => {
       socket.destroy();
       resolve(false);
     });
