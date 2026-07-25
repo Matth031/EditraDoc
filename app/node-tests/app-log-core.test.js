@@ -236,3 +236,189 @@ test("trimErrorMetricsState : fichier borné (pas de croissance illimitée)", ()
   assert.ok(trimmed.bytes < ERROR_METRIC_MAX_FILE_BYTES);
   assert.equal(ERROR_METRIC_THRESHOLD, 5);
 });
+
+/* ——— Lot F : branches S19 / fallbacks / métriques ——— */
+
+test("redactPathForLog : vide, slash seul, un segment", () => {
+  assert.equal(redactPathForLog(null), "");
+  assert.equal(redactPathForLog("   "), "");
+  assert.equal(redactPathForLog("/"), "");
+  assert.equal(redactPathForLog("alone.pdf"), "alone.pdf");
+});
+
+test("redactTextPreviewForLog : null et chaine vide", () => {
+  assert.match(redactTextPreviewForLog(null), /len=0/);
+  assert.match(redactTextPreviewForLog(""), /lines=0/);
+  assert.match(redactTextPreviewForLog("   "), /words=0/);
+});
+
+test("sanitizeExportAuditData : profondeur, null, array, base64, non-objet", () => {
+  assert.equal(sanitizeExportAuditData(null), null);
+  assert.equal(sanitizeExportAuditData(undefined), undefined);
+  const deep = { a: { b: { c: { d: { e: { f: { g: 1 } } } } } } };
+  const deepOut = sanitizeExportAuditData(deep);
+  assert.equal(deepOut.a.b.c.d.e.f, "[max depth]");
+  const arr = sanitizeExportAuditData(["x", { password: "p" }]);
+  assert.equal(arr[1].password, "[redacted]");
+  const b64 = sanitizeExportAuditData({ base64: "y".repeat(121) });
+  assert.match(String(b64.base64), /base64 121/);
+  assert.equal(sanitizeExportAuditData(Symbol("x")), "Symbol(x)");
+});
+
+test("sanitizeData : string longue, preview keys, base64, profondeur", () => {
+  const long = sanitizeData("z".repeat(4001));
+  assert.ok(String(long).endsWith("…[truncated]"));
+  assert.equal(String(long).length, 4000 + "…[truncated]".length);
+  const nested = sanitizeData({
+    plain_preview: "secret text",
+    input_path: "C:/a/b.pdf",
+    base64: "q".repeat(200),
+    ok: true
+  });
+  assert.doesNotMatch(String(nested.plain_preview), /secret/);
+  assert.equal(nested.input_path, ".../a/b.pdf");
+  assert.match(String(nested.base64), /base64 200/);
+  assert.equal(sanitizeData(null), null);
+  assert.equal(sanitizeData(42), 42);
+});
+
+test("formatLogLine : defaults ts/pid/level/scope + sans data", () => {
+  const line = formatLogLine({ level: "", scope: "", message: "" });
+  assert.match(line, /\[INFO\]/);
+  assert.match(line, /\[app\]/);
+  assert.match(line, /\[pid:0\]/);
+  assert.doesNotMatch(line, / \| /);
+});
+
+test("shouldLogLevel : niveau inconnu tombe sur info (rank)", () => {
+  assert.equal(shouldLogLevel("trace", false), false);
+  assert.equal(shouldLogLevel("trace", true), true);
+});
+
+test("normalizeMetricMessage : troncature pure + null", () => {
+  const { ERROR_METRIC_MESSAGE_MAX } = require("../src/lib/app-log-core");
+  const long = normalizeMetricMessage("w".repeat(ERROR_METRIC_MESSAGE_MAX + 40));
+  assert.ok(long.endsWith("…"));
+  assert.equal(long.length, ERROR_METRIC_MESSAGE_MAX + 1);
+  assert.equal(normalizeMetricMessage(null), "");
+});
+
+test("bumpErrorMetric : ignore info ; defaults level/scope ; state null", () => {
+  const r = bumpErrorMetric(null, { level: "info", scope: "save", message: "x" });
+  assert.equal(r.entry, null);
+  assert.equal(r.shouldEmitThreshold, false);
+
+  const e = bumpErrorMetric(createEmptyErrorMetricsState(), {
+    message: "bare",
+    now: Date.UTC(2026, 6, 25, 12, 0, 0)
+  });
+  assert.equal(e.key, "error|app");
+  assert.ok(e.entry);
+});
+
+test("bumpErrorMetric : maxKeys purge les plus anciens", () => {
+  let state = createEmptyErrorMetricsState();
+  const t0 = Date.UTC(2026, 6, 25, 10, 0, 0);
+  for (let i = 0; i < 5; i += 1) {
+    state = bumpErrorMetric(state, {
+      level: "error",
+      scope: `k-${i}`,
+      message: `m${i}`,
+      now: t0 + i * 1000,
+      maxKeys: 3
+    }).state;
+  }
+  assert.ok(Object.keys(state.entries).length <= 3);
+  assert.equal(state.entries["error|k-0"], undefined);
+});
+
+test("bumpErrorMetric : reset thresholdEmittedAt hors fenêtre", () => {
+  const t0 = Date.UTC(2026, 6, 25, 8, 0, 0);
+  let state = createEmptyErrorMetricsState();
+  for (let i = 0; i < 5; i += 1) {
+    state = bumpErrorMetric(state, {
+      level: "error",
+      scope: "reset-win",
+      message: "x",
+      now: t0 + i * 1000
+    }).state;
+  }
+  state = markThresholdEmitted(state, {
+    scope: "reset-win",
+    level: "error",
+    now: t0 + 5000,
+    sessionId: "s1"
+  });
+  const later = bumpErrorMetric(state, {
+    level: "error",
+    scope: "reset-win",
+    message: "x",
+    now: t0 + ERROR_METRIC_WINDOW_MS + 10_000
+  });
+  assert.equal(later.entry.thresholdEmittedAt, null);
+  assert.equal(later.scopeCount, 1);
+});
+
+test("markThresholdEmitted : defaults + sessionId vide", () => {
+  let state = createEmptyErrorMetricsState();
+  state = bumpErrorMetric(state, {
+    level: "error",
+    scope: "app",
+    message: "x",
+    now: 1000
+  }).state;
+  const next = markThresholdEmitted(state, {});
+  assert.ok(next.entries["error|app"].thresholdEmittedAt);
+  assert.deepEqual(next.thresholdSessions, {});
+});
+
+test("shouldEmitThreshold : sans scopeCount utilise timestamps / count", () => {
+  const now = Date.UTC(2026, 6, 25, 12, 0, 0);
+  assert.equal(
+    shouldEmitThreshold(
+      { timestamps: [now, now + 1, now + 2, now + 3, now + 4], thresholdEmittedAt: null },
+      { now: now + 4 }
+    ),
+    true
+  );
+  assert.equal(
+    shouldEmitThreshold({ count: 5, timestamps: null }, { now, scopeCount: undefined }),
+    true
+  );
+  assert.equal(shouldEmitThreshold({ count: 2 }, { now }), false);
+});
+
+test("trimErrorMetricsState : defaults limits + entry null + prune sessions", () => {
+  const now = Date.UTC(2026, 6, 25, 15, 0, 0);
+  /** @type {any} */
+  const dirty = createEmptyErrorMetricsState();
+  dirty.entries.gone = null;
+  dirty.entries.stale = {
+    level: "error",
+    scope: "old",
+    lastAt: new Date(now - ERROR_METRIC_WINDOW_MS * 5).toISOString(),
+    timestamps: [],
+    messageNorm: "x",
+    count: 0
+  };
+  dirty.thresholdSessions = { a: ["1"], b: ["2"] };
+  const trimmed = trimErrorMetricsState(dirty, {
+    maxFileBytes: 120,
+    now
+  });
+  assert.equal(trimmed.state.entries.gone, undefined);
+  assert.equal(trimmed.state.entries.stale, undefined);
+  // Forcer la boucle thresholdSessions : state avec sessions volumineuses
+  let fat = createEmptyErrorMetricsState();
+  fat.thresholdSessions = {
+    s1: Array.from({ length: 50 }, (_, i) => `id-${i}`),
+    s2: Array.from({ length: 50 }, (_, i) => `id2-${i}`)
+  };
+  const tiny = trimErrorMetricsState(fat, { maxFileBytes: 80, now, maxKeys: 1 });
+  assert.ok(Object.keys(tiny.state.thresholdSessions).length < 2 || tiny.bytes <= 80);
+});
+
+test("countThresholdSessionsForScope : liste absente → 0", () => {
+  assert.equal(countThresholdSessionsForScope(null, "x"), 0);
+  assert.equal(countThresholdSessionsForScope(createEmptyErrorMetricsState(), "missing"), 0);
+});
