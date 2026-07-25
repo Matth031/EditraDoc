@@ -64,6 +64,9 @@
     "branches": 75,
     "statements": 80
   },
+  "overrides": {
+    "brace-expansion": "5.0.8"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.54.2",
