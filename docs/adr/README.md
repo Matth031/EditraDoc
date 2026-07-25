@@ -12,6 +12,7 @@ Le reste de `docs/` reste gitignoré (process produit interne) ; seul `docs/adr/
 | [ADR-003](./003-typed-contracts-tsc-artifacts-jsonschema.md) | Contrats typés P4/P1 (tsc → artefacts + JSON Schema) | Accepté | 2026-07-24 |
 | [ADR-004](./004-error-policy-intentional-catch.md) | Politique d’erreurs E0–E4 | Accepté | 2026-07-24 |
 | [ADR-005](./005-security-invariants-outside-schemas.md) | Invariants sécurité (S*) hors schémas JSON | Accepté | 2026-07-24 |
+| [ADR-006](./006-main-window-sandbox.md) | Sandbox Chromium fenêtre principale (`sandbox: true`) | Proposé | 2026-07-25 |
 
 ## Diagramme
 
