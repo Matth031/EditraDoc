@@ -200,6 +200,114 @@
     void refreshTextSpellContextMenu();
   }
 
+  /**
+   * Choisit l'erreur / le mot dictionnaire à partir du plain + sélection éditeur.
+   * @param {string} plain
+   * @param {{ selStart: number, selEnd: number, hasSel: boolean }} selection
+   * @param {Array<{ word?: string, start?: number, end?: number, suggestions?: string[] }>} errors
+   */
+  function resolveSpellTarget(plain, selection, errors) {
+    const { selStart, selEnd, hasSel } = selection;
+    let targetErr = null;
+    let dictWord = null;
+    let selectedSingleWord = false;
+
+    if (hasSel && selEnd > selStart) {
+      const rawSel = plain.slice(selStart, selEnd);
+      const trimmed = rawSel.trim();
+      if (trimmed.length > 0 && !/\s/.test(trimmed)) {
+        selectedSingleWord = true;
+        dictWord = trimmed.replace(/^['']+|['']+$/gu, "");
+        targetErr =
+          errors.find((e) => e.word === dictWord || (e.start >= selStart && e.end <= selEnd + 1)) ||
+          null;
+      }
+    }
+    if (!targetErr && errors.length > 0 && !(selectedSingleWord && dictWord)) {
+      targetErr = errors[0];
+    }
+    if (dictWord == null && targetErr) {
+      dictWord = targetErr.word;
+    }
+
+    return {
+      targetErr,
+      dictWord,
+      replaceStart: targetErr ? targetErr.start : -1,
+      replaceEnd: targetErr ? targetErr.end : -1
+    };
+  }
+
+  /**
+   * Remplit statut / mot / suggestions du panneau orthographe (sans IPC dico).
+   */
+  function renderSpellCtxUi(d, res, errors, targetErr, els) {
+    const { statusEl, wordRow, wordVal, sugEl } = els;
+
+    if (statusEl) {
+      if (!res?.ok) {
+        statusEl.textContent = d.t("ctxSpellDictUnavailable");
+      } else {
+        statusEl.textContent = errors.length === 0 ? d.t("ctxSpellNoIssue") : "";
+      }
+    }
+
+    if (targetErr && wordRow && wordVal) {
+      wordRow.classList.remove("hidden");
+      wordVal.textContent = targetErr.word;
+    }
+
+    if (targetErr && Array.isArray(targetErr.suggestions) && targetErr.suggestions.length) {
+      const lab = document.createElement("div");
+      lab.className = "ctx-spell-sug-label";
+      lab.textContent = d.t("ctxSpellReplace");
+      sugEl.appendChild(lab);
+      targetErr.suggestions.forEach((sug) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = sug;
+        b.addEventListener("click", () => {
+          void applySpellSuggestionToContextTarget(sug);
+        });
+        sugEl.appendChild(b);
+      });
+    }
+  }
+
+  /**
+   * Boutons ajouter/retirer du dico custom (2e await — re-vérifie spellCtxMenuSeq).
+   */
+  async function wireSpellDictButtons(d, api, mySeq, targetErr, els) {
+    const { addBtn, remBtn } = els;
+    const dw = globalThis.__editifySpellCtx?.dictWord;
+    if (!dw || !addBtn || !remBtn || !api.spellcheckIsCustomWord) return;
+    try {
+      const r = await api.spellcheckIsCustomWord(dw);
+      if (mySeq !== spellCtxMenuSeq) return;
+      addBtn.classList.add("hidden");
+      remBtn.classList.add("hidden");
+      if (r?.ok && r.inDictionary) {
+        remBtn.textContent = d.t("ctxSpellRemoveDict");
+        remBtn.classList.remove("hidden");
+        remBtn.onclick = async () => {
+          await api.spellcheckRemoveWord(dw);
+          void refreshTextSpellContextMenu();
+          runBackgroundSpellScanForTextAnnotations();
+        };
+      } else if (targetErr) {
+        addBtn.textContent = d.t("ctxSpellAddDict");
+        addBtn.classList.remove("hidden");
+        addBtn.onclick = async () => {
+          await api.spellcheckAddWord(dw);
+          void refreshTextSpellContextMenu();
+          runBackgroundSpellScanForTextAnnotations();
+        };
+      }
+    } catch {
+      /* intentional: spellcheck dictionary IPC actions best-effort */
+    }
+  }
+
   async function refreshTextSpellContextMenu() {
     const d = ctx;
     if (!d) return;
@@ -221,6 +329,7 @@
     const remBtn = document.getElementById("ctxSpellRemoveDict");
     if (!api?.spellcheckAnalyze || !sugEl) return;
 
+    // Seq-guard en tête : invalide les scans async obsolètes (menu fermé / refresh suivant).
     const mySeq = ++spellCtxMenuSeq;
     if (statusEl) statusEl.textContent = d.t("ctxSpellLoading");
     if (wordLbl) wordLbl.textContent = `${d.t("ctxSpellWord")} :`;
@@ -264,92 +373,19 @@
       hasSel = !o.collapsed;
     }
 
-    let targetErr = null;
-    let dictWord = null;
-
-    let selectedSingleWord = false;
-    if (hasSel && selEnd > selStart) {
-      const rawSel = plain.slice(selStart, selEnd);
-      const trimmed = rawSel.trim();
-      if (trimmed.length > 0 && !/\s/.test(trimmed)) {
-        selectedSingleWord = true;
-        dictWord = trimmed.replace(/^['']+|['']+$/gu, "");
-        targetErr =
-          errors.find((e) => e.word === dictWord || (e.start >= selStart && e.end <= selEnd + 1)) ||
-          null;
-      }
-    }
-    if (!targetErr && errors.length > 0 && !(selectedSingleWord && dictWord)) {
-      targetErr = errors[0];
-    }
-    if (dictWord == null && targetErr) {
-      dictWord = targetErr.word;
-    }
+    const resolved = resolveSpellTarget(plain, { selStart, selEnd, hasSel }, errors);
+    const { targetErr, dictWord } = resolved;
 
     globalThis.__editifySpellCtx = {
-      replaceStart: targetErr ? targetErr.start : -1,
-      replaceEnd: targetErr ? targetErr.end : -1,
+      replaceStart: resolved.replaceStart,
+      replaceEnd: resolved.replaceEnd,
       targetWord: targetErr ? targetErr.word : null,
       dictWord: dictWord || (targetErr ? targetErr.word : null)
     };
 
-    if (statusEl) {
-      if (!res?.ok) {
-        statusEl.textContent = d.t("ctxSpellDictUnavailable");
-      } else {
-        statusEl.textContent = errors.length === 0 ? d.t("ctxSpellNoIssue") : "";
-      }
-    }
-
-    if (targetErr && wordRow && wordVal) {
-      wordRow.classList.remove("hidden");
-      wordVal.textContent = targetErr.word;
-    }
-
-    if (targetErr && Array.isArray(targetErr.suggestions) && targetErr.suggestions.length) {
-      const lab = document.createElement("div");
-      lab.className = "ctx-spell-sug-label";
-      lab.textContent = d.t("ctxSpellReplace");
-      sugEl.appendChild(lab);
-      targetErr.suggestions.forEach((sug) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.textContent = sug;
-        b.addEventListener("click", () => {
-          void applySpellSuggestionToContextTarget(sug);
-        });
-        sugEl.appendChild(b);
-      });
-    }
-
-    const dw = globalThis.__editifySpellCtx?.dictWord;
-    if (dw && addBtn && remBtn && api.spellcheckIsCustomWord) {
-      try {
-        const r = await api.spellcheckIsCustomWord(dw);
-        if (mySeq !== spellCtxMenuSeq) return;
-        addBtn.classList.add("hidden");
-        remBtn.classList.add("hidden");
-        if (r?.ok && r.inDictionary) {
-          remBtn.textContent = d.t("ctxSpellRemoveDict");
-          remBtn.classList.remove("hidden");
-          remBtn.onclick = async () => {
-            await api.spellcheckRemoveWord(dw);
-            void refreshTextSpellContextMenu();
-            runBackgroundSpellScanForTextAnnotations();
-          };
-        } else if (targetErr) {
-          addBtn.textContent = d.t("ctxSpellAddDict");
-          addBtn.classList.remove("hidden");
-          addBtn.onclick = async () => {
-            await api.spellcheckAddWord(dw);
-            void refreshTextSpellContextMenu();
-            runBackgroundSpellScanForTextAnnotations();
-          };
-        }
-      } catch {
-        /* intentional: spellcheck dictionary IPC actions best-effort */
-      }
-    }
+    const els = { statusEl, wordRow, wordVal, sugEl, addBtn, remBtn };
+    renderSpellCtxUi(d, res, errors, targetErr, els);
+    await wireSpellDictButtons(d, api, mySeq, targetErr, els);
   }
 
   function runBackgroundSpellScanForTextAnnotations() {
