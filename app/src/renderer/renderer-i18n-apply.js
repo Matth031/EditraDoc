@@ -151,159 +151,143 @@
     label.firstChild.nodeValue = `${value} `;
   }
 
-  function applyLanguage() {
-    if (!deps) return;
-    const {
-      t,
-      getActiveTab,
-      pdfv,
-      ensureToastRoot,
-      addTextBtn,
-      addShapeBtn,
-      addImageBtn,
-      deleteSelectedBtn,
-      undoBtn,
-      redoBtn,
-      rotateLeftBtn,
-      rotateRightBtn,
-      applyPropsBtn,
-      validateTextColorBtn,
-      applyBgBtn,
-      validateShapeFillBtn,
-      validateShapeStrokeBtn,
-      validateShapeBackdropBtn,
-      toolbarFileBtn,
-      toolbarOptionsBtn,
-      menuLangLabel,
-      menuToolsLabel,
-      menuInfoLabel,
-      toolbarOpenPdfBtn,
-      toolbarSaveAsBtn,
-      toolbarHtmlToPdfBtn,
-      toolbarImagesToPdfBtn,
-      toolbarQuitBtn,
-      toolbarAboutMenuItem,
-      toolbarSessionLogMenuItem,
-      toolbarLogFileMenuItem,
-      menuUpdatesLabel,
-      toolbarCheckUpdatesMenuItem,
-      toolbarCheckUpdatesStartupBtn,
-      sessionLogTitleEl,
-      sessionLogHint,
-      logFileSettingsTitleEl,
-      logFileSettingsHint,
-      logFileCurrentPathLabel,
-      logFileDefaultPathLabel,
-      logFileBrowseBtn,
-      logFileResetBtn,
-      logFileCloseBtn,
-      sessionLogCloseBtn,
-      thumbsTitle,
-      changesTitle,
-      prevBtn,
-      nextBtn,
-      aboutRgpd,
-      aboutTitleEl,
-      aboutCreditsEl,
-      mergeBtn,
-      splitBtn,
-      pageInfo,
-      toolbarF10Hint,
-      shapeModal,
-      splitWorkspaceAddGroupBtn,
-      splitWorkspaceValidateBtn,
-      splitWorkspaceCloseBtn,
-      thumbsBar,
-      changesBar,
-      appToolbar,
-      aboutPopover,
-      toolbarAboutBtn,
-      aboutCloseBtn,
-      closeShapeModalBtn
-    } = deps;
+  /**
+   * Applique une table de bindings i18n.
+   * @param {(key: string) => string} t
+   * @param {Array<{ getEl: () => Element | null | undefined, key: string, mode?: string }>} rows
+   */
+  function applyBindings(t, rows) {
+    for (const row of rows) {
+      const el = row.getEl();
+      if (!el) continue;
+      const mode = row.mode || "text";
+      if (mode === "html") {
+        el.innerHTML = t(row.key);
+      } else if (mode === "aria") {
+        el.setAttribute("aria-label", t(row.key));
+      } else if (mode === "title") {
+        el.setAttribute("title", t(row.key));
+      } else if (mode === "titleAndText") {
+        const v = t(row.key);
+        el.textContent = v;
+        el.title = v;
+      } else if (mode === "titleAndAria") {
+        const v = t(row.key);
+        el.setAttribute("title", v);
+        el.setAttribute("aria-label", v);
+      } else if (mode === "textColon") {
+        el.textContent = `${t(row.key)} :`;
+      } else {
+        el.textContent = t(row.key);
+      }
+    }
+  }
 
-    addTextBtn.textContent = t("addText");
-    addShapeBtn.textContent = t("addShape");
-    addImageBtn.textContent = t("addImage");
-    deleteSelectedBtn.textContent = t("del");
-    undoBtn.textContent = t("undo");
-    redoBtn.textContent = t("redo");
-    if (rotateLeftBtn) rotateLeftBtn.textContent = t("rotateLeft");
-    if (rotateRightBtn) rotateRightBtn.textContent = t("rotateRight");
-    applyPropsBtn.textContent = t("apply");
-    if (validateTextColorBtn) validateTextColorBtn.textContent = t("validate");
-    if (applyBgBtn) applyBgBtn.textContent = t("validate");
-    if (validateShapeFillBtn) validateShapeFillBtn.textContent = t("validate");
-    if (validateShapeStrokeBtn) validateShapeStrokeBtn.textContent = t("validate");
-    if (validateShapeBackdropBtn) validateShapeBackdropBtn.textContent = t("validate");
-    if (toolbarFileBtn) toolbarFileBtn.textContent = t("fileMenu");
-    if (toolbarOptionsBtn) toolbarOptionsBtn.textContent = t("optionsMenu");
-    if (menuLangLabel) menuLangLabel.textContent = t("menuLang");
-    if (menuToolsLabel) menuToolsLabel.textContent = t("menuTools");
-    if (menuInfoLabel) menuInfoLabel.textContent = t("menuInfo");
-    if (toolbarOpenPdfBtn) toolbarOpenPdfBtn.textContent = t("openPdf");
-    if (toolbarSaveAsBtn) toolbarSaveAsBtn.textContent = t("saveAs");
-    if (toolbarHtmlToPdfBtn) toolbarHtmlToPdfBtn.textContent = t("htmlToPdf");
-    if (toolbarImagesToPdfBtn) toolbarImagesToPdfBtn.textContent = t("imagesToPdf");
-    if (toolbarQuitBtn) toolbarQuitBtn.textContent = t("quit");
-    if (toolbarAboutMenuItem) toolbarAboutMenuItem.textContent = t("about");
-    if (toolbarSessionLogMenuItem) toolbarSessionLogMenuItem.textContent = t("menuSessionLog");
-    if (toolbarLogFileMenuItem) toolbarLogFileMenuItem.textContent = t("menuLogFile");
-    if (menuUpdatesLabel) menuUpdatesLabel.textContent = t("menuUpdatesLabel");
-    if (toolbarCheckUpdatesMenuItem)
-      toolbarCheckUpdatesMenuItem.textContent = t("menuCheckUpdatesNow");
-    if (toolbarCheckUpdatesStartupBtn)
-      toolbarCheckUpdatesStartupBtn.textContent = t("menuCheckUpdatesStartup");
-    if (sessionLogTitleEl) sessionLogTitleEl.textContent = t("sessionLogTitle");
-    if (sessionLogHint) sessionLogHint.textContent = t("sessionLogHint");
-    if (logFileSettingsTitleEl) logFileSettingsTitleEl.textContent = t("logFileSettingsTitle");
-    if (logFileSettingsHint) logFileSettingsHint.textContent = t("logFileSettingsHint");
-    if (logFileCurrentPathLabel) logFileCurrentPathLabel.textContent = t("logFileCurrentPath");
-    if (logFileDefaultPathLabel) logFileDefaultPathLabel.textContent = t("logFileDefaultPath");
-    if (logFileBrowseBtn) logFileBrowseBtn.textContent = t("logFileBrowse");
-    if (logFileResetBtn) logFileResetBtn.textContent = t("logFileReset");
-    logFileCloseBtn?.setAttribute("aria-label", t("closeAria"));
-    sessionLogCloseBtn?.setAttribute("aria-label", t("closeAria"));
+  /** @param {() => Element | null | undefined} getEl */
+  function byId(id) {
+    return () => document.getElementById(id);
+  }
+
+  /** @param {() => Element | null | undefined} getEl */
+  function bySel(sel) {
+    return () => document.querySelector(sel);
+  }
+
+  function applyToolbarZone(d) {
+    const { t } = d;
+    applyBindings(t, [
+      { getEl: () => d.addTextBtn, key: "addText" },
+      { getEl: () => d.addShapeBtn, key: "addShape" },
+      { getEl: () => d.addImageBtn, key: "addImage" },
+      { getEl: () => d.deleteSelectedBtn, key: "del" },
+      { getEl: () => d.undoBtn, key: "undo" },
+      { getEl: () => d.redoBtn, key: "redo" },
+      { getEl: () => d.rotateLeftBtn, key: "rotateLeft" },
+      { getEl: () => d.rotateRightBtn, key: "rotateRight" },
+      { getEl: () => d.applyPropsBtn, key: "apply" },
+      { getEl: () => d.validateTextColorBtn, key: "validate" },
+      { getEl: () => d.applyBgBtn, key: "validate" },
+      { getEl: () => d.validateShapeFillBtn, key: "validate" },
+      { getEl: () => d.validateShapeStrokeBtn, key: "validate" },
+      { getEl: () => d.validateShapeBackdropBtn, key: "validate" },
+      { getEl: () => d.toolbarFileBtn, key: "fileMenu" },
+      { getEl: () => d.toolbarOptionsBtn, key: "optionsMenu" },
+      { getEl: () => d.menuLangLabel, key: "menuLang" },
+      { getEl: () => d.menuToolsLabel, key: "menuTools" },
+      { getEl: () => d.menuInfoLabel, key: "menuInfo" },
+      { getEl: () => d.toolbarOpenPdfBtn, key: "openPdf" },
+      { getEl: () => d.toolbarSaveAsBtn, key: "saveAs" },
+      { getEl: () => d.toolbarHtmlToPdfBtn, key: "htmlToPdf" },
+      { getEl: () => d.toolbarImagesToPdfBtn, key: "imagesToPdf" },
+      { getEl: () => d.toolbarQuitBtn, key: "quit" },
+      { getEl: () => d.toolbarAboutMenuItem, key: "about" },
+      { getEl: () => d.toolbarSessionLogMenuItem, key: "menuSessionLog" },
+      { getEl: () => d.toolbarLogFileMenuItem, key: "menuLogFile" },
+      { getEl: () => d.menuUpdatesLabel, key: "menuUpdatesLabel" },
+      { getEl: () => d.toolbarCheckUpdatesMenuItem, key: "menuCheckUpdatesNow" },
+      { getEl: () => d.toolbarCheckUpdatesStartupBtn, key: "menuCheckUpdatesStartup" },
+      { getEl: () => d.sessionLogTitleEl, key: "sessionLogTitle" },
+      { getEl: () => d.sessionLogHint, key: "sessionLogHint" },
+      { getEl: () => d.logFileSettingsTitleEl, key: "logFileSettingsTitle" },
+      { getEl: () => d.logFileSettingsHint, key: "logFileSettingsHint" },
+      { getEl: () => d.logFileCurrentPathLabel, key: "logFileCurrentPath" },
+      { getEl: () => d.logFileDefaultPathLabel, key: "logFileDefaultPath" },
+      { getEl: () => d.logFileBrowseBtn, key: "logFileBrowse" },
+      { getEl: () => d.logFileResetBtn, key: "logFileReset" },
+      { getEl: () => d.logFileCloseBtn, key: "closeAria", mode: "aria" },
+      { getEl: () => d.sessionLogCloseBtn, key: "closeAria", mode: "aria" },
+      { getEl: () => d.thumbsTitle, key: "thumbs" },
+      { getEl: () => d.changesTitle, key: "changes" },
+      { getEl: () => d.prevBtn, key: "prevPage" },
+      { getEl: () => d.nextBtn, key: "nextPage" }
+    ]);
     try {
-      const logFileSettingsModal = document.getElementById("logFileSettingsModal");
-      logFileSettingsModal?.setAttribute("aria-label", t("logFileSettingsTitle"));
+      document
+        .getElementById("logFileSettingsModal")
+        ?.setAttribute("aria-label", t("logFileSettingsTitle"));
     } catch {
       /* intentional: log settings modal aria-label i18n */
     }
-    if (thumbsTitle) thumbsTitle.textContent = t("thumbs");
-    if (changesTitle) changesTitle.textContent = t("changes");
-    if (prevBtn) prevBtn.textContent = t("prevPage");
-    if (nextBtn) nextBtn.textContent = t("nextPage");
+  }
+
+  function applyAboutWelcomeZone(d) {
+    const { t } = d;
     try {
-      if (aboutRgpd) aboutRgpd.innerHTML = t("rgpdHtml");
+      applyBindings(t, [{ getEl: () => d.aboutRgpd, key: "rgpdHtml", mode: "html" }]);
     } catch {
       /* intentional: about RGPD html i18n DOM best-effort */
     }
     try {
-      if (aboutTitleEl) aboutTitleEl.textContent = t("aboutTitle");
-      if (aboutCreditsEl) aboutCreditsEl.innerHTML = t("aboutCreditsHtml");
+      applyBindings(t, [
+        { getEl: () => d.aboutTitleEl, key: "aboutTitle" },
+        { getEl: () => d.aboutCreditsEl, key: "aboutCreditsHtml", mode: "html" }
+      ]);
     } catch {
       /* intentional: about title credits i18n best-effort */
     }
     try {
-      if (mergeBtn) mergeBtn.textContent = t("merge");
-      if (splitBtn) splitBtn.textContent = t("split");
+      applyBindings(t, [
+        { getEl: () => d.mergeBtn, key: "merge" },
+        { getEl: () => d.splitBtn, key: "split" }
+      ]);
     } catch {
       /* intentional: merge split button labels i18n */
     }
     try {
       document.title = t("appName");
-      const at = document.getElementById("appTitle");
-      if (at) at.textContent = t("appName");
-      const wt = document.getElementById("welcomeTitle");
-      if (wt) wt.textContent = t("welcomeTitle");
-      const wsub = document.getElementById("welcomeSubtitle");
-      if (wsub) wsub.innerHTML = t("welcomeSubtitleHtml");
-      const wOpen = document.getElementById("welcomeOpenPdfBtn");
-      if (wOpen) wOpen.textContent = t("openPdf");
+      applyBindings(t, [
+        { getEl: byId("appTitle"), key: "appName" },
+        { getEl: byId("welcomeTitle"), key: "welcomeTitle" },
+        { getEl: byId("welcomeSubtitle"), key: "welcomeSubtitleHtml", mode: "html" },
+        { getEl: byId("welcomeOpenPdfBtn"), key: "openPdf" }
+      ]);
     } catch {
       /* intentional: welcome screen strings i18n best-effort */
     }
+  }
+
+  function applyPropsZone(d) {
+    const { t } = d;
     setLabelPrefix("propWidth", t("width"));
     setLabelPrefix("propHeight", t("height"));
     setLabelPrefix("propRotation", t("rotation"));
@@ -311,48 +295,42 @@
     setLabelPrefix("propTextColor", t("txt"));
     setLabelPrefix("propBgColor", t("bg"));
     try {
-      const propMarginsLabel = document.getElementById("propMarginsLabel");
-      if (propMarginsLabel) propMarginsLabel.textContent = t("propMargins");
-      const propFontFamilyLabel = document.getElementById("propFontFamilyLabel");
-      if (propFontFamilyLabel) propFontFamilyLabel.textContent = t("font");
-      const propFontSizeLabel = document.getElementById("propFontSizeLabel");
-      if (propFontSizeLabel) propFontSizeLabel.textContent = t("size");
+      applyBindings(t, [
+        { getEl: byId("propMarginsLabel"), key: "propMargins" },
+        { getEl: byId("propFontFamilyLabel"), key: "font" },
+        { getEl: byId("propFontSizeLabel"), key: "size" }
+      ]);
     } catch {
       /* intentional: props panel labels i18n best-effort */
     }
-    const sfl = document.getElementById("shapeFillLabel");
-    const sfol = document.getElementById("shapeFillOpLabel");
-    const ssl = document.getElementById("shapeStrokeLabel");
-    const ssol = document.getElementById("shapeStrokeOpLabel");
-    const sswl = document.getElementById("shapeStrokeWLabel");
-    const sbd = document.getElementById("shapeBackdropLabel");
-    const sbdol = document.getElementById("shapeBackdropOpLabel");
-    if (sfl) sfl.textContent = t("shapeFill");
-    if (sfol) sfol.textContent = t("shapeFillOp");
-    if (ssl) ssl.textContent = t("shapeStroke");
-    if (ssol) ssol.textContent = t("shapeStrokeOp");
-    if (sswl) sswl.textContent = t("shapeStrokeW");
-    if (sbd) sbd.textContent = t("shapeBackdrop");
-    if (sbdol) sbdol.textContent = t("shapeBackdropOp");
-    if (!getActiveTab()) pageInfo.textContent = t("noPdf");
-    else pdfv.syncPageInfoFooter?.(getActiveTab().currentPage || 1);
-    if (toolbarF10Hint) {
-      const hint = t("f10Toolbar");
-      toolbarF10Hint.textContent = hint;
-      toolbarF10Hint.title = hint;
-    }
+    applyBindings(t, [
+      { getEl: byId("shapeFillLabel"), key: "shapeFill" },
+      { getEl: byId("shapeFillOpLabel"), key: "shapeFillOp" },
+      { getEl: byId("shapeStrokeLabel"), key: "shapeStroke" },
+      { getEl: byId("shapeStrokeOpLabel"), key: "shapeStrokeOp" },
+      { getEl: byId("shapeStrokeWLabel"), key: "shapeStrokeW" },
+      { getEl: byId("shapeBackdropLabel"), key: "shapeBackdrop" },
+      { getEl: byId("shapeBackdropOpLabel"), key: "shapeBackdropOp" }
+    ]);
+    if (!d.getActiveTab()) d.pageInfo.textContent = t("noPdf");
+    else d.pdfv.syncPageInfoFooter?.(d.getActiveTab().currentPage || 1);
+    applyBindings(t, [{ getEl: () => d.toolbarF10Hint, key: "f10Toolbar", mode: "titleAndText" }]);
+  }
+
+  function applySpellZone(d) {
     try {
-      const st = document.getElementById("ctxSpellTitleEl");
-      if (st) st.textContent = t("ctxSpellTitle");
-      const wl = document.getElementById("ctxSpellWordLabel");
-      if (wl) wl.textContent = `${t("ctxSpellWord")} :`;
-      const ad = document.getElementById("ctxSpellAddDict");
-      if (ad) ad.textContent = t("ctxSpellAddDict");
-      const rd = document.getElementById("ctxSpellRemoveDict");
-      if (rd) rd.textContent = t("ctxSpellRemoveDict");
+      applyBindings(d.t, [
+        { getEl: byId("ctxSpellTitleEl"), key: "ctxSpellTitle" },
+        { getEl: byId("ctxSpellWordLabel"), key: "ctxSpellWord", mode: "textColon" },
+        { getEl: byId("ctxSpellAddDict"), key: "ctxSpellAddDict" },
+        { getEl: byId("ctxSpellRemoveDict"), key: "ctxSpellRemoveDict" }
+      ]);
     } catch {
       /* intentional: spell ctx menu strings i18n best-effort */
     }
+  }
+
+  function applyMenusAndShapeModalZone(d) {
     try {
       applyContextMenusLanguage();
     } catch {
@@ -361,75 +339,90 @@
     applyDataTooltipsFromMap();
     applyShapeGridLanguage();
     try {
-      const smt = document.getElementById("shapeModalTitleEl");
-      if (smt) smt.textContent = t("shapePickerTitle");
-      if (shapeModal) shapeModal.setAttribute("aria-label", t("shapeModalAria"));
+      applyBindings(d.t, [
+        { getEl: byId("shapeModalTitleEl"), key: "shapePickerTitle" },
+        { getEl: () => d.shapeModal, key: "shapeModalAria", mode: "aria" }
+      ]);
     } catch {
       /* intentional: shape modal title aria i18n */
     }
+  }
+
+  function applySplitZone(d) {
     try {
-      const swt = document.getElementById("splitWorkspaceTitle");
-      if (swt) swt.textContent = t("splitWorkspaceTitle");
-      const swh = document.getElementById("splitWorkspaceHint");
-      if (swh) swh.textContent = t("splitWorkspaceHint");
-      if (splitWorkspaceAddGroupBtn) splitWorkspaceAddGroupBtn.textContent = t("splitAddGroup");
-      if (splitWorkspaceValidateBtn) splitWorkspaceValidateBtn.textContent = t("splitValidate");
-      splitWorkspaceCloseBtn?.setAttribute("aria-label", t("closeAria"));
+      applyBindings(d.t, [
+        { getEl: byId("splitWorkspaceTitle"), key: "splitWorkspaceTitle" },
+        { getEl: byId("splitWorkspaceHint"), key: "splitWorkspaceHint" },
+        { getEl: () => d.splitWorkspaceAddGroupBtn, key: "splitAddGroup" },
+        { getEl: () => d.splitWorkspaceValidateBtn, key: "splitValidate" },
+        { getEl: () => d.splitWorkspaceCloseBtn, key: "closeAria", mode: "aria" }
+      ]);
     } catch {
       /* intentional: split workspace chrome i18n best-effort */
     }
+  }
+
+  function applyColorZone(d) {
     try {
-      const mct = document.getElementById("maniColorModalTitle");
-      if (mct) mct.textContent = t("maniColorTitle");
-      const mcv = document.getElementById("maniColorValidateBtn");
-      if (mcv) mcv.textContent = t("maniColorValidate");
-      const mce = document.getElementById("maniColorEyedropper");
-      if (mce) {
-        mce.setAttribute("title", t("maniColorEyedropper"));
-        mce.setAttribute("aria-label", t("maniColorEyedropper"));
-      }
-      document.getElementById("maniColorModalClose")?.setAttribute("aria-label", t("closeAria"));
-      document
-        .querySelector("#maniColorModal .mani-color-rgb-grid")
-        ?.setAttribute("aria-label", t("maniColorRgbAria"));
+      applyBindings(d.t, [
+        { getEl: byId("maniColorModalTitle"), key: "maniColorTitle" },
+        { getEl: byId("maniColorValidateBtn"), key: "maniColorValidate" },
+        { getEl: byId("maniColorEyedropper"), key: "maniColorEyedropper", mode: "titleAndAria" },
+        { getEl: byId("maniColorModalClose"), key: "closeAria", mode: "aria" },
+        {
+          getEl: bySel("#maniColorModal .mani-color-rgb-grid"),
+          key: "maniColorRgbAria",
+          mode: "aria"
+        }
+      ]);
     } catch {
       /* intentional: mani color modal aria i18n */
     }
+  }
+
+  function applyChromeAriaZone(d) {
+    const { t } = d;
     try {
-      const del = document.getElementById("changesCtxDeleteBtn");
-      if (del) del.textContent = t("del");
+      applyBindings(t, [{ getEl: byId("changesCtxDeleteBtn"), key: "del" }]);
     } catch {
       /* intentional: changes delete button label i18n */
     }
     try {
-      document.getElementById("ctxTextBold")?.setAttribute("title", t("ctxFmtBold"));
-      document.getElementById("ctxTextItalic")?.setAttribute("title", t("ctxFmtItalic"));
-      document.getElementById("ctxTextUnderline")?.setAttribute("title", t("ctxFmtUnderline"));
+      applyBindings(t, [
+        { getEl: byId("ctxTextBold"), key: "ctxFmtBold", mode: "title" },
+        { getEl: byId("ctxTextItalic"), key: "ctxFmtItalic", mode: "title" },
+        { getEl: byId("ctxTextUnderline"), key: "ctxFmtUnderline", mode: "title" }
+      ]);
     } catch {
       /* intentional: text format button titles i18n */
     }
     try {
-      thumbsBar?.setAttribute("aria-label", t("thumbs"));
-      changesBar?.setAttribute("aria-label", t("changes"));
-      document.querySelector(".workbench")?.setAttribute("aria-label", t("ariaWorkbench"));
-      document.querySelector(".status-pages")?.setAttribute("aria-label", t("ariaNavPages"));
-      document.querySelector(".status-zoom")?.setAttribute("aria-label", t("ariaZoom"));
-      appToolbar?.setAttribute("aria-label", t("ariaAppToolbar"));
-      aboutPopover?.setAttribute("aria-label", t("aboutTitle"));
-      toolbarAboutBtn?.setAttribute("aria-label", t("about"));
-      aboutCloseBtn?.setAttribute("aria-label", t("closeAria"));
-      closeShapeModalBtn?.setAttribute("aria-label", t("closeAria"));
+      applyBindings(t, [
+        { getEl: () => d.thumbsBar, key: "thumbs", mode: "aria" },
+        { getEl: () => d.changesBar, key: "changes", mode: "aria" },
+        { getEl: bySel(".workbench"), key: "ariaWorkbench", mode: "aria" },
+        { getEl: bySel(".status-pages"), key: "ariaNavPages", mode: "aria" },
+        { getEl: bySel(".status-zoom"), key: "ariaZoom", mode: "aria" },
+        { getEl: () => d.appToolbar, key: "ariaAppToolbar", mode: "aria" },
+        { getEl: () => d.aboutPopover, key: "aboutTitle", mode: "aria" },
+        { getEl: () => d.toolbarAboutBtn, key: "about", mode: "aria" },
+        { getEl: () => d.aboutCloseBtn, key: "closeAria", mode: "aria" },
+        { getEl: () => d.closeShapeModalBtn, key: "closeAria", mode: "aria" }
+      ]);
     } catch {
       /* intentional: toolbar about aria labels i18n */
     }
+  }
+
+  function applyPostLanguageHooks(d) {
     try {
-      const tr = ensureToastRoot();
-      tr?.setAttribute?.("aria-label", t("toastAria"));
+      const tr = d.ensureToastRoot();
+      tr?.setAttribute?.("aria-label", d.t("toastAria"));
     } catch {
       /* intentional: toast root aria-label i18n best-effort */
     }
     try {
-      pdfv.updateZoomUI();
+      d.pdfv.updateZoomUI();
     } catch {
       /* intentional: updateZoomUI after language apply */
     }
@@ -438,6 +431,20 @@
     } catch {
       /* intentional: log file settings ui i18n best-effort */
     }
+  }
+
+  function applyLanguage() {
+    if (!deps) return;
+    const d = deps;
+    applyToolbarZone(d);
+    applyAboutWelcomeZone(d);
+    applyPropsZone(d);
+    applySpellZone(d);
+    applyMenusAndShapeModalZone(d);
+    applySplitZone(d);
+    applyColorZone(d);
+    applyChromeAriaZone(d);
+    applyPostLanguageHooks(d);
   }
 
   /**
