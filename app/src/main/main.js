@@ -231,6 +231,75 @@ const ALLOWED_JOB_TYPES = new Set(["merge", "split", "split_groups"]);
  * Valide le payload avant mise en file (chemins existants, sorties co-localisées avec la source).
  * @returns {string|null} message d'erreur ou null si OK
  */
+function requireExistingJobFile(label, filePath) {
+  if (!filePath || typeof filePath !== "string") {
+    return `${label} : chemin invalide.`;
+  }
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return `${label} : fichier introuvable.`;
+  }
+  return null;
+}
+
+function validateMergeJobPayload(p) {
+  if (!Array.isArray(p.inputs) || p.inputs.length < 2) {
+    return "Fusion : au moins deux fichiers PDF requis.";
+  }
+  for (let i = 0; i < p.inputs.length; i += 1) {
+    const err = requireExistingJobFile(`PDF ${i + 1}`, p.inputs[i]);
+    if (err) return err;
+  }
+  if (!p.output_path || typeof p.output_path !== "string") return "Chemin de sortie requis.";
+  if (!isOutputPdfInSameDirectoryAsInput(p.inputs[0], p.output_path)) {
+    return "La sortie doit etre dans le meme dossier que le premier PDF.";
+  }
+  return null;
+}
+
+function validateSplitJobPayload(p) {
+  const e = requireExistingJobFile("PDF source", p.input_path);
+  if (e) return e;
+  if (!p.output_path || typeof p.output_path !== "string") return "Chemin de sortie requis.";
+  if (!isOutputPdfInSameDirectoryAsInput(p.input_path, p.output_path)) {
+    return "La sortie doit etre dans le meme dossier que le PDF source.";
+  }
+  return null;
+}
+
+function validateSplitGroupEntry(inputPath, g) {
+  if (!g || typeof g !== "object") return "Groupe invalide.";
+  const op = g.output_path;
+  const indices = g.page_indices;
+  if (op && String(op).trim()) {
+    if (!isOutputPdfInSameDirectoryAsInput(inputPath, op)) {
+      return "Un chemin de sortie n'est pas dans le dossier du PDF source.";
+    }
+  }
+  if (indices != null && !Array.isArray(indices)) {
+    return "Indices de pages invalides.";
+  }
+  if (Array.isArray(indices)) {
+    for (const x of indices) {
+      const n = Number(x);
+      if (!Number.isFinite(n) || n < 1 || n > 99999) {
+        return "Indice de page invalide.";
+      }
+    }
+  }
+  return null;
+}
+
+function validateSplitGroupsJobPayload(p) {
+  const e = requireExistingJobFile("PDF source", p.input_path);
+  if (e) return e;
+  if (!Array.isArray(p.groups)) return "Structure de groupes invalide.";
+  for (const g of p.groups) {
+    const err = validateSplitGroupEntry(p.input_path, g);
+    if (err) return err;
+  }
+  return null;
+}
+
 function validateJobPayload(jobType, payload) {
   const p = payload || {};
 
@@ -238,67 +307,13 @@ function validateJobPayload(jobType, payload) {
     return "Type de job non autorise.";
   }
 
-  const requireExistingFile = (label, filePath) => {
-    if (!filePath || typeof filePath !== "string") {
-      return `${label} : chemin invalide.`;
-    }
-    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-      return `${label} : fichier introuvable.`;
-    }
-    return null;
-  };
-
   switch (jobType) {
-    case "merge": {
-      if (!Array.isArray(p.inputs) || p.inputs.length < 2) {
-        return "Fusion : au moins deux fichiers PDF requis.";
-      }
-      for (let i = 0; i < p.inputs.length; i += 1) {
-        const err = requireExistingFile(`PDF ${i + 1}`, p.inputs[i]);
-        if (err) return err;
-      }
-      if (!p.output_path || typeof p.output_path !== "string") return "Chemin de sortie requis.";
-      if (!isOutputPdfInSameDirectoryAsInput(p.inputs[0], p.output_path)) {
-        return "La sortie doit etre dans le meme dossier que le premier PDF.";
-      }
-      return null;
-    }
-    case "split": {
-      const e = requireExistingFile("PDF source", p.input_path);
-      if (e) return e;
-      if (!p.output_path || typeof p.output_path !== "string") return "Chemin de sortie requis.";
-      if (!isOutputPdfInSameDirectoryAsInput(p.input_path, p.output_path)) {
-        return "La sortie doit etre dans le meme dossier que le PDF source.";
-      }
-      return null;
-    }
-    case "split_groups": {
-      const e = requireExistingFile("PDF source", p.input_path);
-      if (e) return e;
-      if (!Array.isArray(p.groups)) return "Structure de groupes invalide.";
-      for (const g of p.groups) {
-        if (!g || typeof g !== "object") return "Groupe invalide.";
-        const op = g.output_path;
-        const indices = g.page_indices;
-        if (op && String(op).trim()) {
-          if (!isOutputPdfInSameDirectoryAsInput(p.input_path, op)) {
-            return "Un chemin de sortie n'est pas dans le dossier du PDF source.";
-          }
-        }
-        if (indices != null && !Array.isArray(indices)) {
-          return "Indices de pages invalides.";
-        }
-        if (Array.isArray(indices)) {
-          for (const x of indices) {
-            const n = Number(x);
-            if (!Number.isFinite(n) || n < 1 || n > 99999) {
-              return "Indice de page invalide.";
-            }
-          }
-        }
-      }
-      return null;
-    }
+    case "merge":
+      return validateMergeJobPayload(p);
+    case "split":
+      return validateSplitJobPayload(p);
+    case "split_groups":
+      return validateSplitGroupsJobPayload(p);
     default:
       return "Job non supporte.";
   }
