@@ -9,11 +9,48 @@ let settingsFilePath = null;
 /** @type {{ logFilePath: string | null, checkUpdatesOnStartup: boolean, lastUpdateCheckAt: string | null } | null} */
 let cached = null;
 
+/**
+ * @typedef {{
+ *   getPath?: (name: string) => string,
+ *   getInstallRoot?: () => string,
+ *   settingsFilePath?: string | null
+ * }} AppSettingsTestOverrides
+ */
+
+/** @type {AppSettingsTestOverrides | null} */
+let testOverrides = null;
+
+/**
+ * Configure les seams de test (userData / install root / chemin settings).
+ * @param {AppSettingsTestOverrides | null} [overrides]
+ */
+function configureAppSettingsForTests(overrides = null) {
+  cached = null;
+  testOverrides = overrides;
+  settingsFilePath =
+    overrides && typeof overrides.settingsFilePath === "string" ? overrides.settingsFilePath : null;
+}
+
+function resetAppSettingsForTests() {
+  configureAppSettingsForTests(null);
+}
+
 function getSettingsFilePath() {
   if (!settingsFilePath) {
-    settingsFilePath = path.join(app.getPath("userData"), "app-settings.json");
+    const getPath =
+      testOverrides && typeof testOverrides.getPath === "function"
+        ? testOverrides.getPath
+        : (name) => app.getPath(name);
+    settingsFilePath = path.join(getPath("userData"), "app-settings.json");
   }
   return settingsFilePath;
+}
+
+function resolveInstallRoot() {
+  if (testOverrides && typeof testOverrides.getInstallRoot === "function") {
+    return testOverrides.getInstallRoot();
+  }
+  return getInstallRoot();
 }
 
 /**
@@ -40,7 +77,7 @@ function loadSettings(force = false) {
 }
 
 /**
- * @param {{ logFilePath?: string | null }} patch
+ * @param {{ logFilePath?: string | null, checkUpdatesOnStartup?: boolean, lastUpdateCheckAt?: string | null }} patch
  */
 function saveSettings(patch) {
   const next = { ...loadSettings(), ...patch };
@@ -75,13 +112,16 @@ function setCustomLogFilePath(filePath) {
 }
 
 function getDefaultLogFilePath() {
-  return path.join(getInstallRoot(), "logs.txt");
+  return path.join(resolveInstallRoot(), "logs.txt");
 }
 
 function getEnvLogOverride() {
   return process.env.EDITRADOC_LOG_PATH || process.env.MANI_PDF_LOG_PATH || null;
 }
 
+/**
+ * @param {(() => string) | undefined} [getEffectiveLogFilePath]
+ */
 function getLogFileSettingsInfo(getEffectiveLogFilePath) {
   loadSettings();
   const envOverride = getEnvLogOverride();
@@ -133,5 +173,7 @@ module.exports = {
   getUpdateSettings,
   setCheckUpdatesOnStartup,
   setLastUpdateCheckAt,
-  normalizeAndValidateLogFilePath
+  normalizeAndValidateLogFilePath,
+  configureAppSettingsForTests,
+  resetAppSettingsForTests
 };
