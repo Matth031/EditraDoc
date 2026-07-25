@@ -263,20 +263,185 @@
     return true;
   }
 
-  function applyEditifyColorAfterPicker(inputEl) {
-    const d = requireDeps();
+  /** Marque les flags « touched » avant apply (comportement actuel inchangé). */
+  function markColorTouchedFlags(id, d) {
+    const propBgColor = /** @type {HTMLInputElement | null} */ (d.propBgColor);
+    if (id === "propBgColor" && propBgColor) {
+      propBgColor.dataset.touched = "1";
+    }
+    if (id === "ctxTextBg") {
+      const bg = document.getElementById("ctxTextBg");
+      if (bg) bg.dataset.ctxTouched = "1";
+    }
+    if (id === "ctxShapeBackdrop") {
+      const bd = document.getElementById("ctxShapeBackdrop");
+      if (bd) bd.dataset.ctxTouched = "1";
+    }
+  }
+
+  function restoreTextCtxBackup(tcm, logText) {
+    if (!tcm.getTextCtxMenuTargetId() && globalThis.__editifyCtxTextBackup) {
+      tcm.setTextCtxMenuTargetId(globalThis.__editifyCtxTextBackup);
+      logText("maniColorRestoreTextCtx", { textCtxMenuTargetId: tcm.getTextCtxMenuTargetId() });
+    }
+  }
+
+  function applyCtxTextColor(id, hex, d) {
+    const logText = /** @type {(tag: string, data?: object) => void} */ (d.logText);
+    const tcm = /** @type {Record<string, Function>} */ (d.tcm);
+
+    restoreTextCtxBackup(tcm, logText);
+    try {
+      tcm.ensureTextAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
+    } catch {
+      /* intentional: show text ctx menu after color best-effort */
+    }
+    logText("maniColorBranchCtxText", {
+      id,
+      textCtxMenuTargetId: tcm.getTextCtxMenuTargetId(),
+      hex
+    });
+    try {
+      if (!clickEditifyColorValidateButtonForInputId(id)) {
+        logText("maniColorCtxTextFallbackApply", { id });
+        tcm.applyTextCtxMenuBoxProps();
+      }
+      window.maniPdfApi?.log?.("maniColor ctx text applied", { id, via: "clickOrFallback" });
+    } catch {
+      try {
+        tcm.applyTextCtxMenuBoxProps();
+      } catch (error) {
+        globalThis.__editifyReportWarn?.(
+          "props:textCtxColorFallback",
+          String(error?.message || error)
+        );
+      }
+    }
+    globalThis.__editifyCtxTextBackup = undefined;
+  }
+
+  function restoreShapeCtxBackup(sim, logText) {
+    if (!sim.getShapeCtxMenuTargetId() && globalThis.__editifyCtxShapeBackup) {
+      sim.setShapeCtxMenuTargetId(globalThis.__editifyCtxShapeBackup);
+      logText("maniColorRestoreShapeCtx", {
+        shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId()
+      });
+    }
+  }
+
+  function applyCtxShapeColor(id, hex, d) {
+    const logText = /** @type {(tag: string, data?: object) => void} */ (d.logText);
+    const sim = /** @type {Record<string, Function>} */ (d.sim);
+
+    restoreShapeCtxBackup(sim, logText);
+    try {
+      sim.ensureShapeAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
+    } catch {
+      /* intentional: show shape ctx menu after color best-effort */
+    }
+    logText("maniColorBranchCtxShape", {
+      id,
+      shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId(),
+      hex
+    });
+    try {
+      if (!clickEditifyColorValidateButtonForInputId(id)) {
+        logText("maniColorCtxShapeFallbackApply", { id });
+        sim.applyShapeCtxMenuProps();
+      }
+      window.maniPdfApi?.log?.("maniColor ctx shape applied", { id, via: "clickOrFallback" });
+    } catch {
+      try {
+        sim.applyShapeCtxMenuProps();
+      } catch (error) {
+        globalThis.__editifyReportWarn?.(
+          "props:shapeCtxColorFallback",
+          String(error?.message || error)
+        );
+      }
+    }
+    globalThis.__editifyCtxShapeBackup = undefined;
+  }
+
+  function applyPropPanelColor(id, d) {
     const state = /** @type {{ selectedAnnotationId: string | null }} */ (d.state);
     const getActiveTab = /** @type {() => object | null} */ (d.getActiveTab);
     const getSelectedAnnotation = /** @type {() => object | null} */ (d.getSelectedAnnotation);
     const logText = /** @type {(tag: string, data?: object) => void} */ (d.logText);
-    const tcm = /** @type {Record<string, Function>} */ (d.tcm);
-    const sim = /** @type {Record<string, Function>} */ (d.sim);
-    const propBgColor = /** @type {HTMLInputElement | null} */ (d.propBgColor);
     const propShapeFill = /** @type {HTMLInputElement | null} */ (d.propShapeFill);
-    const propShapeStrokeWidth = /** @type {HTMLInputElement | null} */ (d.propShapeStrokeWidth);
     const propShapeFillOpacity = /** @type {HTMLInputElement | null} */ (d.propShapeFillOpacity);
     const propTextColor = /** @type {HTMLInputElement | null} */ (d.propTextColor);
     const SHAPE_TYPES = /** @type {Set<string>} */ (d.SHAPE_TYPES);
+
+    const tab = getActiveTab();
+    if (!tab) {
+      logText("maniColorNoTab", { id });
+      return;
+    }
+
+    const beforeSel = state.selectedAnnotationId;
+    if (
+      !getSelectedAnnotation() &&
+      globalThis.__editifyColorSelectionBackup != null &&
+      globalThis.__editifyColorSelectionBackup !== ""
+    ) {
+      state.selectedAnnotationId = globalThis.__editifyColorSelectionBackup;
+      logText("maniColorRestoreSel", { from: beforeSel, to: state.selectedAnnotationId });
+    }
+    globalThis.__editifyColorSelectionBackup = undefined;
+
+    const item = getSelectedAnnotation();
+    logText("maniColorBeforeApplySelected", {
+      hasItem: Boolean(item),
+      type: item?.type,
+      branchShape: Boolean(
+        item && SHAPE_TYPES.has(item.type) && propShapeFill && propShapeFillOpacity
+      )
+    });
+
+    if (!item) {
+      logText("maniColorNoItem", { id, selectedId: state.selectedAnnotationId });
+      return;
+    }
+
+    try {
+      if (!clickEditifyColorValidateButtonForInputId(id)) {
+        applySelectedProperties();
+      }
+      const after = getSelectedAnnotation();
+      window.maniPdfApi?.log?.("maniColor panel validate click", {
+        id,
+        type: item.type,
+        textColor: after?.type === "text" ? after.textColor : undefined,
+        fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined,
+        propTextVal: id === "propTextColor" ? propTextColor?.value : undefined
+      });
+      logText("maniColorPanelDone", {
+        id,
+        type: item.type,
+        textColor: after?.type === "text" ? after.textColor : undefined,
+        fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined
+      });
+    } catch {
+      try {
+        applySelectedProperties();
+      } catch (error) {
+        globalThis.__editifyReportWarn?.(
+          "props:applySelectedFallback",
+          String(error?.message || error)
+        );
+      }
+    }
+  }
+
+  function applyEditifyColorAfterPicker(inputEl) {
+    const d = requireDeps();
+    const state = /** @type {{ selectedAnnotationId: string | null }} */ (d.state);
+    const logText = /** @type {(tag: string, data?: object) => void} */ (d.logText);
+    const tcm = /** @type {Record<string, Function>} */ (d.tcm);
+    const sim = /** @type {Record<string, Function>} */ (d.sim);
+    const propShapeFill = /** @type {HTMLInputElement | null} */ (d.propShapeFill);
+    const propShapeStrokeWidth = /** @type {HTMLInputElement | null} */ (d.propShapeStrokeWidth);
 
     try {
       const id = inputEl?.id || "";
@@ -302,148 +467,17 @@
       }
       if (!id) return;
 
-      if (id === "propBgColor" && propBgColor) {
-        propBgColor.dataset.touched = "1";
-      }
-      if (id === "ctxTextBg") {
-        const bg = document.getElementById("ctxTextBg");
-        if (bg) bg.dataset.ctxTouched = "1";
-      }
-      if (id === "ctxShapeBackdrop") {
-        const bd = document.getElementById("ctxShapeBackdrop");
-        if (bd) bd.dataset.ctxTouched = "1";
-      }
+      markColorTouchedFlags(id, d);
 
       if (id === "ctxTextColor" || id === "ctxTextBg") {
-        if (!tcm.getTextCtxMenuTargetId() && globalThis.__editifyCtxTextBackup) {
-          tcm.setTextCtxMenuTargetId(globalThis.__editifyCtxTextBackup);
-          logText("maniColorRestoreTextCtx", { textCtxMenuTargetId: tcm.getTextCtxMenuTargetId() });
-        }
-        try {
-          tcm.ensureTextAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
-        } catch {
-          /* intentional: show text ctx menu after color best-effort */
-        }
-        logText("maniColorBranchCtxText", {
-          id,
-          textCtxMenuTargetId: tcm.getTextCtxMenuTargetId(),
-          hex
-        });
-        try {
-          if (!clickEditifyColorValidateButtonForInputId(id)) {
-            logText("maniColorCtxTextFallbackApply", { id });
-            tcm.applyTextCtxMenuBoxProps();
-          }
-          window.maniPdfApi?.log?.("maniColor ctx text applied", { id, via: "clickOrFallback" });
-        } catch {
-          try {
-            tcm.applyTextCtxMenuBoxProps();
-          } catch (error) {
-            globalThis.__editifyReportWarn?.(
-              "props:textCtxColorFallback",
-              String(error?.message || error)
-            );
-          }
-        }
-        globalThis.__editifyCtxTextBackup = undefined;
+        applyCtxTextColor(id, hex, d);
         return;
       }
       if (id.startsWith("ctxShape")) {
-        if (!sim.getShapeCtxMenuTargetId() && globalThis.__editifyCtxShapeBackup) {
-          sim.setShapeCtxMenuTargetId(globalThis.__editifyCtxShapeBackup);
-          logText("maniColorRestoreShapeCtx", {
-            shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId()
-          });
-        }
-        try {
-          sim.ensureShapeAnnotationCtxMenuEl()?.classList?.remove?.("hidden");
-        } catch {
-          /* intentional: show shape ctx menu after color best-effort */
-        }
-        logText("maniColorBranchCtxShape", {
-          id,
-          shapeCtxMenuTargetId: sim.getShapeCtxMenuTargetId(),
-          hex
-        });
-        try {
-          if (!clickEditifyColorValidateButtonForInputId(id)) {
-            logText("maniColorCtxShapeFallbackApply", { id });
-            sim.applyShapeCtxMenuProps();
-          }
-          window.maniPdfApi?.log?.("maniColor ctx shape applied", { id, via: "clickOrFallback" });
-        } catch {
-          try {
-            sim.applyShapeCtxMenuProps();
-          } catch (error) {
-            globalThis.__editifyReportWarn?.(
-              "props:shapeCtxColorFallback",
-              String(error?.message || error)
-            );
-          }
-        }
-        globalThis.__editifyCtxShapeBackup = undefined;
+        applyCtxShapeColor(id, hex, d);
         return;
       }
-
-      const tab = getActiveTab();
-      if (!tab) {
-        logText("maniColorNoTab", { id });
-        return;
-      }
-
-      const beforeSel = state.selectedAnnotationId;
-      if (
-        !getSelectedAnnotation() &&
-        globalThis.__editifyColorSelectionBackup != null &&
-        globalThis.__editifyColorSelectionBackup !== ""
-      ) {
-        state.selectedAnnotationId = globalThis.__editifyColorSelectionBackup;
-        logText("maniColorRestoreSel", { from: beforeSel, to: state.selectedAnnotationId });
-      }
-      globalThis.__editifyColorSelectionBackup = undefined;
-
-      const item = getSelectedAnnotation();
-      logText("maniColorBeforeApplySelected", {
-        hasItem: Boolean(item),
-        type: item?.type,
-        branchShape: Boolean(
-          item && SHAPE_TYPES.has(item.type) && propShapeFill && propShapeFillOpacity
-        )
-      });
-
-      if (!item) {
-        logText("maniColorNoItem", { id, selectedId: state.selectedAnnotationId });
-        return;
-      }
-
-      try {
-        if (!clickEditifyColorValidateButtonForInputId(id)) {
-          applySelectedProperties();
-        }
-        const after = getSelectedAnnotation();
-        window.maniPdfApi?.log?.("maniColor panel validate click", {
-          id,
-          type: item.type,
-          textColor: after?.type === "text" ? after.textColor : undefined,
-          fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined,
-          propTextVal: id === "propTextColor" ? propTextColor?.value : undefined
-        });
-        logText("maniColorPanelDone", {
-          id,
-          type: item.type,
-          textColor: after?.type === "text" ? after.textColor : undefined,
-          fillColor: after && SHAPE_TYPES.has(after.type) ? after.fillColor : undefined
-        });
-      } catch {
-        try {
-          applySelectedProperties();
-        } catch (error) {
-          globalThis.__editifyReportWarn?.(
-            "props:applySelectedFallback",
-            String(error?.message || error)
-          );
-        }
-      }
+      applyPropPanelColor(id, d);
     } catch (e) {
       logText("maniColorCommitErr", { err: String(e) });
     }
