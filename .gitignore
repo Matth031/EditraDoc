@@ -30,6 +30,7 @@ logs.txt
 logs.txt.1
 error-metrics.json
 *.tmp
+app/tmp/
 __pycache__/
 *.pyc
 Thumbs.db
