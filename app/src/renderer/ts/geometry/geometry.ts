@@ -128,7 +128,7 @@ declare global {
           zh: zone.height
         });
       } catch {
-        /* ignore */
+        /* intentional: clampRect debug log best-effort */
       }
     }
   }
