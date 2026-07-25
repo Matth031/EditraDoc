@@ -114,8 +114,9 @@ test("INVARIANT S19 : EDITRADOC_EXPORT_AUDIT absent — isExportAuditEnabled fal
 
 test("INVARIANT S19 : EDITRADOC_EXPORT_AUDIT absent — aucune ecriture audit Python", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-invariant-s19-"));
-  const logPath = path.join(tmp, "audit-lock.log");
-  const script = `
+  try {
+    const logPath = path.join(tmp, "audit-lock.log");
+    const script = `
 import os, sys
 sys.path.insert(0, ${JSON.stringify(PY_DIR)})
 os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)
@@ -123,9 +124,12 @@ os.environ["EDITRADOC_LOG_PATH"] = ${JSON.stringify(logPath)}
 from pdf_ops import _export_audit_log
 _export_audit_log("invariant_must_not_write", {"page": 1})
 `;
-  const res = runPython(script);
-  assert.equal(res.status, 0, res.stderr || res.stdout);
-  assert.equal(fs.existsSync(logPath), false, "fichier audit cree sans EDITRADOC_EXPORT_AUDIT=1");
+    const res = runPython(script);
+    assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.equal(fs.existsSync(logPath), false, "fichier audit cree sans EDITRADOC_EXPORT_AUDIT=1");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test("INVARIANT S19 : scope export-audit exige verbose (pas de contournement)", () => {
@@ -351,33 +355,34 @@ with tempfile.TemporaryDirectory() as tmp:
 test("INVARIANT S4 : service Python indisponible — ouverture PDF refusee (fail-closed)", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-invariant-s4-"));
   const pdfPath = path.join(dir, "doc.pdf");
-  fs.writeFileSync(pdfPath, "%PDF-1.4\n%EOF\n");
+  try {
+    fs.writeFileSync(pdfPath, "%PDF-1.4\n%EOF\n");
 
-  let calls = 0;
-  const validation = await validatePdfWithPython(pdfPath, {
-    getPostHeaders: () => ({ "Content-Type": "application/json" }),
-    httpRequest: () => {
-      calls += 1;
-      return networkErrorRequest();
-    },
-    sleep: async () => {}
-  });
+    let calls = 0;
+    const validation = await validatePdfWithPython(pdfPath, {
+      getPostHeaders: () => ({ "Content-Type": "application/json" }),
+      httpRequest: () => {
+        calls += 1;
+        return networkErrorRequest();
+      },
+      sleep: async () => {}
+    });
 
-  const openResult = evaluatePdfOpen(pdfPath, {
-    exists: true,
-    fileSize: fs.statSync(pdfPath).size,
-    validation
-  });
+    const openResult = evaluatePdfOpen(pdfPath, {
+      exists: true,
+      fileSize: fs.statSync(pdfPath).size,
+      validation
+    });
 
-  assert.equal(calls, MAX_VALIDATION_ATTEMPTS);
-  assert.equal(validation.ok, false);
-  assert.equal(validation.errorCode, VALIDATION_ERROR_CODES.VALIDATION_SERVICE_UNAVAILABLE);
-  assert.equal(validation.error, VALIDATION_MESSAGES.SERVICE_UNAVAILABLE);
-  assert.equal(openResult.ok, false);
-  assert.match(String(openResult.error || ""), /indisponible|échouée|Validation/i);
-
-  fs.unlinkSync(pdfPath);
-  fs.rmdirSync(dir);
+    assert.equal(calls, MAX_VALIDATION_ATTEMPTS);
+    assert.equal(validation.ok, false);
+    assert.equal(validation.errorCode, VALIDATION_ERROR_CODES.VALIDATION_SERVICE_UNAVAILABLE);
+    assert.equal(validation.error, VALIDATION_MESSAGES.SERVICE_UNAVAILABLE);
+    assert.equal(openResult.ok, false);
+    assert.match(String(openResult.error || ""), /indisponible|échouée|Validation/i);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // --- S5 : sanitization HTML annotations texte ---

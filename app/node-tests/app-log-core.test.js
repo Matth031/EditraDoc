@@ -44,8 +44,9 @@ test("export audit : aucune ecriture Python sans EDITRADOC_EXPORT_AUDIT=1", () =
   const { spawnSync } = require("node:child_process");
   const pyDir = path.join(__dirname, "..", "python");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-audit-"));
-  const logPath = path.join(tmp, "audit-guard.log");
-  const script = `
+  try {
+    const logPath = path.join(tmp, "audit-guard.log");
+    const script = `
 import os, sys
 sys.path.insert(0, ${JSON.stringify(pyDir)})
 os.environ.pop("EDITRADOC_EXPORT_AUDIT", None)
@@ -53,13 +54,16 @@ os.environ["EDITRADOC_LOG_PATH"] = ${JSON.stringify(logPath)}
 from pdf_ops import _export_audit_log
 _export_audit_log("must_not_write", {"page": 1})
 `;
-  const py =
-    process.platform === "win32"
-      ? path.join(__dirname, "..", "bundle-python", "win", "python.exe")
-      : "python3";
-  const res = spawnSync(py, ["-c", script], { encoding: "utf8" });
-  assert.equal(res.status, 0, res.stderr || res.stdout);
-  assert.equal(fs.existsSync(logPath), false);
+    const py =
+      process.platform === "win32"
+        ? path.join(__dirname, "..", "bundle-python", "win", "python.exe")
+        : "python3";
+    const res = spawnSync(py, ["-c", script], { encoding: "utf8" });
+    assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.equal(fs.existsSync(logPath), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test("redactTextPreviewForLog : metadonnees sans contenu lisible", () => {

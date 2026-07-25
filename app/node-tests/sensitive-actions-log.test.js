@@ -1,4 +1,4 @@
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -21,12 +21,24 @@ function sensitiveKey(a) {
   return `${a.ts}|${a.type}|${a.status}|${a.inputPath}|${a.outputPath}`;
 }
 
+/** @type {string[]} */
+const tmpDirs = [];
+
 function tempLogPath() {
-  return path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-sensitive-")),
-    "sensitive-actions.json"
-  );
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "editradoc-sensitive-"));
+  tmpDirs.push(dir);
+  return path.join(dir, "sensitive-actions.json");
 }
+
+after(() => {
+  for (const dir of tmpDirs) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* intentional: tmp cleanup best-effort */
+    }
+  }
+});
 
 test("garde : champ interdit (password) leve ForbiddenSensitiveFieldError", () => {
   const log = createSensitiveActionsLog({ filePath: tempLogPath() });
