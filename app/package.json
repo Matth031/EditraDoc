@@ -51,7 +51,8 @@
     "exclude": [
       "src/main/main.js",
       "src/main/preload.js",
-      "src/main/logger.js"
+      "src/main/logger.js",
+      "src/main/install-path.js"
     ],
     "reporter": [
       "text",

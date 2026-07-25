@@ -27,6 +27,7 @@ const MISSING_ASSETS_SCRIPT = `
  * Session Electron bloquant toute requête hors schéma file://.
  * @returns {{ session: import("electron").Session, wasRemoteBlocked: () => boolean }}
  */
+/* c8 ignore start -- L6: session Electron; E2E AC-HTML-01/02/03 */
 function createLocalFileOnlySession() {
   let blockedRemote = false;
   const ses = session.fromPartition(`editify-html-pdf-${Date.now()}-${Math.random()}`);
@@ -43,12 +44,14 @@ function createLocalFileOnlySession() {
     wasRemoteBlocked: () => blockedRemote
   };
 }
+/* c8 ignore stop */
 
 /**
  * @param {import("electron").BrowserWindow} win
  * @param {string} filePath
  * @param {number} timeoutMs
  */
+/* c8 ignore start -- L6: BrowserWindow.loadFile; E2E AC-HTML-* */
 async function loadFileWithTimeout(win, filePath, timeoutMs) {
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timerId;
@@ -63,11 +66,13 @@ async function loadFileWithTimeout(win, filePath, timeoutMs) {
     if (timerId !== undefined) clearTimeout(timerId);
   }
 }
+/* c8 ignore stop */
 
 /**
  * @param {import("electron").WebContents} webContents
  * @returns {Promise<string[]>}
  */
+/* c8 ignore start -- L6: webContents.executeJavaScript; E2E AC-HTML-03 */
 async function detectMissingImageAssets(webContents) {
   try {
     const result = await webContents.executeJavaScript(MISSING_ASSETS_SCRIPT);
@@ -77,14 +82,17 @@ async function detectMissingImageAssets(webContents) {
     return [];
   }
 }
+/* c8 ignore stop */
 
 /**
  * @param {import("electron").WebContents} webContents
  * @returns {Promise<Buffer>}
  */
+/* c8 ignore start -- L6: printToPDF Electron; E2E AC-HTML-* */
 async function renderPdfBuffer(webContents) {
   return webContents.printToPDF(PRINT_TO_PDF_OPTIONS);
 }
+/* c8 ignore stop */
 
 /**
  * @param {unknown} error
@@ -104,6 +112,7 @@ function toConversionError(error) {
  * @param {unknown} [outputPath]
  * @returns {Promise<{ ok: true, outputPath: string, missingAssets: string[], blockedRemote: boolean } | { ok: false, error: string }>}
  */
+/* c8 ignore start -- L6: BrowserWindow orchestration; E2E AC-HTML-01/02/03 */
 async function convertHtmlToPdf(inputPath, outputPath) {
   const validation = validateHtmlToPdfPaths(inputPath, outputPath);
   if (!validation.ok) {
@@ -156,6 +165,7 @@ async function convertHtmlToPdf(inputPath, outputPath) {
     }
   }
 }
+/* c8 ignore stop */
 
 module.exports = {
   convertHtmlToPdf,

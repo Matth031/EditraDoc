@@ -36,6 +36,7 @@ function isPortListening(port, deps = {}) {
  * @param {number} port
  * @returns {number | null}
  */
+/* c8 ignore start -- L6: shell netstat/lsof OS-specifique */
 function findListeningPidOnPort(port) {
   if (process.platform === "win32") {
     try {
@@ -65,10 +66,12 @@ function findListeningPidOnPort(port) {
     return null;
   }
 }
+/* c8 ignore stop */
 
 /**
  * @param {number} pid
  */
+/* c8 ignore start -- L6: taskkill / SIGKILL destructif */
 function killProcessTree(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return;
   try {
@@ -81,6 +84,7 @@ function killProcessTree(pid) {
     /* intentional: process already exited */
   }
 }
+/* c8 ignore stop */
 
 /**
  * Libère le port local s'il est occupé (ex. service Python orphelin après E2E).
