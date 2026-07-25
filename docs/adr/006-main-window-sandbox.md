@@ -2,7 +2,9 @@
 
 ## Statut
 
-Proposé (en attente validation commit S11)
+Accepté
+
+Validé en conditions réelles le **2026-07-25** (audit de clôture post-S11 + 5 lots complexité, HEAD `e8965ad` puis preuves sur install NSIS) : `sandbox: true` dans l’asar installé (`createWindow`), `getLastWebPreferences().sandbox === true` sur `%LOCALAPPDATA%\EditraDoc-closure2-test\EditraDoc.exe`, Python embarqué + open PDF + export + S2 (POST `/validate` sans token → 401). Commit d’activation S11 : `f8a6abb`.
 
 ## Date
 
