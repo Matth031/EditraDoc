@@ -20,11 +20,31 @@ const MAX_BODY_BYTES = 64 * 1024;
 let lastStatus = null;
 
 /**
+ * @typedef {{
+ *   request?: typeof https.request
+ * }} FetchTextUrlDeps
+ */
+
+/**
+ * @typedef {{
+ *   fetchTextUrl?: (url: string, timeoutMs?: number) => Promise<{ ok: boolean, statusCode?: number, body?: string, error?: string }>,
+ *   getInstalledVersion?: () => string,
+ *   getUpdateSettings?: () => { checkUpdatesOnStartup: boolean, lastUpdateCheckAt: string | null },
+ *   setLastUpdateCheckAt?: (iso: string) => void,
+ *   logInfo?: typeof logInfo,
+ *   logWarn?: typeof logWarn
+ * }} CheckForUpdatesDeps
+ */
+
+/**
  * @param {string} url
- * @param {number} timeoutMs
+ * @param {number} [timeoutMs]
+ * @param {FetchTextUrlDeps} [deps]
  * @returns {Promise<{ ok: boolean, statusCode?: number, body?: string, error?: string }>}
  */
-function fetchTextUrl(url, timeoutMs = REQUEST_TIMEOUT_MS) {
+function fetchTextUrl(url, timeoutMs = REQUEST_TIMEOUT_MS, deps = {}) {
+  const request = deps.request || ((options, callback) => https.request(options, callback));
+
   return new Promise((resolve) => {
     let settled = false;
     /** @param {{ ok: boolean, statusCode?: number, body?: string, error?: string }} result */
@@ -47,7 +67,7 @@ function fetchTextUrl(url, timeoutMs = REQUEST_TIMEOUT_MS) {
       return;
     }
 
-    const req = https.request(
+    const req = request(
       {
         method: "GET",
         hostname: parsed.hostname,
@@ -67,7 +87,7 @@ function fetchTextUrl(url, timeoutMs = REQUEST_TIMEOUT_MS) {
               finish({ ok: false, statusCode, error: "REDIRECT_NOT_ALLOWED" });
               return;
             }
-            fetchTextUrl(next.toString(), timeoutMs).then(finish);
+            fetchTextUrl(next.toString(), timeoutMs, deps).then(finish);
           } catch {
             finish({ ok: false, statusCode, error: "REDIRECT_INVALID" });
           }
@@ -112,10 +132,14 @@ function fetchTextUrl(url, timeoutMs = REQUEST_TIMEOUT_MS) {
   });
 }
 
-function buildStatusBase() {
+/**
+ * @param {CheckForUpdatesDeps} [deps]
+ */
+function buildStatusBase(deps = {}) {
+  const getVersion = deps.getInstalledVersion || getInstalledVersion;
   return {
     ok: true,
-    installedVersion: getInstalledVersion(),
+    installedVersion: getVersion(),
     updateAvailable: false,
     remoteVersion: null,
     downloadUrl: null,
@@ -128,14 +152,22 @@ function buildStatusBase() {
 
 /**
  * @param {{ force?: boolean, manifestUrl?: string }} [options]
+ * @param {CheckForUpdatesDeps} [deps]
  */
-async function checkForUpdates(options = {}) {
+async function checkForUpdates(options = {}, deps = {}) {
   const force = Boolean(options.force);
-  const settings = appSettings.getUpdateSettings();
+  const fetch = deps.fetchTextUrl || fetchTextUrl;
+  const getSettings = deps.getUpdateSettings || (() => appSettings.getUpdateSettings());
+  const setLastCheck =
+    deps.setLastUpdateCheckAt || ((iso) => appSettings.setLastUpdateCheckAt(iso));
+  const logI = deps.logInfo || logInfo;
+  const logW = deps.logWarn || logWarn;
+
+  const settings = getSettings();
   if (!force && !settings.checkUpdatesOnStartup) {
     return (
       lastStatus || {
-        ...buildStatusBase(),
+        ...buildStatusBase(deps),
         skipped: true,
         reason: "OPT_IN_DISABLED"
       }
@@ -144,7 +176,7 @@ async function checkForUpdates(options = {}) {
   if (!force && !shouldRunPeriodicUpdateCheck(settings.lastUpdateCheckAt)) {
     return (
       lastStatus || {
-        ...buildStatusBase(),
+        ...buildStatusBase(deps),
         skipped: true,
         reason: "RECENTLY_CHECKED"
       }
@@ -152,10 +184,10 @@ async function checkForUpdates(options = {}) {
   }
 
   const manifestUrl = String(options.manifestUrl || DEFAULT_MANIFEST_URL);
-  const installedVersion = getInstalledVersion();
-  const base = buildStatusBase();
+  const installedVersion = (deps.getInstalledVersion || getInstalledVersion)();
+  const base = buildStatusBase(deps);
 
-  const fetched = await fetchTextUrl(manifestUrl);
+  const fetched = await fetch(manifestUrl);
   if (!fetched.ok || !fetched.body) {
     const status = {
       ...base,
@@ -164,7 +196,7 @@ async function checkForUpdates(options = {}) {
       httpStatus: fetched.statusCode ?? null
     };
     lastStatus = status;
-    logWarn("update", "Echec lecture manifeste", {
+    logW("update", "Echec lecture manifeste", {
       errorCode: status.errorCode,
       httpStatus: status.httpStatus
     });
@@ -205,17 +237,20 @@ async function checkForUpdates(options = {}) {
     errorCode: null
   };
   lastStatus = status;
-  appSettings.setLastUpdateCheckAt(status.checkedAt);
-  logInfo("update", updateAvailable ? "Mise a jour disponible" : "Version a jour", {
+  setLastCheck(status.checkedAt);
+  logI("update", updateAvailable ? "Mise a jour disponible" : "Version a jour", {
     installedVersion,
     remoteVersion: remote.version
   });
   return status;
 }
 
-function getUpdateStatus() {
+/**
+ * @param {CheckForUpdatesDeps} [deps]
+ */
+function getUpdateStatus(deps = {}) {
   if (lastStatus) return lastStatus;
-  return buildStatusBase();
+  return buildStatusBase(deps);
 }
 
 function resetUpdateStatusForTests() {
@@ -227,5 +262,7 @@ module.exports = {
   fetchTextUrl,
   checkForUpdates,
   getUpdateStatus,
-  resetUpdateStatusForTests
+  resetUpdateStatusForTests,
+  MAX_BODY_BYTES,
+  REQUEST_TIMEOUT_MS
 };
