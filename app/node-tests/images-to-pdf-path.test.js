@@ -32,6 +32,14 @@ test("validateImagesToPdfPaths : co-localisation", () => {
   }
 });
 
+test("validateImagesToPdfPaths : S1 sortie hors dossier → rejet", () => {
+  const dir = path.join(os.tmpdir(), "imgs-s1");
+  const other = path.join(os.tmpdir(), "other-s1", "out.pdf");
+  const r = validateImagesToPdfPaths([path.join(dir, "a.png")], other);
+  assert.equal(r.ok, false);
+  assert.match(String(r.error), /même dossier/i);
+});
+
 test("validateImagesToPdfPaths : aucune image", () => {
   const r = validateImagesToPdfPaths([]);
   assert.equal(r.ok, false);
