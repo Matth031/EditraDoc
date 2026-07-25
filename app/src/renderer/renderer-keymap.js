@@ -44,62 +44,73 @@
     );
   }
 
+  /** @returns {boolean} true si l'événement a été consommé */
+  function handleF10(event, d) {
+    if (event.key !== "F10") return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const chrome = /** @type {{ toggleHtmlToolbarF10: (src: string) => void }} */ (d.chrome);
+    chrome.toggleHtmlToolbarF10("renderer-keydown");
+    return true;
+  }
+
   /**
-   * @param {KeyboardEvent} event
+   * Cascade Escape (ordre volontaire, lisible) :
+   * 1) modal formes → 2) flyouts toolbar → 3) fin d'édition texte.
+   * @returns {boolean} true si consommé
    */
-  function handleKeydown(event) {
-    const d = requireDeps();
-    const state = /** @type {{
-        editingAnnotationId: string | null,
-        selectedAnnotationId: string | null,
-        clipboard: object | null
-      }} */ (d.state);
-    const chrome = /** @type {{
-        toggleHtmlToolbarF10: (src: string) => void,
-        closeAllFlyoutMenus: () => void
-      }} */ (d.chrome);
+  function handleEscapeStack(event, d) {
+    if (event.key !== "Escape") return false;
+
+    const state = /** @type {{ editingAnnotationId: string | null }} */ (d.state);
+    const chrome = /** @type {{ closeAllFlyoutMenus: () => void }} */ (d.chrome);
     const shapeModal = /** @type {HTMLElement} */ (d.shapeModal);
     const closeShapePicker = /** @type {() => void} */ (d.closeShapePicker);
     const pdfToolsMenu = /** @type {HTMLElement | null} */ (d.pdfToolsMenu);
     const toolbarFileMenu = /** @type {HTMLElement | null} */ (d.toolbarFileMenu);
     const toolbarOptionsMenu = /** @type {HTMLElement | null} */ (d.toolbarOptionsMenu);
 
-    if (event.key === "F10") {
-      event.preventDefault();
-      event.stopPropagation();
-      chrome.toggleHtmlToolbarF10("renderer-keydown");
-      return;
-    }
-
-    if (event.key === "Escape" && !shapeModal.classList.contains("hidden")) {
+    if (!shapeModal.classList.contains("hidden")) {
       event.preventDefault();
       closeShapePicker();
-      return;
+      return true;
     }
 
-    if (event.key === "Escape") {
-      const anyFlyout =
-        (pdfToolsMenu && !pdfToolsMenu.classList.contains("hidden")) ||
-        (toolbarFileMenu && !toolbarFileMenu.classList.contains("hidden")) ||
-        (toolbarOptionsMenu && !toolbarOptionsMenu.classList.contains("hidden"));
-      if (anyFlyout) {
-        event.preventDefault();
-        chrome.closeAllFlyoutMenus();
-        return;
-      }
+    const anyFlyout =
+      (pdfToolsMenu && !pdfToolsMenu.classList.contains("hidden")) ||
+      (toolbarFileMenu && !toolbarFileMenu.classList.contains("hidden")) ||
+      (toolbarOptionsMenu && !toolbarOptionsMenu.classList.contains("hidden"));
+    if (anyFlyout) {
+      event.preventDefault();
+      chrome.closeAllFlyoutMenus();
+      return true;
     }
 
     // E6-S2: en mode édition texte, ESC doit terminer l'édition (sans perdre le texte).
-    if (event.key === "Escape" && state.editingAnnotationId) {
+    if (state.editingAnnotationId) {
       event.preventDefault();
       const endTextEditOnEscape = /** @type {() => void} */ (d.endTextEditOnEscape);
       endTextEditOnEscape();
-      return;
+      return true;
     }
 
-    if (isTypingContext(event.target) || state.editingAnnotationId) return;
+    return false;
+  }
 
-    const key = event.key.toLowerCase();
+  /**
+   * Clipboard annotations (Ctrl/Cmd+C/X/V), hors Shift.
+   * @returns {boolean} true si un raccourci clipboard a matché (même si no-op)
+   */
+  function handleClipboardShortcuts(event, d, key) {
+    const mod = event.ctrlKey || event.metaKey;
+    if (!mod || event.shiftKey) return false;
+    if (key !== "c" && key !== "x" && key !== "v") return false;
+
+    const state = /** @type {{
+        editingAnnotationId: string | null,
+        selectedAnnotationId: string | null,
+        clipboard: object | null
+      }} */ (d.state);
     const getActiveTab = /** @type {() => object | null} */ (d.getActiveTab);
     const getSelectedAnnotationFromActivePage =
       /** @type {(tab: object | null) => object | null} */ (d.getSelectedAnnotationFromActivePage);
@@ -113,37 +124,27 @@
     const renderAnnotations = /** @type {() => void} */ (d.renderAnnotations);
     const session = /** @type {{ scheduleAutoSave: () => void }} */ (d.session);
     const pasteClipboardIntoActivePage = /** @type {() => void} */ (d.pasteClipboardIntoActivePage);
-    const deleteSelected = /** @type {() => void} */ (d.deleteSelected);
-    const undo = /** @type {() => void} */ (d.undo);
-    const redo = /** @type {() => void} */ (d.redo);
-    const savePdfAs = /** @type {() => Promise<unknown>} */ (d.savePdfAs);
-    const pdfSave = /** @type {{ logSave: (code: string, data?: object) => void }} */ (d.pdfSave);
-    const promptOpenPdf = /** @type {() => void} */ (d.promptOpenPdf);
-    const tryHandleSelectedAnnotationArrowKey = /** @type {(event: KeyboardEvent) => boolean} */ (
-      d.tryHandleSelectedAnnotationArrowKey
-    );
-    const pageShift = /** @type {(delta: number) => void} */ (d.pageShift);
 
-    // Clipboard (Ctrl+C / Ctrl+X / Ctrl+V) pour annotations
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "c") {
+    if (key === "c") {
       const tab = getActiveTab();
       const item = getSelectedAnnotationFromActivePage(tab);
-      if (!tab || !item) return;
+      if (!tab || !item) return true;
       event.preventDefault();
       const copy = cloneForClipboard(item);
-      if (!copy) return;
+      if (!copy) return true;
       state.clipboard = copy;
       setStatus("Élément copié");
-      return;
+      return true;
     }
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "x") {
+
+    if (key === "x") {
       const tab = getActiveTab();
       const annotations = tab ? currentPageAnnotations(tab) : null;
       const item = getSelectedAnnotationFromActivePage(tab);
-      if (!tab || !annotations || !item) return;
+      if (!tab || !annotations || !item) return true;
       event.preventDefault();
       const cut = cloneForClipboard(item);
-      if (!cut) return;
+      if (!cut) return true;
       state.clipboard = cut;
       const idx = annotations.findIndex((a) => a.id === item.id);
       if (idx >= 0) {
@@ -156,67 +157,113 @@
         session.scheduleAutoSave();
       }
       setStatus("Élément coupé");
-      return;
-    }
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "v") {
-      if (!state.clipboard) return;
-      event.preventDefault();
-      pasteClipboardIntoActivePage();
-      setStatus("Élément collé");
-      return;
+      return true;
     }
 
-    if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      deleteSelected();
-      return;
-    }
+    // key === "v"
+    if (!state.clipboard) return true;
+    event.preventDefault();
+    pasteClipboardIntoActivePage();
+    setStatus("Élément collé");
+    return true;
+  }
 
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "z") {
+  /** @returns {boolean} */
+  function handleDeleteShortcut(event, d) {
+    if (event.key !== "Delete" && event.key !== "Backspace") return false;
+    event.preventDefault();
+    const deleteSelected = /** @type {() => void} */ (d.deleteSelected);
+    deleteSelected();
+    return true;
+  }
+
+  /** Undo / redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z). @returns {boolean} */
+  function handleHistoryShortcuts(event, d, key) {
+    const mod = event.ctrlKey || event.metaKey;
+    if (!mod) return false;
+    const undo = /** @type {() => void} */ (d.undo);
+    const redo = /** @type {() => void} */ (d.redo);
+
+    if (!event.shiftKey && key === "z") {
       event.preventDefault();
       undo();
-      return;
+      return true;
     }
-
-    if ((event.ctrlKey || event.metaKey) && (key === "y" || (event.shiftKey && key === "z"))) {
+    if (key === "y" || (event.shiftKey && key === "z")) {
       event.preventDefault();
       redo();
-      return;
+      return true;
     }
+    return false;
+  }
 
-    if ((event.ctrlKey || event.metaKey) && key === "s") {
+  /** Ctrl+S / Ctrl+O. @returns {boolean} */
+  function handleFileShortcuts(event, d, key) {
+    const mod = event.ctrlKey || event.metaKey;
+    if (!mod) return false;
+    const savePdfAs = /** @type {() => Promise<unknown>} */ (d.savePdfAs);
+    const pdfSave = /** @type {{ logSave: (code: string, data?: object) => void }} */ (d.pdfSave);
+    const promptOpenPdf = /** @type {() => void} */ (d.promptOpenPdf);
+
+    if (key === "s") {
       event.preventDefault();
       savePdfAs().catch((error) => {
         pdfSave.logSave("save_shortcut_exception", { error: String(error?.message || error) });
       });
-      return;
+      return true;
     }
-
-    if ((event.ctrlKey || event.metaKey) && key === "o") {
+    if (key === "o") {
       event.preventDefault();
       void promptOpenPdf();
-      return;
+      return true;
     }
+    return false;
+  }
 
-    if (
-      event.key === "ArrowLeft" ||
-      event.key === "ArrowRight" ||
-      event.key === "ArrowUp" ||
-      event.key === "ArrowDown"
-    ) {
-      if (tryHandleSelectedAnnotationArrowKey(event)) return;
+  /** Flèches : d'abord déplacement annotation, sinon pagination. @returns {boolean} */
+  function handleArrowShortcuts(event, d) {
+    const key = event.key;
+    if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown") {
+      return false;
     }
+    const tryHandleSelectedAnnotationArrowKey = /** @type {(event: KeyboardEvent) => boolean} */ (
+      d.tryHandleSelectedAnnotationArrowKey
+    );
+    const pageShift = /** @type {(delta: number) => void} */ (d.pageShift);
 
-    if (event.key === "ArrowLeft") {
+    if (tryHandleSelectedAnnotationArrowKey(event)) return true;
+
+    if (key === "ArrowLeft") {
       event.preventDefault();
       pageShift(-1);
-      return;
+      return true;
     }
-
-    if (event.key === "ArrowRight") {
+    if (key === "ArrowRight") {
       event.preventDefault();
       pageShift(1);
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * @param {KeyboardEvent} event
+   */
+  function handleKeydown(event) {
+    const d = requireDeps();
+    const state = /** @type {{ editingAnnotationId: string | null }} */ (d.state);
+
+    if (handleF10(event, d)) return;
+    if (handleEscapeStack(event, d)) return;
+
+    if (isTypingContext(event.target) || state.editingAnnotationId) return;
+
+    const key = event.key.toLowerCase();
+    if (handleClipboardShortcuts(event, d, key)) return;
+    if (handleDeleteShortcut(event, d)) return;
+    if (handleHistoryShortcuts(event, d, key)) return;
+    if (handleFileShortcuts(event, d, key)) return;
+    handleArrowShortcuts(event, d);
   }
 
   /** Enregistre le listener capture une seule fois. */
