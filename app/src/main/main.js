@@ -537,22 +537,25 @@ function createMenu() {
             {
               label: "Francais",
               type: "radio",
-              checked: true,
+              checked: uiLanguage === "fr",
               click: () => mainWindow?.webContents?.send?.("app:set-language", "fr")
             },
             {
               label: "English",
               type: "radio",
+              checked: uiLanguage === "en",
               click: () => mainWindow?.webContents?.send?.("app:set-language", "en")
             },
             {
               label: "Espanol",
               type: "radio",
+              checked: uiLanguage === "es",
               click: () => mainWindow?.webContents?.send?.("app:set-language", "es")
             },
             {
               label: "Portugues",
               type: "radio",
+              checked: uiLanguage === "pt",
               click: () => mainWindow?.webContents?.send?.("app:set-language", "pt")
             }
           ]

@@ -139,6 +139,72 @@ test("05-Dev: localStorage editify:lang=pt appliqué au rechargement (loadPrefer
   await e2eCi.closeElectronApp(app);
 });
 
+/**
+ * Radios Options → Langue : la langue active doit être cochée (menu natif),
+ * y compris après changement et après reload via editify:lang.
+ */
+async function getNativeLanguageRadioChecked(app) {
+  return app.evaluate(({ Menu }) => {
+    const root = Menu.getApplicationMenu();
+    if (!root?.items?.length) return null;
+    /** @param {Electron.MenuItem[]} items */
+    function walk(items) {
+      for (const item of items) {
+        if (item.label === "Langue" && item.submenu?.items?.length) {
+          /** @type {Record<string, boolean>} */
+          const out = {};
+          for (const radio of item.submenu.items) {
+            out[String(radio.label || "")] = Boolean(radio.checked);
+          }
+          return out;
+        }
+        if (item.submenu?.items?.length) {
+          const nested = walk(item.submenu.items);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    }
+    return walk(root.items);
+  });
+}
+
+test("05-Dev: menu Langue — radio coche la langue active (changement + persistance)", async () => {
+  const { app, page } = await launchAppE2EBare();
+  try {
+    await page.evaluate(() => {
+      try {
+        window.localStorage?.clear?.();
+        window.sessionStorage?.clear?.();
+      } catch {
+        /* intentional: clear storage in e2e setup best-effort */
+      }
+    });
+    await page.evaluate(() => window.__maniE2E.setLanguage("fr"));
+    await expect
+      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
+      .toMatchObject({ Francais: true, English: false, Espanol: false, Portugues: false });
+
+    await page.evaluate(() => window.__maniE2E.setLanguage("es"));
+    await expect
+      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
+      .toMatchObject({ Francais: false, English: false, Espanol: true, Portugues: false });
+
+    await page.evaluate(() => window.localStorage.setItem("editify:lang", "en"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
+      timeout: 90000,
+      polling: 250
+    });
+    await expect(page.locator(":root")).toHaveAttribute("lang", /en/i);
+    await expect
+      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
+      .toMatchObject({ Francais: false, English: true, Espanol: false, Portugues: false });
+  } finally {
+    await e2eCi.closeElectronApp(app);
+  }
+});
+
 test("05-Dev: IPC app:set-language met à jour documentElement.lang (alignement BCP 47)", async () => {
   const { app, page } = await launchAppWithPdfFixture();
   await app.evaluate(({ BrowserWindow }) => {
