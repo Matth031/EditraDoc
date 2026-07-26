@@ -1688,6 +1688,9 @@ i18nApply.bind({
 prevBtn?.addEventListener?.("click", () => pageShift(-1));
 nextBtn?.addEventListener?.("click", () => pageShift(1));
 addTextBtn?.addEventListener?.("click", () => {
+  // Flush panneau → item + lastTextStyle avant nouvelle zone (évite défauts 14px
+  // si le dernier input n’a pas été émis — vu en CI Linux / type=number).
+  applySelectedPropertiesLive();
   commitActiveTextEditIfNeeded(null);
   addAnnotation("text");
 });
@@ -1695,6 +1698,7 @@ addShapeBtn?.addEventListener?.("click", openShapePicker);
 addImageBtn?.addEventListener?.("click", () => imageInput?.click?.());
 blankAddTextBtn?.addEventListener?.("click", () => {
   chrome.hideBlankCanvasCtxMenu();
+  applySelectedPropertiesLive();
   commitActiveTextEditIfNeeded(null);
   addAnnotation("text");
 });
@@ -1775,6 +1779,7 @@ validateShapeBackdropBtn?.addEventListener?.("click", () => applySelectedPropert
 propPadding?.addEventListener?.("input", applySelectedPropertiesLive);
 propFontFamily?.addEventListener?.("change", applySelectedPropertiesLive);
 propFontSize?.addEventListener?.("input", applySelectedPropertiesLive);
+propFontSize?.addEventListener?.("change", applySelectedPropertiesLive);
 mergeBtn?.addEventListener?.("click", () => {
   chrome.closeAllFlyoutMenus();
   void jobs.createMergeJob();

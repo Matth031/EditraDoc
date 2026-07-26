@@ -70,13 +70,24 @@ test("style texte : nouvelle zone reprend la dernière police affichée", async 
     await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(1, {
       timeout: 10000
     });
-    await page.locator("#propFontSize").fill("22");
+
+    // Définir via value + events (fill type=number n’émet pas toujours input sous xvfb/Linux).
+    await page.locator("#propFontSize").evaluate((el) => {
+      el.value = "22";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
     await page.locator("#propFontFamily").selectOption("Times New Roman");
     await page.locator("#propTextColor").evaluate((el) => {
       el.value = "#ff0000";
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     });
+
+    const first = page.locator("#annotationLayer .annotation.text").nth(0);
+    await expect(first).toHaveCSS("font-size", "22px");
+    await expect(first).toHaveCSS("font-family", /Times New Roman/i);
+    await expect(first).toHaveCSS("color", "rgb(255, 0, 0)");
 
     await page.locator("#addTextBtn").click();
     await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(2, {
