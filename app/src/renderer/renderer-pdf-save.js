@@ -43,6 +43,7 @@
    * @property {(a: string, b: string) => boolean} pathsEqual
    * @property {(msg: string) => void} setStatus
    * @property {(key: string) => string} t
+   * @property {{ selectedAnnotationId?: string | null, editingAnnotationId?: string | null } | null} [state]
    */
 
   /** @type {PdfSaveDeps | null} */
@@ -676,6 +677,13 @@
     return exportResult;
   }
 
+  /**
+   * Après export réussi vers le même chemin : le PDF contient désormais annotations
+   * et rotations. Vider l’overlay / l’historique, sinon double rendu (surtout texte)
+   * au rechargement pdf.js.
+   * @param {Record<string, unknown> | null | undefined} tab
+   * @param {string} outputPath
+   */
   function applySaveExportSuccess(tab, outputPath) {
     const d = requireDeps();
     if (!tab) return;
@@ -687,6 +695,18 @@
     const out = String(outputPath || "").trim();
     if (!out || !tab.path) return;
     if (!d.pathsEqual(out, tab.path)) return;
+
+    // Annotations / rotations déjà « cuites » dans le fichier écrasé.
+    tab.annotationsByPage = {};
+    tab.pageRotationsByPage = {};
+    tab.pageRotationsUserTouched = {};
+    tab.undoStack = [];
+    tab.redoStack = [];
+    if (d.state) {
+      d.state.selectedAnnotationId = null;
+      d.state.editingAnnotationId = null;
+    }
+
     d.invalidatePdfRenderCache([tab.path, out]);
     d.updateViewer();
   }
@@ -741,6 +761,7 @@
     bind,
     savePdfAs,
     exportActivePdfToPath,
+    applySaveExportSuccess,
     peekExportPayloadForTest,
     readImageFileAsBase64,
     logSave,

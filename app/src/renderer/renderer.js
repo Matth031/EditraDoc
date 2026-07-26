@@ -1313,7 +1313,8 @@ pdfSave.bind({
   updateViewer: pdfv.updateViewer,
   pathsEqual,
   setStatus,
-  t
+  t,
+  state
 });
 tabsMod.bind({
   state,

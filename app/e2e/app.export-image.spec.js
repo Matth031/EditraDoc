@@ -289,6 +289,16 @@ test("export PDF : texte saisi puis écrasement du fichier source (même chemin)
   expect(exportResult?.ok).toBe(true);
   assertPdfContainsText(workPdf, "UI_OVERWRITE_TEST");
 
+  // Après écrasement même chemin : le texte est dans le PDF, plus dans l’overlay
+  // (sinon duplication visuelle PDF baked + annotation).
+  await waitForPdfPagesRendered(page);
+  await expect(page.locator("#annotationLayer .annotation.text")).toHaveCount(0, {
+    timeout: 15000
+  });
+  const ui = await page.evaluate(() => window.__maniE2E.getUiState());
+  expect(ui?.annotationsOnCurrentPageCount).toBe(0);
+  expect(ui?.textOnCurrentPage || []).toEqual([]);
+
   await e2eCi.closeElectronApp(app);
   if (fs.existsSync(workPdf)) fs.unlinkSync(workPdf);
 });

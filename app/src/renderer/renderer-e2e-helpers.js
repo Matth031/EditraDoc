@@ -707,9 +707,16 @@
           if (!out) return { ok: false, error: "no_active_pdf" };
           const result = await exportActivePdfToPath(out);
           if (result?.ok) {
-            tab.dirty = false;
-            pdfv.invalidatePdfRenderCache([out]);
-            pdfv.updateViewer();
+            // Même post-traitement que « Enregistrer sous » sur le fichier ouvert
+            // (vide l’overlay pour éviter texte doublé PDF + annotation).
+            const applySuccess = window.__editifyPdfSave?.applySaveExportSuccess;
+            if (typeof applySuccess === "function") {
+              applySuccess(tab, out);
+            } else {
+              tab.dirty = false;
+              pdfv.invalidatePdfRenderCache([out]);
+              pdfv.updateViewer();
+            }
           }
           return result;
         } catch (error) {
