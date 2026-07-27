@@ -422,12 +422,22 @@
         if (n > 0) node.dataset.spellIssues = String(n);
         else delete node.dataset.spellIssues;
         if (!node.querySelector?.(".text-editor")) {
+          try {
+            window.__editifyPerfInstrument?.setSpellSanitizedContext?.("spell-scan-display");
+          } catch {
+            /* intentional: perf instrumentation hook best-effort */
+          }
           if (a.textHtml && String(a.textHtml).trim()) {
             setSanitizedHtml(node, a.textHtml);
           } else {
             node.textContent = a.text ? a.text : "";
           }
           applySpellHighlightsToTextDisplayNode(node, a);
+          try {
+            window.__editifyPerfInstrument?.clearSpellSanitizedContext?.();
+          } catch {
+            /* intentional: perf instrumentation hook best-effort */
+          }
         }
       });
     });

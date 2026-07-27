@@ -1685,6 +1685,19 @@ i18nApply.bind({
 
 // Ouverture PDF via menu natif (File > Open PDF) et raccourci clavier (Ctrl+O).
 
+try {
+  window.__editifyPerfInstrument?.install?.();
+  if (window.__editifyPerfInstrument?.isEnabled?.()) {
+    applySelectedPropertiesLive = annotationProps.applySelectedPropertiesLive;
+  }
+} catch {
+  /* intentional: perf instrumentation install best-effort */
+}
+
+function onApplySelectedPropertiesLiveEvent() {
+  applySelectedPropertiesLive();
+}
+
 prevBtn?.addEventListener?.("click", () => pageShift(-1));
 nextBtn?.addEventListener?.("click", () => pageShift(1));
 addTextBtn?.addEventListener?.("click", () => {
@@ -1754,32 +1767,32 @@ applyBgBtn?.addEventListener?.("click", () => {
   applySelectedProperties();
 });
 // Champs hidden + nuancier : input/change déclenchés au commit ; « Valider » panneau / modale pour figer sur l'annotation.
-propTextColor?.addEventListener?.("input", applySelectedPropertiesLive);
+propTextColor?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
 propBgColor?.addEventListener?.("input", markBgTouchedAndApply);
 propBgColor?.addEventListener?.("change", markBgTouchedAndApply);
-propShapeFill?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeFill?.addEventListener?.("change", applySelectedPropertiesLive);
-propShapeStroke?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeStroke?.addEventListener?.("change", applySelectedPropertiesLive);
-propShapeBackdrop?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeBackdrop?.addEventListener?.("change", applySelectedPropertiesLive);
-propWidth?.addEventListener?.("input", applySelectedPropertiesLive);
-propHeight?.addEventListener?.("input", applySelectedPropertiesLive);
-propRotation?.addEventListener?.("input", applySelectedPropertiesLive);
-propOpacity?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeFillOpacity?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeStrokeWidth?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeStrokeOpacity?.addEventListener?.("input", applySelectedPropertiesLive);
-propShapeBackdropOpacity?.addEventListener?.("input", applySelectedPropertiesLive);
+propShapeFill?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeFill?.addEventListener?.("change", onApplySelectedPropertiesLiveEvent);
+propShapeStroke?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeStroke?.addEventListener?.("change", onApplySelectedPropertiesLiveEvent);
+propShapeBackdrop?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeBackdrop?.addEventListener?.("change", onApplySelectedPropertiesLiveEvent);
+propWidth?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propHeight?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propRotation?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propOpacity?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeFillOpacity?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeStrokeWidth?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeStrokeOpacity?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propShapeBackdropOpacity?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
 
 validateShapeFillBtn?.addEventListener?.("click", () => applySelectedProperties());
 validateShapeStrokeBtn?.addEventListener?.("click", () => applySelectedProperties());
 validateShapeBackdropBtn?.addEventListener?.("click", () => applySelectedProperties());
 
-propPadding?.addEventListener?.("input", applySelectedPropertiesLive);
-propFontFamily?.addEventListener?.("change", applySelectedPropertiesLive);
-propFontSize?.addEventListener?.("input", applySelectedPropertiesLive);
-propFontSize?.addEventListener?.("change", applySelectedPropertiesLive);
+propPadding?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propFontFamily?.addEventListener?.("change", onApplySelectedPropertiesLiveEvent);
+propFontSize?.addEventListener?.("input", onApplySelectedPropertiesLiveEvent);
+propFontSize?.addEventListener?.("change", onApplySelectedPropertiesLiveEvent);
 mergeBtn?.addEventListener?.("click", () => {
   chrome.closeAllFlyoutMenus();
   void jobs.createMergeJob();
@@ -2001,6 +2014,7 @@ document.addEventListener("selectionchange", () => {
 });
 setInterval(() => {
   try {
+    window.__editifyPerfInstrument?.noteSpellIntervalTick?.();
     tcm.runBackgroundSpellScanForTextAnnotations();
   } catch {
     /* intentional: background spell scan interval best-effort */
@@ -2008,6 +2022,7 @@ setInterval(() => {
 }, 6000);
 setTimeout(() => {
   try {
+    window.__editifyPerfInstrument?.noteSpellBootTick?.();
     tcm.runBackgroundSpellScanForTextAnnotations();
   } catch {
     /* intentional: initial spell scan best-effort */

@@ -1426,29 +1426,60 @@ ipcMain.handle("spellcheck:analyze", async (_, payload) => {
   const langRaw = payload?.lang;
   const text = payload?.text != null ? String(payload.text) : "";
   const lang = normalizeSpellcheckLanguage(langRaw) || normalizeSpellcheckLanguage("fr") || "fr-FR";
+  const spellDiagEnabled = process.env.MANI_PDF_SPELLCHECK_DIAG === "1";
+  /** @type {Record<string, unknown> | null} */
+  let diag = spellDiagEnabled
+    ? {
+        textLen: text.length,
+        lang,
+        spellWasLoadedBefore: spellcheckService.isSpellLoaded(lang)
+      }
+    : null;
+  const totalStart = spellDiagEnabled ? performance.now() : 0;
   try {
+    const getSpellStart = spellDiagEnabled ? performance.now() : 0;
     const spell = await spellcheckService.getSpell(lang);
+    if (diag) {
+      diag.getSpellMs = performance.now() - getSpellStart;
+      diag.spellLoadedAfter = spellcheckService.isSpellLoaded(lang);
+    }
     if (!spell) {
       logWarn("spellcheck", "moteur indisponible (dictionnaire non chargé)", {
         lang,
         textLen: text.length
       });
-      return { ok: false, errors: [], reason: "no-dict" };
+      return { ok: false, errors: [], reason: "no-dict", ...(diag ? { _diag: diag } : {}) };
     }
     const ses = mainWindow?.webContents?.session;
     if (ses?.listWordsInSpellCheckerDictionary) {
       try {
+        const listStart = spellDiagEnabled ? performance.now() : 0;
         const words = await ses.listWordsInSpellCheckerDictionary();
+        if (diag) {
+          diag.listPersonalWordsMs = performance.now() - listStart;
+          diag.personalWordCount = Array.isArray(words) ? words.length : 0;
+        }
+        const mergeStart = spellDiagEnabled ? performance.now() : 0;
         spellcheckService.mergePersonalWords(spell, words);
+        if (diag) diag.mergePersonalWordsMs = performance.now() - mergeStart;
       } catch {
         /* intentional: merge OS spell dictionary best-effort */
       }
     }
-    const errors = spellcheckService.findMisspellings(spell, text);
-    return { ok: true, errors };
+    const analyzeStart = spellDiagEnabled ? performance.now() : 0;
+    const analyzeDiag = diag ? {} : null;
+    const errors = spellcheckService.findMisspellings(spell, text, analyzeDiag);
+    if (diag) {
+      diag.findMisspellingsMs = performance.now() - analyzeStart;
+      if (analyzeDiag) Object.assign(diag, analyzeDiag);
+      diag.errorCount = errors.length;
+      diag.totalHandlerMs = performance.now() - totalStart;
+    }
+    return { ok: true, errors, ...(diag ? { _diag: diag } : {}) };
   } catch (e) {
     logWarn("spellcheck", "analyze exception", { message: e?.message || String(e) });
-    return { ok: false, errors: [], reason: "exception" };
+    if (diag) diag.totalHandlerMs = performance.now() - totalStart;
+    return { ok: false, errors: [], reason: "exception", ...(diag ? { _diag: diag } : {}) };
   }
 });
 

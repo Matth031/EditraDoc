@@ -209,6 +209,11 @@
         }
       }
     }
+    try {
+      window.__editifyPerfInstrument?.beforeRenderFromApplyProps?.();
+    } catch {
+      /* intentional: perf instrumentation hook best-effort */
+    }
     renderAnnotations();
     scheduleAutoSave();
   }

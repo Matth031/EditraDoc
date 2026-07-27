@@ -8,8 +8,16 @@ const { log } = require("./logger");
 /** @type {Map<string, Promise<import('nspell')|null>>} */
 const cache = new Map();
 
+/** Langues dont le dictionnaire nspell est déjà résolu (instrumentation diag). */
+const loadedLangKeys = new Set();
+
 function invalidateAll() {
   cache.clear();
+  loadedLangKeys.clear();
+}
+
+function isSpellLoaded(langKey) {
+  return loadedLangKeys.has(langKey);
 }
 
 /**
@@ -66,7 +74,9 @@ function getSpell(langKey) {
           return null;
         }
         try {
-          return nspell(dict);
+          const instance = nspell(dict);
+          loadedLangKeys.add(langKey);
+          return instance;
         } catch (e) {
           const msg = e && typeof e === "object" && "message" in e ? String(e.message) : String(e);
           console.error("[spellcheck] échec nspell()", { langKey, err: msg });
@@ -106,24 +116,42 @@ function mergePersonalWords(spell, words) {
  * @param {string} text
  * @returns {Array<{ word: string, start: number, end: number, suggestions: string[] }>}
  */
-function findMisspellings(spell, text) {
+function findMisspellings(spell, text, diagOut) {
   if (!spell || text == null) return [];
   const plain = String(text);
   const out = [];
   const re = /[\p{L}\p{M}]+/gu;
   let m;
+  let correctMs = 0;
+  let suggestMs = 0;
+  let tokenCount = 0;
+  let missCount = 0;
   while ((m = re.exec(plain))) {
     const raw = m[0];
     const start = m.index;
     const end = start + raw.length;
     if (raw.length < 2) continue;
+    tokenCount += 1;
     try {
-      if (spell.correct(raw)) continue;
+      const t0 = diagOut ? performance.now() : 0;
+      const ok = spell.correct(raw);
+      if (diagOut) correctMs += performance.now() - t0;
+      if (ok) continue;
+      missCount += 1;
+      const t1 = diagOut ? performance.now() : 0;
       const suggestions = spell.suggest(raw).slice(0, 10);
+      if (diagOut) suggestMs += performance.now() - t1;
       out.push({ word: raw, start, end, suggestions });
     } catch {
       /* intentional: skip token on spell analyze error */
     }
+  }
+  if (diagOut) {
+    diagOut.tokenCount = tokenCount;
+    diagOut.missCount = missCount;
+    diagOut.correctMs = correctMs;
+    diagOut.suggestMs = suggestMs;
+    diagOut.textLen = plain.length;
   }
   return out;
 }
@@ -132,5 +160,6 @@ module.exports = {
   getSpell,
   mergePersonalWords,
   findMisspellings,
-  invalidateAll
+  invalidateAll,
+  isSpellLoaded
 };

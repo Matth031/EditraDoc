@@ -20,6 +20,31 @@ function openDialogOrE2eBypass(envVarName, ipcChannel, ipcArg) {
     : ipcRenderer.invoke(ipcChannel, ipcArg);
 }
 
+/** Logs IPC spellcheck (instrumentation MANI_PDF_PERF_INSTRUMENT=1). */
+const perfSpellIpcSamples = [];
+
+function spellcheckAnalyzeWithPerf(payload) {
+  const perfOn = process.env.MANI_PDF_PERF_INSTRUMENT === "1";
+  const diagOn = process.env.MANI_PDF_SPELLCHECK_DIAG === "1";
+  if (!perfOn && !diagOn) {
+    return ipcRenderer.invoke("spellcheck:analyze", payload);
+  }
+  const t0 = performance.now();
+  const textLen = payload?.text != null ? String(payload.text).length : 0;
+  return ipcRenderer.invoke("spellcheck:analyze", payload).then((res) => {
+    if (perfOn) {
+      perfSpellIpcSamples.push({
+        ms: performance.now() - t0,
+        textLen,
+        ok: Boolean(res?.ok),
+        at: Date.now(),
+        diag: diagOn ? res?._diag : undefined
+      });
+    }
+    return res;
+  });
+}
+
 // API minimale exposée au renderer (contextIsolation) - pas de require("fs") côté UI.
 contextBridge.exposeInMainWorld("maniPdfApi", {
   isE2E: () => {
@@ -32,6 +57,13 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   isExportAuditEnabled: () => {
     try {
       return process?.env?.EDITRADOC_EXPORT_AUDIT === "1";
+    } catch {
+      return false;
+    }
+  },
+  isPerfInstrumentEnabled: () => {
+    try {
+      return process?.env?.MANI_PDF_PERF_INSTRUMENT === "1";
     } catch {
       return false;
     }
@@ -98,8 +130,13 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   setUpdateSettings: (payload) => ipcRenderer.invoke("update:set-settings", payload),
   onUpdateStatusChanged: (cb) => ipcRenderer.on("update:status-changed", (_, status) => cb(status)),
   setSpellcheckLanguages: (langs) => ipcRenderer.invoke("spellcheck:set-languages", langs),
-  spellcheckAnalyze: (payload) => ipcRenderer.invoke("spellcheck:analyze", payload),
+  spellcheckAnalyze: (payload) => spellcheckAnalyzeWithPerf(payload),
   spellcheckAddWord: (word) => ipcRenderer.invoke("spellcheck:add-word", { word }),
   spellcheckRemoveWord: (word) => ipcRenderer.invoke("spellcheck:remove-word", { word }),
-  spellcheckIsCustomWord: (word) => ipcRenderer.invoke("spellcheck:is-custom-word", { word })
+  spellcheckIsCustomWord: (word) => ipcRenderer.invoke("spellcheck:is-custom-word", { word }),
+  getPerfInstrumentSpellIpcSamples: () =>
+    process.env.MANI_PDF_PERF_INSTRUMENT === "1" ? [...perfSpellIpcSamples] : [],
+  resetPerfInstrumentSpellIpcSamples: () => {
+    if (process.env.MANI_PDF_PERF_INSTRUMENT === "1") perfSpellIpcSamples.length = 0;
+  }
 });
