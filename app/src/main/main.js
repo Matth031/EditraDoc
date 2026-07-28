@@ -431,6 +431,36 @@ function normalizeSpellcheckLanguage(lang) {
   return null;
 }
 
+/** Langues Hunspell à garder chaudes : UI + fr-FR si différent. */
+function spellcheckLangKeysForUi(uiLang) {
+  const primary = normalizeSpellcheckLanguage(uiLang);
+  const keys = [];
+  if (primary) keys.push(primary);
+  if (primary !== "fr-FR") keys.push("fr-FR");
+  return keys;
+}
+
+/** Précharge nspell en arrière-plan (ne bloque pas le boot ni l'affichage). */
+function warmSpellcheckDictionariesBackground(reason) {
+  const langs = spellcheckLangKeysForUi(uiLanguage);
+  const started = performance.now();
+  void spellcheckService
+    .warmLanguages(langs)
+    .then((results) => {
+      const ms = performance.now() - started;
+      const loaded = langs.filter((k, i) => results[i] != null);
+      logInfo("spellcheck:warm", "dictionnaires precharges", {
+        reason,
+        langs,
+        loaded,
+        ms: Math.round(ms)
+      });
+    })
+    .catch((err) => {
+      logWarn("spellcheck:warm", String(err?.message || err), { reason, langs });
+    });
+}
+
 function getMenuStrings(lang) {
   const key = String(lang || "fr").toLowerCase();
   return MENU_I18N[key] || MENU_I18N.fr;
@@ -1229,6 +1259,7 @@ ipcMain.handle("app:notify-ui-language", async (_, lang) => {
   } catch (error) {
     logWarn("i18n:menu", String(error?.message || error));
   }
+  warmSpellcheckDictionariesBackground("ui-language");
   return { ok: true, language: uiLanguage };
 });
 
@@ -1491,6 +1522,7 @@ ipcMain.handle("spellcheck:add-word", async (_, payload) => {
   try {
     const ok = ses.addWordToSpellCheckerDictionary(w);
     spellcheckService.invalidateAll();
+    warmSpellcheckDictionariesBackground("personal-dict-add");
     return { ok: Boolean(ok) };
   } catch {
     return { ok: false };
@@ -1505,6 +1537,7 @@ ipcMain.handle("spellcheck:remove-word", async (_, payload) => {
   try {
     const ok = ses.removeWordFromSpellCheckerDictionary(w);
     spellcheckService.invalidateAll();
+    warmSpellcheckDictionariesBackground("personal-dict-remove");
     return { ok: Boolean(ok) };
   } catch {
     return { ok: false };
@@ -1533,6 +1566,7 @@ app.whenReady().then(() => {
   loadRecentPdfs();
   createWindow();
   createMenu();
+  warmSpellcheckDictionariesBackground("app-boot");
   startAutosave();
   startPythonService().catch((err) => {
     logError("python:start", err?.message || String(err));

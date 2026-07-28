@@ -91,6 +91,21 @@ test("getSpell: fr-FR charge nspell", async () => {
   assert.equal(typeof s.correct, "function");
 });
 
+test("invalidateAll: vide le cache charge", async () => {
+  await spellcheckService.getSpell("fr-FR");
+  assert.equal(spellcheckService.isSpellLoaded("fr-FR"), true);
+  spellcheckService.invalidateAll();
+  assert.equal(spellcheckService.isSpellLoaded("fr-FR"), false);
+});
+
+test("warmLanguages: recharge apres invalidate", async () => {
+  await spellcheckService.getSpell("fr-FR");
+  spellcheckService.invalidateAll();
+  assert.equal(spellcheckService.isSpellLoaded("fr-FR"), false);
+  await spellcheckService.warmLanguages(["fr-FR"]);
+  assert.equal(spellcheckService.isSpellLoaded("fr-FR"), true);
+});
+
 test("getSpell: en-US et es-ES importent les dictionnaires", async () => {
   for (const lang of ["en-US", "es-ES"]) {
     spellcheckService.invalidateAll();

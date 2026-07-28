@@ -49,7 +49,7 @@ async function openPdf(app, page, pdfPath) {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
     } catch {
-      /* intentional */
+      /* intentional: clear storage in e2e setup best-effort */
     }
     window.__editifyPerfInstrument?.resetAll?.();
   });
@@ -160,7 +160,6 @@ test("mesure perf édition — rapport chiffré", async () => {
 
     fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
     fs.writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2), "utf8");
-    // eslint-disable-next-line no-console
     console.log("[perf-editing]", JSON.stringify(report, null, 2));
 
     expect(report.scenarios.length).toBe(3);

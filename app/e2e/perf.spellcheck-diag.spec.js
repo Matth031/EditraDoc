@@ -16,10 +16,14 @@ const REPORT_PATH = path.join(process.cwd(), "e2e-output", "spellcheck-diag-repo
 
 function ensureFixture() {
   if (fs.existsSync(FIXTURE_PATH)) return FIXTURE_PATH;
-  execFileSync(process.execPath, [path.join(process.cwd(), "scripts", "create-multi-page-pdf-fixture.mjs")], {
-    cwd: process.cwd(),
-    stdio: "inherit"
-  });
+  execFileSync(
+    process.execPath,
+    [path.join(process.cwd(), "scripts", "create-multi-page-pdf-fixture.mjs")],
+    {
+      cwd: process.cwd(),
+      stdio: "inherit"
+    }
+  );
   return FIXTURE_PATH;
 }
 
@@ -49,7 +53,7 @@ async function openPdf(app, page, pdfPath) {
       window.localStorage?.clear?.();
       window.sessionStorage?.clear?.();
     } catch {
-      /* intentional */
+      /* intentional: clear storage in e2e setup best-effort */
     }
     window.maniPdfApi?.resetPerfInstrumentSpellIpcSamples?.();
   });
@@ -136,11 +140,18 @@ test("spellcheck diag — scénario B x3 même session + cold IPC direct", async
 
     fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
     fs.writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2), "utf8");
-    // eslint-disable-next-line no-console
     console.log("[spellcheck-diag]", JSON.stringify(report, null, 2));
 
     const allIpc = report.runs.flatMap((r) => r.ipcSamples || []);
     expect(allIpc.length).toBeGreaterThan(0);
+
+    const withText = allIpc.filter((s) => s.textLen > 0 && s.diag);
+    expect(withText.length).toBeGreaterThan(0);
+    for (const sample of withText) {
+      expect(sample.diag.spellWasLoadedBefore).toBe(true);
+      expect(sample.diag.getSpellMs).toBeLessThan(5);
+    }
+
     expect(warmProbe.ipcMs).toBeLessThan(500);
   } finally {
     await app.close();

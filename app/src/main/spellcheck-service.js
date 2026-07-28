@@ -94,6 +94,17 @@ function getSpell(langKey) {
 }
 
 /**
+ * Précharge les dictionnaires (non bloquant si appelé sans await).
+ * @param {string[]} langKeys
+ * @returns {Promise<unknown[]>}
+ */
+async function warmLanguages(langKeys) {
+  const keys = [...new Set((langKeys || []).filter(Boolean))];
+  if (!keys.length) return [];
+  return Promise.all(keys.map((k) => getSpell(k)));
+}
+
+/**
  * @param {import('nspell')} spell
  * @param {string[]} words
  */
@@ -158,6 +169,7 @@ function findMisspellings(spell, text, diagOut) {
 
 module.exports = {
   getSpell,
+  warmLanguages,
   mergePersonalWords,
   findMisspellings,
   invalidateAll,
