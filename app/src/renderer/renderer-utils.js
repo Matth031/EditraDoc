@@ -74,10 +74,11 @@
     return parts[parts.length - 1] || "document";
   }
 
-  /** Compare deux chemins Windows/Unix (casse ignorée sous Windows). */
+  /** Compare deux chemins Windows/Unix (séparateurs unifiés, casse ignorée). */
   function normalizeFsPath(filePath) {
     if (!filePath || typeof filePath !== "string") return "";
-    return filePath.trim().replace(/\//g, "\\").toLowerCase();
+    // Slash forward : portable ; toLowerCase pour égalité Windows / APFS case-insensitive.
+    return filePath.trim().replace(/\\/g, "/").toLowerCase();
   }
 
   function pathsEqual(a, b) {

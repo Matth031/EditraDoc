@@ -232,7 +232,10 @@
       if (!selected.cancelled) setStatus(selected.error || t("stSelectionCancelled"));
       return;
     }
-    const name = selected.path.split("\\").pop() || "document.pdf";
+    const name =
+      window.__editifyUtils?.baseNameFromPath?.(selected.path) ||
+      selected.path.split(/[/\\]/).pop() ||
+      "document.pdf";
     await addPdfTab(selected.path, name);
   }
 

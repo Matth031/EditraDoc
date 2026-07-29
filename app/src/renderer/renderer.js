@@ -1839,7 +1839,10 @@ shapeGrid?.addEventListener?.("click", (event) => {
 
 window.maniPdfApi?.onOpenFromMenu?.(async (filePath) => {
 
-  const name = filePath.split("\\").pop() || "document.pdf";
+  const name =
+    window.__editifyUtils?.baseNameFromPath?.(filePath) ||
+    filePath.split(/[/\\]/).pop() ||
+    "document.pdf";
   await tabsMod.addPdfTab(filePath, name);
 });
 

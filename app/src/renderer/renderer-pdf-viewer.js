@@ -388,7 +388,7 @@
     const norm = (p) =>
       String(p || "")
         .trim()
-        .replace(/\//g, "\\")
+        .replace(/\\/g, "/")
         .toLowerCase();
     const targets = new Set((paths || []).map(norm).filter(Boolean));
     if (!targets.size || !pdfRenderCache.path) return;
