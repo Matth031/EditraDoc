@@ -23,7 +23,9 @@ export default [
       "node_modules/**",
       "src/renderer/renderer-i18n-data.js",
       "scripts/_html-convert-runner.cjs",
-      "scripts/spikes/**/_electron-runner.cjs"
+      "scripts/spikes/**/_electron-runner.cjs",
+      // Artefacts générés par les spikes (gitignorés, mais présents en local / CI cache)
+      "scripts/spikes/**/out/**"
     ]
   },
   {

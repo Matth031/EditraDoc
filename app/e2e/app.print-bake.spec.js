@@ -69,7 +69,7 @@ test("impression : bake sans annotations → temp sous editradoc-print puis clea
     path.dirname(pdfFixture).toLowerCase()
   );
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("impression : bake avec annotation texte + mock cleanup", async () => {
@@ -89,7 +89,7 @@ test("impression : bake avec annotation texte + mock cleanup", async () => {
   expect(String(result.tempPath).toLowerCase()).toContain("editradoc-print");
   expect(fs.existsSync(result.tempPath)).toBe(false);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });
 
 test("impression : allocate sous editradoc-print ; refuse path source (S1)", async () => {
@@ -113,5 +113,5 @@ test("impression : allocate sous editradoc-print ; refuse path source (S1)", asy
   );
   expect(refused.ok).toBe(false);
 
-  await app.close();
+  await e2eCi.closeElectronApp(app);
 });

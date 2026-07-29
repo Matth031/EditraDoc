@@ -23,7 +23,8 @@ export default [
       "src/renderer/renderer-i18n-data.js",
       "src/lib/vendor/**",
       "scripts/_html-convert-runner.cjs",
-      "scripts/spikes/**/_electron-runner.cjs"
+      "scripts/spikes/**/_electron-runner.cjs",
+      "scripts/spikes/**/out/**"
     ]
   },
   {
