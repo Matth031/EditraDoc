@@ -107,10 +107,10 @@
           return { error: true };
         }
       };
-      window.__maniE2E.setLanguage = (lang) => {
+      window.__maniE2E.setLanguage = async (lang) => {
         try {
-          const setLanguage = /** @type {(l: string) => void} */ (d.setLanguage);
-          setLanguage(String(lang || "fr"));
+          const setLanguage = /** @type {(l: string) => Promise<void>} */ (d.setLanguage);
+          await setLanguage(String(lang || "fr"));
           return state.language;
         } catch {
           return null;

@@ -24,4 +24,17 @@ Mirror local aussi dans `docs/06-Test-Matrix.md` (hors dépôt git).
 | **Contenu ticket** | scope, niveaux observés, `messageHash` (pas de PII / pas de textHtml), fréquence sessions |
 | **Hors scope** | Panneau UI Santé (E5) |
 
-Aucun `TKT-ERR` ouvert au moment de la fondation E4 (compteurs vides au démarrage).
+## TKT-FLK-E2E-002 — `app.evaluate` menu Langue (contexte CDP main détruit)
+
+| Champ | Valeur |
+|-------|--------|
+| **Statut** | Mitigé (2026-07-30) — harness E2E + `await notifyUiLanguage` |
+| **Symptôme** | `electronApplication.evaluate: Execution context was destroyed, most likely because of a navigation` dans `waitForNativeLanguageRadios` / ancien `getNativeLanguageRadioChecked` |
+| **Repro** | Windows isolé : **4/8** avant correctif (échec à l’assert après `setLanguage("es")`). xvfb Docker indisponible localement (daemon off) ; CI Linux `cd9523a` échoue sur ce spec |
+| **Cause produit** | **Pas** de `window.reload()` sur changement de langue. Chemin : `setLanguage` → `notifyUiLanguage` → `createMenu`/`Menu.setApplicationMenu` + `warmSpellcheckDictionariesBackground`. Le seul reload du scénario est le `page.reload()` explicite (persistance `editify:lang`) |
+| **Cause harness** | Flake connu Playwright + Electron ≥27 : invalidation du contexte CDP du **processus main** pendant `app.evaluate`, pas une navigation renderer. Aggravé si on poll le Menu pendant/juste après `createMenu` sans attendre l’IPC |
+| **Correctif** | (1) `setLanguage` **await** `notifyUiLanguage` ; (2) E2E `setLanguage` async ; (3) `waitForNativeLanguageRadios` attend l’état menu et ne retry le `evaluate` que sur « Execution context was destroyed » ; (4) après reload, resync `setLanguage("en")` pour sérialiser `createMenu` |
+| **Ne pas** | Retry générique sur toute erreur `evaluate` ; documenter comme « navigation produit » |
+| **Miroir** | `docs/06-Test-Matrix.md` (hors dépôt) si maintenu localement |
+
+---

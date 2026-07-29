@@ -142,8 +142,14 @@ test("05-Dev: localStorage editify:lang=pt appliqué au rechargement (loadPrefer
 /**
  * Radios Options → Langue : la langue active doit être cochée (menu natif),
  * y compris après changement et après reload via editify:lang.
+ *
+ * Lecture via `app.evaluate` (processus main Electron). Playwright + Electron ≥27
+ * peut invalider le contexte CDP main avec « Execution context was destroyed »
+ * *sans* navigation renderer (flake connu, cf. electron-playwright-helpers).
+ * Ici on relit jusqu'à stabilité du menu — pas un masquage aveugle : le produit
+ * n'appelle pas window.reload() sur setLanguage (seulement rebuild Menu + IPC).
  */
-async function getNativeLanguageRadioChecked(app) {
+async function readNativeLanguageRadios(app) {
   return app.evaluate(({ Menu }) => {
     const root = Menu.getApplicationMenu();
     if (!root?.items?.length) return null;
@@ -169,6 +175,39 @@ async function getNativeLanguageRadioChecked(app) {
   });
 }
 
+/**
+ * @param {import("@playwright/test").ElectronApplication} app
+ * @param {Record<string, boolean>} expected
+ * @param {{ timeoutMs?: number }} [opts]
+ */
+async function waitForNativeLanguageRadios(app, expected, opts = {}) {
+  const timeoutMs = opts.timeoutMs ?? 15000;
+  const deadline = Date.now() + timeoutMs;
+  /** @type {unknown} */
+  let lastError = null;
+  /** @type {Record<string, boolean> | null} */
+  let lastGot = null;
+
+  while (Date.now() < deadline) {
+    try {
+      const got = await readNativeLanguageRadios(app);
+      lastGot = got;
+      if (got && Object.keys(expected).every((k) => got[k] === expected[k])) {
+        return got;
+      }
+    } catch (error) {
+      const msg = String(error?.message || error);
+      // Contexte CDP main Electron invalidé (pas une navigation page produit).
+      if (!/Execution context was destroyed/i.test(msg)) throw error;
+      lastError = error;
+    }
+    await new Promise((r) => setTimeout(r, 120));
+  }
+
+  if (lastError) throw lastError;
+  expect(lastGot).toMatchObject(expected);
+}
+
 test("05-Dev: menu Langue — radio coche la langue active (changement + persistance)", async () => {
   const { app, page } = await launchAppE2EBare();
   try {
@@ -180,26 +219,39 @@ test("05-Dev: menu Langue — radio coche la langue active (changement + persist
         /* intentional: clear storage in e2e setup best-effort */
       }
     });
-    await page.evaluate(() => window.__maniE2E.setLanguage("fr"));
-    await expect
-      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
-      .toMatchObject({ Francais: true, English: false, Espanol: false, Portugues: false });
+    // setLanguage await notifyUiLanguage (createMenu) — sérialise avant lecture Menu.
+    await page.evaluate(async () => window.__maniE2E.setLanguage("fr"));
+    await waitForNativeLanguageRadios(app, {
+      Francais: true,
+      English: false,
+      Espanol: false,
+      Portugues: false
+    });
 
-    await page.evaluate(() => window.__maniE2E.setLanguage("es"));
-    await expect
-      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
-      .toMatchObject({ Francais: false, English: false, Espanol: true, Portugues: false });
+    await page.evaluate(async () => window.__maniE2E.setLanguage("es"));
+    await waitForNativeLanguageRadios(app, {
+      Francais: false,
+      English: false,
+      Espanol: true,
+      Portugues: false
+    });
 
     await page.evaluate(() => window.localStorage.setItem("editify:lang", "en"));
+    // Seul vrai reload du scénario : persistance editify:lang au boot.
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => !!window.maniPdfApi && window.__maniE2E?.setLanguage, null, {
       timeout: 90000,
       polling: 250
     });
+    // Boot fire-and-forget notifyUiLanguage : resync explicite pour attendre createMenu.
+    await page.evaluate(async () => window.__maniE2E.setLanguage("en"));
     await expect(page.locator(":root")).toHaveAttribute("lang", /en/i);
-    await expect
-      .poll(async () => getNativeLanguageRadioChecked(app), { timeout: 10000 })
-      .toMatchObject({ Francais: false, English: true, Espanol: false, Portugues: false });
+    await waitForNativeLanguageRadios(app, {
+      Francais: false,
+      English: true,
+      Espanol: false,
+      Portugues: false
+    });
   } finally {
     await e2eCi.closeElectronApp(app);
   }
@@ -220,10 +272,10 @@ test("05-Dev: PDF ouvert + changement langue → colonnes Miniatures/Ajouts (non
   const { app, page } = await launchAppWithPdfFixture();
   await openPdfFromMenu(app, page);
   await waitForPdfPagesRendered(page);
-  await page.evaluate(() => window.__maniE2E.setLanguage("en"));
+  await page.evaluate(async () => window.__maniE2E.setLanguage("en"));
   await expect(page.locator("#thumbsTitle")).toHaveText("Thumbnails");
   await expect(page.locator("#changesTitle")).toHaveText("Changes");
-  await page.evaluate(() => window.__maniE2E.setLanguage("fr"));
+  await page.evaluate(async () => window.__maniE2E.setLanguage("fr"));
   await expect(page.locator("#thumbsTitle")).toHaveText("Miniatures");
   await expect(page.locator("#changesTitle")).toHaveText("Ajouts");
   await e2eCi.closeElectronApp(app);
@@ -231,7 +283,7 @@ test("05-Dev: PDF ouvert + changement langue → colonnes Miniatures/Ajouts (non
 
 test("05-Dev: menu orthographe ctx - titre présent après langue ES", async () => {
   const { app, page } = await launchAppWithPdfFixture();
-  await page.evaluate(() => window.__maniE2E.setLanguage("es"));
+  await page.evaluate(async () => window.__maniE2E.setLanguage("es"));
   await expect(page.locator("#ctxSpellTitleEl")).toHaveText("Ortografia");
   await e2eCi.closeElectronApp(app);
 });

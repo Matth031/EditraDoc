@@ -37,7 +37,7 @@
    * @property {() => Promise<void>} promptOpenPdf
    * @property {() => Promise<void>} savePdfAs
    * @property {() => Promise<unknown>} printActivePdf
-   * @property {(lang: string) => void} setLanguage
+   * @property {(lang: string) => void | Promise<void>} setLanguage
    * @property {(label: string, extra?: Record<string, unknown>) => void} logText
    */
 
@@ -512,7 +512,7 @@
       const btn = e.target?.closest?.(".toolbar-lang-btn[data-lang]");
       if (!btn) return;
       try {
-        d0.setLanguage(btn.dataset.lang);
+        void d0.setLanguage(btn.dataset.lang);
       } catch (error) {
         globalThis.__editifyReportWarn?.("chrome:setLanguage", String(error?.message || error));
       }

@@ -975,7 +975,13 @@ function tr(templateKey, vars) {
 }
 
 
-function setLanguage(lang) {
+/**
+ * Change la langue UI. Attend `notifyUiLanguage` (rebuild menu natif + warm spell)
+ * pour que lecteurs main (E2E radios) voient un menu cohérent — pas de reload renderer.
+ * @param {string} lang
+ * @returns {Promise<void>}
+ */
+async function setLanguage(lang) {
   const next = String(lang || "fr").toLowerCase();
   if (!I18N[next]) return;
   state.language = next;
@@ -987,7 +993,8 @@ function setLanguage(lang) {
   i18nApply.applyLanguage();
   applySpellcheckLanguageBestEffort();
   try {
-    window.maniPdfApi?.notifyUiLanguage?.(next);
+    // createMenu() côté main : await pour sérialiser avant lecture Menu E2E.
+    await window.maniPdfApi?.notifyUiLanguage?.(next);
   } catch {
     /* intentional: notify main UI language best-effort */
   }
@@ -1838,11 +1845,9 @@ window.maniPdfApi?.onOpenFromMenu?.(async (filePath) => {
 
 // Options > Langue (menu natif)
 window.maniPdfApi?.onSetLanguage?.((lang) => {
-  try {
-    setLanguage(lang);
-  } catch (error) {
+  void setLanguage(lang).catch((error) => {
     reportCaughtError("i18n:setLanguage", error);
-  }
+  });
 });
 
 window.maniPdfApi?.onSaveAsRequested?.(() => {
@@ -2021,7 +2026,7 @@ i18nApply.applyLanguage();
 applySpellcheckLanguageBestEffort();
 void updateUi.init();
 try {
-  window.maniPdfApi?.notifyUiLanguage?.(state.language);
+  void window.maniPdfApi?.notifyUiLanguage?.(state.language);
 } catch {
   /* intentional: boot notify UI language best-effort */
 }
