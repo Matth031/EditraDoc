@@ -28,7 +28,7 @@ Mirror local aussi dans `docs/06-Test-Matrix.md` (hors dépôt git).
 
 | Champ | Valeur |
 |-------|--------|
-| **Statut** | Mitigé (2026-07-30) — harness E2E + `await notifyUiLanguage` |
+| **Statut** | **Clos** (2026-07-30) — CI Linux/xvfb verte sur `ac5fe9c` (run [30498539763](https://github.com/Matth031/EditraDoc/actions/runs/30498539763), e2e success) |
 | **Symptôme** | `electronApplication.evaluate: Execution context was destroyed, most likely because of a navigation` dans `waitForNativeLanguageRadios` / ancien `getNativeLanguageRadioChecked` |
 | **Repro** | Windows isolé : **4/8** avant correctif (échec à l’assert après `setLanguage("es")`). xvfb Docker indisponible localement (daemon off) ; CI Linux `cd9523a` échoue sur ce spec |
 | **Cause produit** | **Pas** de `window.reload()` sur changement de langue. Chemin : `setLanguage` → `notifyUiLanguage` → `createMenu`/`Menu.setApplicationMenu` + `warmSpellcheckDictionariesBackground`. Le seul reload du scénario est le `page.reload()` explicite (persistance `editify:lang`) |
