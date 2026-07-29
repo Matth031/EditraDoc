@@ -81,6 +81,9 @@ if (!window.__editifyPdfViewer) {
 if (!window.__editifyPdfSave) {
   throw new Error("[editify] Charger renderer-pdf-save.js avant renderer.js (voir index.html).");
 }
+if (!window.__editifyPdfPrint) {
+  throw new Error("[editify] Charger renderer-pdf-print.js avant renderer.js (voir index.html).");
+}
 if (!window.__editifySessionLog) {
   throw new Error("[editify] Charger renderer-session-log.js avant renderer.js (voir index.html).");
 }
@@ -129,6 +132,7 @@ if (!window.__editifyGeometry) {
 }
 const pdfv = window.__editifyPdfViewer;
 const pdfSave = window.__editifyPdfSave;
+const pdfPrint = window.__editifyPdfPrint;
 const sessionLog = window.__editifySessionLog;
 const sessionLogUi = window.__editifySessionLogUi;
 const logFileSettingsUi = window.__editifyLogFileSettingsUi;
@@ -278,6 +282,7 @@ const logFileDefaultPathLabel = document.getElementById("logFileDefaultPathLabel
 const welcomeOpenPdfBtn = document.getElementById("welcomeOpenPdfBtn");
 const toolbarOpenPdfBtn = document.getElementById("toolbarOpenPdfBtn");
 const toolbarSaveAsBtn = document.getElementById("toolbarSaveAsBtn");
+const toolbarPrintBtn = document.getElementById("toolbarPrintBtn");
 const toolbarHtmlToPdfBtn = document.getElementById("toolbarHtmlToPdfBtn");
 const toolbarImagesToPdfBtn = document.getElementById("toolbarImagesToPdfBtn");
 const toolbarQuitBtn = document.getElementById("toolbarQuitBtn");
@@ -1316,6 +1321,12 @@ pdfSave.bind({
   t,
   state
 });
+pdfPrint.bind({
+  getActiveTab,
+  exportActivePdfToPath: pdfSave.exportActivePdfToPath,
+  setStatus,
+  t
+});
 tabsMod.bind({
   state,
   tabs,
@@ -1537,6 +1548,11 @@ async function savePdfAs() {
   return pdfSave.savePdfAs();
 }
 
+/** Délègue à `__editifyPdfPrint` — bake + dialogue OS (toolbar, Ctrl+P, menu). */
+async function printActivePdf() {
+  return pdfPrint.printActivePdf();
+}
+
 chrome.bind({
   blankCanvasCtxMenu,
   aboutPopover,
@@ -1552,6 +1568,7 @@ chrome.bind({
   welcomeOpenPdfBtn,
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
+  toolbarPrintBtn,
   toolbarHtmlToPdfBtn,
   toolbarImagesToPdfBtn,
   toolbarQuitBtn,
@@ -1568,6 +1585,7 @@ chrome.bind({
   t,
   promptOpenPdf: () => tabsMod.promptOpenPdf(),
   savePdfAs,
+  printActivePdf,
   setLanguage,
   logText
 });
@@ -1640,6 +1658,7 @@ i18nApply.bind({
   menuInfoLabel,
   toolbarOpenPdfBtn,
   toolbarSaveAsBtn,
+  toolbarPrintBtn,
   toolbarHtmlToPdfBtn,
   toolbarImagesToPdfBtn,
   toolbarQuitBtn,
@@ -1831,6 +1850,11 @@ window.maniPdfApi?.onSaveAsRequested?.(() => {
     pdfSave.logSave("save_menu_exception", { error: String(error?.message || error) });
   });
 });
+window.maniPdfApi?.onPrintRequested?.(() => {
+  printActivePdf().catch((error) => {
+    pdfSave.logSave("print_menu_exception", { error: String(error?.message || error) });
+  });
+});
 window.maniPdfApi?.onAutosaveRequested?.(() => {
   session.saveSession({ quietStatus: true, source: "autosave-ipc" }).catch((error) => {
     reportCaughtError("session:autosave", error, undefined, "warn");
@@ -1970,6 +1994,7 @@ keymapMod.bind({
   undo,
   redo,
   savePdfAs,
+  printActivePdf,
   pdfSave,
   promptOpenPdf: () => tabsMod.promptOpenPdf(),
   tryHandleSelectedAnnotationArrowKey,

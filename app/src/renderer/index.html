@@ -43,6 +43,7 @@
           <div id="toolbarFileMenu" class="menu hidden" role="menu" aria-label="Fichier">
             <button type="button" id="toolbarOpenPdfBtn" role="menuitem" data-tooltip="Ouvre un fichier PDF.">📂 Ouvrir PDF</button>
             <button type="button" id="toolbarSaveAsBtn" role="menuitem" data-tooltip="Enregistre un nouveau PDF (Ctrl+S).">💾 Enregistrer sous…</button>
+            <button type="button" id="toolbarPrintBtn" role="menuitem" data-tooltip="Imprime le PDF avec annotations (Ctrl+P).">🖨 Imprimer…</button>
             <button type="button" id="toolbarHtmlToPdfBtn" role="menuitem" data-tooltip="Convertit un fichier HTML local en PDF dans le même dossier.">📄 HTML vers PDF</button>
             <button type="button" id="toolbarImagesToPdfBtn" role="menuitem" data-tooltip="Convertit une ou plusieurs images PNG/JPG en PDF dans le même dossier.">🖼 Image(s) vers PDF</button>
             <button type="button" id="toolbarQuitBtn" role="menuitem" data-tooltip="Ferme l'application.">✕ Quitter</button>
@@ -505,6 +506,7 @@
     <script src="./renderer-session.js"></script>
     <script src="./renderer-pdf-viewer.js"></script>
     <script src="./renderer-pdf-save.js"></script>
+    <script src="./renderer-pdf-print.js"></script>
     <script src="./renderer-i18n-apply.js"></script>
     <script src="./renderer-e2e-helpers.js"></script>
     <script src="./renderer-perf-instrument.js"></script>

@@ -197,7 +197,7 @@
     return false;
   }
 
-  /** Ctrl+S / Ctrl+O. @returns {boolean} */
+  /** Ctrl+S / Ctrl+O / Ctrl+P. @returns {boolean} */
   function handleFileShortcuts(event, d, key) {
     const mod = event.ctrlKey || event.metaKey;
     if (!mod) return false;
@@ -215,6 +215,18 @@
     if (key === "o") {
       event.preventDefault();
       void promptOpenPdf();
+      return true;
+    }
+    if (key === "p") {
+      event.preventDefault();
+      const printActivePdf = /** @type {(() => Promise<unknown>) | undefined} */ (d.printActivePdf);
+      if (typeof printActivePdf === "function") {
+        printActivePdf().catch((error) => {
+          pdfSave.logSave?.("print_shortcut_exception", {
+            error: String(error?.message || error)
+          });
+        });
+      }
       return true;
     }
     return false;

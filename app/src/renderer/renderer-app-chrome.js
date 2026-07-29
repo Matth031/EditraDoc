@@ -21,6 +21,7 @@
    * @property {HTMLElement | null} welcomeOpenPdfBtn
    * @property {HTMLElement | null} toolbarOpenPdfBtn
    * @property {HTMLElement | null} toolbarSaveAsBtn
+   * @property {HTMLElement | null} toolbarPrintBtn
    * @property {HTMLElement | null} toolbarQuitBtn
    * @property {HTMLElement | null} toolbarCloseBtn
    * @property {HTMLElement | null} toolbarAboutMenuItem
@@ -35,6 +36,7 @@
    * @property {(key: string) => string} t
    * @property {() => Promise<void>} promptOpenPdf
    * @property {() => Promise<void>} savePdfAs
+   * @property {() => Promise<unknown>} printActivePdf
    * @property {(lang: string) => void} setLanguage
    * @property {(label: string, extra?: Record<string, unknown>) => void} logText
    */
@@ -485,6 +487,15 @@
         } catch {
           /* intentional: saveAs secondary logText best-effort */
         }
+      });
+    });
+    d0.toolbarPrintBtn?.addEventListener?.("click", (e) => {
+      e.preventDefault();
+      closeAllFlyoutMenus();
+      const printFn = d0.printActivePdf;
+      if (typeof printFn !== "function") return;
+      printFn().catch((error) => {
+        globalThis.__editifyReportError?.("chrome:print", String(error?.message || error));
       });
     });
     d0.toolbarQuitBtn?.addEventListener?.("click", (e) => {

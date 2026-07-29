@@ -43,6 +43,15 @@ const {
 } = require("./lib/sensitive-actions-log");
 const { convertHtmlToPdf } = require("./lib/html-to-pdf");
 const { convertImagesToPdf } = require("./lib/images-to-pdf");
+const {
+  sweepOrphanPrintTemps,
+  unlinkAllPendingPrintTemps,
+  createPrintTempPath,
+  safeUnlinkPrintTemp,
+  isPathInsidePrintTempDir,
+  listPendingPrintTemps,
+  printBakedPdf
+} = require("./lib/pdf-print");
 const { freeLocalPort } = require("./lib/free-local-port");
 const spellcheckService = require("./spellcheck-service");
 const MENU_I18N = require("../lib/menu-i18n-data");
@@ -532,6 +541,14 @@ function createMenu() {
           click: () => {
             if (!mainWindow) return;
             mainWindow.webContents.send("pdf:save-as-requested");
+          }
+        },
+        {
+          label: "Imprimer…",
+          accelerator: "Ctrl+P",
+          click: () => {
+            if (!mainWindow) return;
+            mainWindow.webContents.send("pdf:print-requested");
           }
         },
         { type: "separator" },
@@ -1189,6 +1206,87 @@ ipcMain.handle("pdf:export-with-annotations", async (_, payload) => {
   }
 });
 
+/**
+ * Alloue un path sous os.tmpdir()/editradoc-print/ (ADR-008).
+ * Le renderer bake via export-with-annotations vers ce path — pas le dossier source.
+ */
+ipcMain.handle("pdf:allocate-print-temp", async () => {
+  try {
+    const filePath = createPrintTempPath();
+    if (!isPathInsidePrintTempDir(filePath)) {
+      safeUnlinkPrintTemp(filePath);
+      return { ok: false, error: "Chemin temp impression invalide." };
+    }
+    return { ok: true, path: filePath };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
+});
+
+ipcMain.handle("pdf:discard-print-temp", async (_, payload) => {
+  const filePath = String(payload?.path || "").trim();
+  if (!filePath || !isPathInsidePrintTempDir(filePath)) {
+    return { ok: false, error: "Chemin temp impression refuse." };
+  }
+  return safeUnlinkPrintTemp(filePath);
+});
+
+/**
+ * Imprime un PDF baked déjà écrit sous editradoc-print/.
+ * E2E (MANI_PDF_E2E=1) : pas de dialogue OS — cleanup immédiat (mock).
+ */
+ipcMain.handle("pdf:print-baked", async (_, payload) => {
+  const filePath = String(payload?.path || "").trim();
+  if (!filePath) {
+    return { ok: false, error: "Chemin PDF manquant.", tempRemoved: false, sandbox: null };
+  }
+  if (!isPathInsidePrintTempDir(filePath)) {
+    logWarn("pdf:print-baked", "path hors editradoc-print refuse", { filePath });
+    return {
+      ok: false,
+      error: "Impression refusee : chemin hors zone temp.",
+      tempRemoved: false,
+      sandbox: null
+    };
+  }
+  const pending = listPendingPrintTemps().map((p) => path.resolve(p));
+  if (!pending.includes(path.resolve(filePath))) {
+    // Tolère un path alloué puis oublié du Set après restart partiel : re-register si fichier existe.
+    if (!fs.existsSync(filePath)) {
+      return {
+        ok: false,
+        error: "Fichier PDF temporaire introuvable.",
+        tempRemoved: false,
+        sandbox: null
+      };
+    }
+  }
+
+  if (process.env.MANI_PDF_E2E === "1") {
+    const removed = safeUnlinkPrintTemp(filePath);
+    return {
+      ok: true,
+      printed: false,
+      canceledOrFailed: true,
+      e2eMock: true,
+      sandbox: true,
+      tempRemoved: removed.ok
+    };
+  }
+
+  try {
+    return await printBakedPdf(filePath);
+  } catch (error) {
+    safeUnlinkPrintTemp(filePath);
+    return {
+      ok: false,
+      error: error?.message || String(error),
+      tempRemoved: !fs.existsSync(filePath),
+      sandbox: null
+    };
+  }
+});
+
 ipcMain.handle("job:create", async (_, input) => {
   // Frontière contrat (Ajv) AVANT validateJobPayload (existence disque + S1 path-guard).
   const contract = validateJobCreateRequestContract(input);
@@ -1564,6 +1662,17 @@ app.whenReady().then(() => {
   loadSensitiveLog();
   loadJobs();
   loadRecentPdfs();
+  // ADR-008 : orphelins print-*.pdf après crash (registre mémoire perdu)
+  try {
+    const sweep = sweepOrphanPrintTemps({ forceAll: true });
+    if (sweep.removed.length > 0) {
+      logInfo("pdf-print:sweep", "Orphelins impression purgés au boot", {
+        removed: sweep.removed.length
+      });
+    }
+  } catch (err) {
+    logWarn("pdf-print:sweep", err?.message || String(err));
+  }
   createWindow();
   createMenu();
   warmSpellcheckDictionariesBackground("app-boot");
@@ -1577,6 +1686,11 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   stopBackgroundTimers();
+  try {
+    unlinkAllPendingPrintTemps();
+  } catch {
+    /* intentional: cleanup print temps best-effort on quit */
+  }
 });
 
 app.on("will-quit", () => {

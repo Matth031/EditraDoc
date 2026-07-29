@@ -350,6 +350,34 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.equal(res.status, 0, res.stderr || res.stdout);
 });
 
+test("INVARIANT S1 : impression — bake temp sous editradoc-print, pas dossier source", () => {
+  const {
+    createPrintTempPath,
+    isPathInsidePrintTempDir,
+    safeUnlinkPrintTemp,
+    resetPendingPrintTempsForTests
+  } = require("../src/main/lib/pdf-print.js");
+  resetPendingPrintTempsForTests();
+  const sourceDir = path.join(os.tmpdir(), "editradoc-s1-source-fake");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const sourcePdf = path.join(sourceDir, "doc.pdf");
+  try {
+    const printTemp = createPrintTempPath();
+    assert.equal(isPathInsidePrintTempDir(printTemp), true);
+    assert.notEqual(path.dirname(printTemp), path.dirname(sourcePdf));
+    assert.match(printTemp.replace(/\\/g, "/"), /editradoc-print\/print-/);
+    assert.equal(isPathInsidePrintTempDir(sourcePdf), false);
+    safeUnlinkPrintTemp(printTemp);
+  } finally {
+    resetPendingPrintTempsForTests();
+    try {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    } catch {
+      /* intentional */
+    }
+  }
+});
+
 // --- S4 : validatePdfWithPython fail-closed ---
 
 test("INVARIANT S4 : service Python indisponible — ouverture PDF refusee (fail-closed)", async () => {

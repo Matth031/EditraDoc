@@ -77,6 +77,10 @@ contextBridge.exposeInMainWorld("maniPdfApi", {
   savePdfAsDialog: (suggestedName) =>
     openDialogOrE2eBypass("MANI_PDF_E2E_SAVE_AS_PATH", "dialog:savePdfAs", suggestedName),
   exportPdfWithAnnotations: (payload) => ipcRenderer.invoke("pdf:export-with-annotations", payload),
+  allocatePrintTempPath: () => ipcRenderer.invoke("pdf:allocate-print-temp"),
+  discardPrintTempPath: (path) => ipcRenderer.invoke("pdf:discard-print-temp", { path }),
+  printBakedPdf: (payload) => ipcRenderer.invoke("pdf:print-baked", payload),
+  onPrintRequested: (cb) => ipcRenderer.on("pdf:print-requested", cb),
   createJob: (input) => ipcRenderer.invoke("job:create", input),
   listJobs: () => ipcRenderer.invoke("job:list"),
   pythonHealth: () => ipcRenderer.invoke("python:health"),

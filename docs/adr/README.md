@@ -14,6 +14,7 @@ Le reste de `docs/` reste gitignoré (process produit interne) ; seul `docs/adr/
 | [ADR-005](./005-security-invariants-outside-schemas.md) | Invariants sécurité (S*) hors schémas JSON | Accepté | 2026-07-24 |
 | [ADR-006](./006-main-window-sandbox.md) | Sandbox Chromium fenêtre principale (`sandbox: true`) | Accepté | 2026-07-25 |
 | [ADR-007](./007-release-tag-and-update-manifest.md) | Tags release `vX.Y.Z` + asset `latest.json` obligatoire | Accepté | 2026-07-25 |
+| [ADR-008](./008-print-temp-lifecycle-and-sandbox.md) | Impression PDF : temp `os.tmpdir` + sandbox fenêtre print | Proposé | 2026-07-29 |
 
 ## Diagramme
 

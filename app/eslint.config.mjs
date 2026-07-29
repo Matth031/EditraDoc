@@ -150,7 +150,8 @@ export default [
       "src/renderer/renderer-tooltips.js",
       "src/renderer/renderer-session.js",
       "src/renderer/renderer-pdf-viewer.js",
-      "src/renderer/renderer-pdf-save.js"
+      "src/renderer/renderer-pdf-save.js",
+      "src/renderer/renderer-pdf-print.js"
     ],
     languageOptions: {
       ecmaVersion: 2022,
