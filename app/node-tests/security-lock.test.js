@@ -373,7 +373,7 @@ test("INVARIANT S1 : impression — bake temp sous editradoc-print, pas dossier 
     try {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     } catch {
-      /* intentional */
+      /* intentional: cleanup dossier temp test S1 best-effort */
     }
   }
 });
