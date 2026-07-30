@@ -1838,11 +1838,21 @@ shapeGrid?.addEventListener?.("click", (event) => {
 });
 
 window.maniPdfApi?.onOpenFromMenu?.(async (filePath) => {
-
   const name =
     window.__editifyUtils?.baseNameFromPath?.(filePath) ||
     filePath.split(/[/\\]/).pop() ||
     "document.pdf";
+  // Diagnostic E2E (forwardé vers log Node CI via page.on('console')) : le send menu a-t-il été reçu ?
+  try {
+    if (window.maniPdfApi?.isE2E?.()) {
+      console.log(
+        "[e2e-open-from-menu] received",
+        JSON.stringify({ baseName: name, pathLen: String(filePath || "").length })
+      );
+    }
+  } catch {
+    /* intentional: e2e open-from-menu log best-effort */
+  }
   await tabsMod.addPdfTab(filePath, name);
 });
 

@@ -188,6 +188,29 @@
     const tr = /** @type {(k: string, vars?: object) => string} */ (d.tr);
 
     const result = await window.maniPdfApi.openPdf(filePath);
+    // Diagnostic E2E (log Node CI) : openPdf a-t-il été appelé, et avec quel résultat ?
+    try {
+      if (window.maniPdfApi?.isE2E?.()) {
+        const baseName =
+          window.__editifyUtils?.baseNameFromPath?.(filePath) ||
+          String(filePath || "")
+            .split(/[/\\]/)
+            .filter(Boolean)
+            .pop() ||
+          "";
+        console.log(
+          "[e2e-openPdf]",
+          JSON.stringify({
+            ok: Boolean(result?.ok),
+            errorCode: result?.errorCode || null,
+            error: result?.ok ? null : result?.error || null,
+            baseName
+          })
+        );
+      }
+    } catch {
+      /* intentional: e2e openPdf result log best-effort */
+    }
     if (!result.ok) {
       setStatus(resolvePdfOpenErrorMessage(result));
       return;
