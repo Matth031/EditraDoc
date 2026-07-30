@@ -120,10 +120,14 @@ jobs:
 
       - name: Run electron smoke e2e
         # Partage Python : lancements Electron enchaînés sans pause ~32s → EMFILE
-        # si la soft limit FD du runner reste basse (souvent 256).
+        # si soft/hard maxfiles du runner restent bas. ulimit seul ne suffit pas toujours
+        # sur macos-latest (kern.maxfilesperproc) — remonter soft+hard avant npm.
         run: |
-          ulimit -n 10240
-          echo "ulimit -n=$(ulimit -n)"
+          echo "before soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          sudo sysctl -w kern.maxfiles=65536 kern.maxfilesperproc=65536 || true
+          sudo launchctl limit maxfiles 65536 200000 || true
+          ulimit -n 65536
+          echo "after soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
           npm run e2e
         env:
           ELECTRON_DISABLE_GPU: "1"
