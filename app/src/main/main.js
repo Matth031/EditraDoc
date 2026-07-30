@@ -982,6 +982,22 @@ ipcMain.handle("pdf:open", async (_, pdfPath) => {
     const fileSize = exists ? fs.statSync(resolvedPath).size : 0;
     const validation =
       exists && fileSize > 0 ? await validateWithPython(resolvedPath) : { ok: false };
+    // Preuve CI / E2E : résultat validateWithPython explicite (fail-closed), sans ambiguïté.
+    if (process.env.CI === "true" || process.env.MANI_PDF_E2E === "1") {
+      const baseName =
+        typeof resolvedPath === "string"
+          ? resolvedPath.split(/[/\\]/).filter(Boolean).pop() || resolvedPath
+          : String(resolvedPath);
+      logInfo("pdf:open:validateWithPython", "Résultat validation PDF", {
+        ok: Boolean(validation?.ok),
+        errorCode: validation?.errorCode || null,
+        error: validation?.ok ? null : validation?.error || null,
+        skippedValidate: !(exists && fileSize > 0),
+        exists,
+        fileSize,
+        baseName
+      });
+    }
     const result = evaluatePdfOpen(resolvedPath, { exists, fileSize, validation });
     if (!result.ok) {
       logWarn("pdf:open", result.error || "Ouverture PDF refusée", {
