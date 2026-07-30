@@ -145,7 +145,8 @@
       "target": "AppImage"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "build-resources/icon.png"
     }
   },
   "dependencies": {
