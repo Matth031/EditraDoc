@@ -1,3 +1,5 @@
+const { attachE2eDiagnostics, dumpUiStateToNodeLog } = require("./diagnostic-runtime");
+
 /**
  * Attend que le rendu PDF soit réellement prêt pour les tests :
  * - `tab.pageCount` aligné (via `__maniE2E.getUiState`)
@@ -14,6 +16,7 @@
  * @param {{ timeoutMs?: number }} [options]
  */
 async function waitForPdfPagesRendered(page, options = {}) {
+  attachE2eDiagnostics(page);
   const timeoutMs = options.timeoutMs ?? 90000;
   const started = Date.now();
   let delayMs = 25;
@@ -70,6 +73,13 @@ async function waitForPdfPagesRendered(page, options = {}) {
   }
 
   const finalSnap = await snapshot().catch(() => null);
+  await dumpUiStateToNodeLog(
+    page,
+    `waitForPdfPagesRendered-timeout-${timeoutMs}ms` +
+      (finalSnap
+        ? ` pageCount=${finalSnap.pageCount} pages=${finalSnap.pdfPages} canvas=${finalSnap.withCanvas} thumbs=${finalSnap.thumbs}`
+        : "")
+  );
   throw new Error(
     `waitForPdfPagesRendered: timeout ${timeoutMs}ms` +
       (finalSnap

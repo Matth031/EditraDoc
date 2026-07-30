@@ -1,5 +1,8 @@
 const { defineConfig } = require("@playwright/test");
 
+// Hooks diagnostic (afterEach + patch electron.launch) — chargé avant les specs.
+require("./e2e/diagnostic-setup.js");
+
 const ci = Boolean(process.env.CI);
 
 module.exports = defineConfig({
@@ -12,5 +15,9 @@ module.exports = defineConfig({
   workers: 1,
   /** Outil diagnostic (npm run e2e:diag) — hors régression standard. */
   testIgnore: ["**/diag-pdf-open-console.spec.js"],
-  reporter: "list"
+  reporter: "list",
+  use: {
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure"
+  }
 });
