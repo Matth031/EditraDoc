@@ -2,7 +2,6 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron")
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawn, execSync } = require("node:child_process");
-const crypto = require("node:crypto");
 const http = require("node:http");
 const {
   log,
@@ -53,6 +52,10 @@ const {
   printBakedPdf
 } = require("./lib/pdf-print");
 const { freeLocalPort } = require("./lib/free-local-port");
+const {
+  isPythonExternalAttach,
+  resolvePythonServiceToken
+} = require("./lib/python-external-attach");
 const spellcheckService = require("./spellcheck-service");
 const MENU_I18N = require("../lib/menu-i18n-data");
 
@@ -63,8 +66,12 @@ let uiLanguage = "fr";
 let autosaveInterval = null;
 let jobQueueIntervalId = null;
 let pythonProcess = null;
-/** Token partagé main ↔ service Python (header X-Mani-Pdf-Token sur chaque POST). */
-const pythonServiceToken = crypto.randomBytes(32).toString("hex");
+/**
+ * Token partagé main ↔ service Python (header X-Mani-Pdf-Token sur chaque POST).
+ * En mode attach (MANI_PDF_PYTHON_EXTERNAL=1) : token fixe fourni par l’env (CI macOS).
+ * Sinon : randomBytes — comportement historique inchangé.
+ */
+const pythonServiceToken = resolvePythonServiceToken();
 
 /**
  * Racine du dossier applicatif (dev: `app/`, prod: `resources/app.asar.unpacked/`).
@@ -684,6 +691,12 @@ function stopBackgroundTimers() {
 }
 
 async function startPythonService() {
+  if (isPythonExternalAttach()) {
+    // CI macOS : service déjà lancé (globalSetup). Ne pas freeLocalPort / spawn / adopter le PID.
+    pythonProcess = null;
+    logInfo("python", "attach-external", { port: 8765 });
+    return;
+  }
   stopPythonService();
   await freeLocalPort(8765);
   const { command, args, cwd, env } = getPythonLaunchConfig();
@@ -714,6 +727,8 @@ async function startPythonService() {
 }
 
 function stopPythonService() {
+  // Attach : le process partagé n’est pas un enfant Electron — ne jamais le tuer au quit/teardown.
+  if (isPythonExternalAttach()) return;
   if (!pythonProcess) return;
   const p = pythonProcess;
   pythonProcess = null;
