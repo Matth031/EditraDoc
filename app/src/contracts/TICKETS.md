@@ -37,4 +37,15 @@ Mirror local aussi dans `docs/06-Test-Matrix.md` (hors dépôt git).
 | **Ne pas** | Retry générique sur toute erreur `evaluate` ; documenter comme « navigation produit » |
 | **Miroir** | `docs/06-Test-Matrix.md` (hors dépôt) si maintenu localement |
 
+## TKT-FLK-E2E-003 — `app.evaluate` send `pdf:open-from-menu` (contexte CDP main)
+
+| Champ | Valeur |
+|-------|--------|
+| **Statut** | Ouvert (2026-07-31) — CI macOS après partage Python (~15,9 min) |
+| **Symptôme** | `electronApplication.evaluate: Execution context was destroyed` dans `launchWithPdf` (`app.page-rotate` AC-ROT-03) et `app.session-boot` (rejet 50 Mo) |
+| **Repro** | Windows isolé sans attach : **0/6** (marge cold-start). CI macOS suite accélérée : 2 échecs / run. |
+| **Cause** | Même famille CDP main qu’E2E-002 ; point d’appel **différent** (`send pdf:open-from-menu` juste après `firstWindow`), exposé quand le cold-start Python (~32 s) ne sérialise plus les launches |
+| **Correctif** | `helpers.evaluateInElectronMain` (retry ciblé « destroyed ») + `openPdfFromMenu` attend `maniPdfApi` avant send ; specs branchées dessus |
+| **Ne pas** | Retry générique ; confondre avec navigation renderer |
+
 ---

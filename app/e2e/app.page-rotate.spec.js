@@ -7,7 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const { spawnSync } = require("node:child_process");
 const e2eCi = require("./electron-ci-env");
-const { waitForPdfPagesRendered } = require("./helpers");
+const { waitForPdfPagesRendered, openPdfFromMenu } = require("./helpers");
 const {
   assertPdfContainsText,
   assertPdfHasEmbeddedImageXObjects
@@ -37,10 +37,7 @@ function ensureRotatedPdfFixture() {
 async function launchWithRotatedPdf() {
   ensureRotatedPdfFixture();
   const ctx = await launchApp({ MANI_PDF_E2E_PDF_PATH: rotatedFixture });
-  await ctx.app.evaluate(({ BrowserWindow }, p) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    win?.webContents?.send?.("pdf:open-from-menu", p);
-  }, rotatedFixture);
+  await openPdfFromMenu(ctx.app, ctx.page, rotatedFixture, { waitTabs: false });
   await waitForPdfPagesRendered(ctx.page);
   return ctx;
 }
@@ -74,10 +71,7 @@ async function launchApp(envExtra = {}) {
 
 async function launchWithPdf() {
   const ctx = await launchApp({ MANI_PDF_E2E_PDF_PATH: pdfFixture });
-  await ctx.app.evaluate(({ BrowserWindow }, p) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    win?.webContents?.send?.("pdf:open-from-menu", p);
-  }, pdfFixture);
+  await openPdfFromMenu(ctx.app, ctx.page, pdfFixture, { waitTabs: false });
   await waitForPdfPagesRendered(ctx.page);
   return ctx;
 }
@@ -275,10 +269,7 @@ test("Rotation page : écrasement PDF /Rotate natif + delta utilisateur (AC-ROT-
 
   const { app, page } = await launchApp({ MANI_PDF_E2E_PDF_PATH: tmpPdf });
   try {
-    await app.evaluate(({ BrowserWindow }, p) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win?.webContents?.send?.("pdf:open-from-menu", p);
-    }, tmpPdf);
+    await openPdfFromMenu(app, page, tmpPdf, { waitTabs: false });
     await waitForPdfPagesRendered(page);
 
     await expect
@@ -334,10 +325,7 @@ test("Rotation page : écrasement même fichier réinitialise le delta utilisate
 
   const { app, page } = await launchApp({ MANI_PDF_E2E_PDF_PATH: tmpPdf });
   try {
-    await app.evaluate(({ BrowserWindow }, p) => {
-      const win = BrowserWindow.getAllWindows()[0];
-      win?.webContents?.send?.("pdf:open-from-menu", p);
-    }, tmpPdf);
+    await openPdfFromMenu(app, page, tmpPdf, { waitTabs: false });
     await waitForPdfPagesRendered(page);
 
     await expect

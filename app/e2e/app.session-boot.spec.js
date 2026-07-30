@@ -7,6 +7,7 @@ const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");
 const fs = require("fs");
+const { openPdfFromMenu } = require("./helpers");
 
 function getRepoPdfFixture() {
   const p = path.resolve(process.cwd(), "..", "tests", "formulaire_test.pdf");
@@ -62,10 +63,7 @@ test("E3: loadSession ok:false → statut stSessionLoadFailed (pas silencieux)",
 test("E3: saveSession rejet IPC → statut plafond 50 Mo (garde main inchangée)", async () => {
   const { app, page } = await launchAppBare();
   const pdfPath = getRepoPdfFixture();
-  await app.evaluate(({ BrowserWindow }, p) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    win?.webContents?.send?.("pdf:open-from-menu", p);
-  }, pdfPath);
+  await openPdfFromMenu(app, page, pdfPath, { tabTimeoutMs: 60000 });
   await expect(page.locator("#tabs .tab").first()).toBeVisible({ timeout: 60000 });
 
   const result = await page.evaluate(async () => {

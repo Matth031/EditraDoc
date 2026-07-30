@@ -164,6 +164,40 @@ async function dispatchTextAnnotationContextMenu(page, options = {}) {
 }
 
 /**
+ * `app.evaluate` (processus main Electron). Playwright + Electron ≥27 peut invalider
+ * le contexte CDP main avec « Execution context was destroyed » *sans* navigation
+ * renderer (même famille que TKT-FLK-E2E-002 / menu Langue).
+ * On ne retente que cette erreur — pas un retry aveugle.
+ *
+ * @template T
+ * @param {import("@playwright/test").ElectronApplication} app
+ * @param {(electron: typeof import("electron"), arg: unknown) => T | Promise<T>} fn
+ * @param {unknown} [arg]
+ * @param {{ timeoutMs?: number }} [opts]
+ * @returns {Promise<T>}
+ */
+async function evaluateInElectronMain(app, fn, arg, opts = {}) {
+  const timeoutMs = opts.timeoutMs ?? 15000;
+  const deadline = Date.now() + timeoutMs;
+  /** @type {unknown} */
+  let lastError = null;
+  const hasArg = arguments.length >= 3;
+
+  while (Date.now() < deadline) {
+    try {
+      return hasArg ? await app.evaluate(fn, arg) : await app.evaluate(fn);
+    } catch (error) {
+      const msg = String(error?.message || error);
+      if (!/Execution context was destroyed/i.test(msg)) throw error;
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  }
+
+  throw lastError || new Error("evaluateInElectronMain: timeout");
+}
+
+/**
  * Ouvre un PDF via le canal menu (`pdf:open-from-menu`) après attente Python (macOS CI).
  * Point d’entrée commun pour les specs — préférer celui-ci aux send() locaux.
  *
@@ -175,10 +209,19 @@ async function dispatchTextAnnotationContextMenu(page, options = {}) {
 async function openPdfFromMenu(app, page, pdfPath, options = {}) {
   attachE2eDiagnostics(page);
   await waitForPythonReady(page);
-  await app.evaluate(({ BrowserWindow }, p) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    win?.webContents?.send?.("pdf:open-from-menu", p);
-  }, pdfPath);
+  // Renderer prêt (maniPdfApi) avant send menu — réduit la fenêtre où le CDP main
+  // est encore instable juste après firstWindow (exposé par la suite macOS accélérée).
+  await page.waitForFunction(() => typeof window.maniPdfApi?.pythonHealth === "function", null, {
+    timeout: 90000
+  });
+  await evaluateInElectronMain(
+    app,
+    ({ BrowserWindow }, p) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win?.webContents?.send?.("pdf:open-from-menu", p);
+    },
+    pdfPath
+  );
   if (options.waitTabs !== false) {
     const { expect } = require("@playwright/test");
     await expect(page.locator("#tabs .tab")).toHaveCount(1, {
@@ -194,5 +237,6 @@ module.exports = {
   dispatchTextAnnotationContextMenu,
   waitForPythonReady,
   shouldWaitForPythonBeforePdfOpen,
+  evaluateInElectronMain,
   openPdfFromMenu
 };
