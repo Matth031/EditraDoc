@@ -99,6 +99,7 @@ async function dumpUiStateToNodeLog(page, label) {
 
 function patchElectronLaunchForDiagnostics() {
   const { _electron } = require("@playwright/test");
+  const { waitForPythonReady } = require("./wait-python");
   if (!_electron || typeof _electron.launch !== "function" || _electron.__editraLaunchPatched) {
     return;
   }
@@ -111,6 +112,8 @@ function patchElectronLaunchForDiagnostics() {
     app.firstWindow = async function patchedFirstWindow(fwOptions) {
       const page = await originalFirstWindow(fwOptions);
       attachE2eDiagnostics(page);
+      // macOS CI : chaque electron.launch redémarre Python — attendre /health avant tout open PDF.
+      await waitForPythonReady(page);
       return page;
     };
     return app;

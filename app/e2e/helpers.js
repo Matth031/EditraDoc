@@ -1,4 +1,5 @@
 const { attachE2eDiagnostics, dumpUiStateToNodeLog } = require("./diagnostic-runtime");
+const { waitForPythonReady, shouldWaitForPythonBeforePdfOpen } = require("./wait-python");
 
 /**
  * Attend que le rendu PDF soit réellement prêt pour les tests :
@@ -162,9 +163,36 @@ async function dispatchTextAnnotationContextMenu(page, options = {}) {
   }
 }
 
+/**
+ * Ouvre un PDF via le canal menu (`pdf:open-from-menu`) après attente Python (macOS CI).
+ * Point d’entrée commun pour les specs — préférer celui-ci aux send() locaux.
+ *
+ * @param {import("@playwright/test").ElectronApplication} app
+ * @param {import("@playwright/test").Page} page
+ * @param {string} pdfPath
+ * @param {{ waitTabs?: boolean, tabTimeoutMs?: number }} [options]
+ */
+async function openPdfFromMenu(app, page, pdfPath, options = {}) {
+  attachE2eDiagnostics(page);
+  await waitForPythonReady(page);
+  await app.evaluate(({ BrowserWindow }, p) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win?.webContents?.send?.("pdf:open-from-menu", p);
+  }, pdfPath);
+  if (options.waitTabs !== false) {
+    const { expect } = require("@playwright/test");
+    await expect(page.locator("#tabs .tab")).toHaveCount(1, {
+      timeout: options.tabTimeoutMs ?? 30000
+    });
+  }
+}
+
 module.exports = {
   waitForPdfPagesRendered,
   assertHtmlToPdfCreatedWithoutError,
   cleanupGeneratedPdf,
-  dispatchTextAnnotationContextMenu
+  dispatchTextAnnotationContextMenu,
+  waitForPythonReady,
+  shouldWaitForPythonBeforePdfOpen,
+  openPdfFromMenu
 };

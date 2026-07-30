@@ -744,7 +744,18 @@ function getPythonPostHeaders(contentLength) {
 }
 
 function validateWithPython(pdfPath) {
-  return validatePdfWithPython(pdfPath, { getPostHeaders: getPythonPostHeaders });
+  /** Marge CI macOS uniquement (cold-start Python intermittent) — fail-closed inchangé. */
+  const ciDarwin = Boolean(process.env.CI) && process.platform === "darwin";
+  return validatePdfWithPython(pdfPath, {
+    getPostHeaders: getPythonPostHeaders,
+    ...(ciDarwin
+      ? {
+          timeoutMs: 3000,
+          maxAttempts: 5,
+          retryBackoffMs: [500, 1000, 1500, 2000]
+        }
+      : {})
+  });
 }
 
 function postToPython(route, payload) {
