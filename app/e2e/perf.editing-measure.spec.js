@@ -2,7 +2,7 @@
  * Mesures perf édition (instrumentation MANI_PDF_PERF_INSTRUMENT=1).
  * Non inclus dans test:all — lancer : npm run test:perf-instrument
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

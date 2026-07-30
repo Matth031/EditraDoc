@@ -1,8 +1,5 @@
 const { defineConfig } = require("@playwright/test");
 
-// Hooks diagnostic (afterEach + patch electron.launch) — chargé avant les specs.
-require("./e2e/diagnostic-setup.js");
-
 const ci = Boolean(process.env.CI);
 
 module.exports = defineConfig({

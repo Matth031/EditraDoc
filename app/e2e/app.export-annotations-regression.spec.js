@@ -1,7 +1,7 @@
 /**
  * Non-régression export PDF : placement, styles texte, forme et image.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");

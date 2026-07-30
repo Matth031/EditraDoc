@@ -2,7 +2,7 @@
  * Anti-régression : petites formes (CSS min 0 sur .shape-vector + modèle w/h)
  * et menu contextuel au clic droit sans sélection préalable au clic gauche.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const { dispatchTextAnnotationContextMenu } = require("./helpers");

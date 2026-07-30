@@ -2,7 +2,7 @@
  * Correcteur : IPC spellcheck:analyze doit renvoyer des erreurs pour du français faux
  * (régression dictionary-* ESM + chargement dynamique).
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

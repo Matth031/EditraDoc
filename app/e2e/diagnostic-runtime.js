@@ -3,6 +3,9 @@
 /**
  * Diagnostic E2E runtime (CI) : forward renderer logs + dump __maniE2E au moment des échecs.
  * Les console.log() ici sortent côté Node → visible dans le log archive GitHub Actions.
+ *
+ * Ne pas appeler test.afterEach() depuis ce module au chargement de playwright.config.js
+ * (interdit par Playwright). Brancher via e2e/editra-test.js (fixture auto).
  */
 
 /** @type {import("@playwright/test").Page | null} */
@@ -36,6 +39,13 @@ function attachE2eDiagnostics(page) {
   }
 
   return page;
+}
+
+/**
+ * @returns {import("@playwright/test").Page | null}
+ */
+function getLastDiagnosticPage() {
+  return lastDiagnosticPage;
 }
 
 /**
@@ -107,24 +117,9 @@ function patchElectronLaunchForDiagnostics() {
   };
 }
 
-function registerDiagnosticHooks() {
-  const { test } = require("@playwright/test");
-  patchElectronLaunchForDiagnostics();
-
-  test.afterEach(async (_fixtures, testInfo) => {
-    if (testInfo.status === testInfo.expectedStatus) return;
-    const label = `afterEach-failure:${testInfo.file}:${testInfo.title}`;
-    const page = lastDiagnosticPage;
-    if (!page) {
-      console.log(`${DIAG_PREFIX} ${label}: no page registered`);
-      return;
-    }
-    await dumpUiStateToNodeLog(page, label);
-  });
-}
-
 module.exports = {
   attachE2eDiagnostics,
   dumpUiStateToNodeLog,
-  registerDiagnosticHooks
+  getLastDiagnosticPage,
+  patchElectronLaunchForDiagnostics
 };

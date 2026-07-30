@@ -3,7 +3,7 @@
  * absence de champs globaux Largeur/Hauteur/Rotation/Opacité dans le header).
  * Dépend de window.__maniE2E.* (renderer.js) pour injecter forme/image sans dialogue fichier.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

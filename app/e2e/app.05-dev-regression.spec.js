@@ -4,7 +4,7 @@
  * - rafraîchissement UI avec PDF (colonnes, cohérence avec app.i18n.spec)
  * Ces tests complètent les specs existantes ; ils échouent si le contrat documenté casse.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");

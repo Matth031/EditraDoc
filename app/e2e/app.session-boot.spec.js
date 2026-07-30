@@ -2,7 +2,7 @@
  * E3 — session save/load : échecs signalés (plus de .catch(() => {}) silencieux).
  * contextBridge fige maniPdfApi → seam `__editifySessionApiOverride`.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

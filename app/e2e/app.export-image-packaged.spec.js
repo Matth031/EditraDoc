@@ -2,7 +2,7 @@
  * Non-régression installateur : export image via EditraDoc.exe packagé (win-unpacked).
  * Nécessite `npm run build` ou `npm run dist:win` au préalable.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const path = require("path");
 const fs = require("fs");
 const e2eCi = require("./electron-ci-env");

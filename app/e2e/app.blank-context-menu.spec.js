@@ -1,7 +1,7 @@
 /**
  * Régression : clic droit sur zone vierge => menu d'ajouts rapides.
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

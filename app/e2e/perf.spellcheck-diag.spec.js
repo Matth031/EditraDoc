@@ -2,7 +2,7 @@
  * Diagnostic latence spellcheck:analyze (MANI_PDF_SPELLCHECK_DIAG=1).
  * Hors test:all — npm run test:spellcheck-diag
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

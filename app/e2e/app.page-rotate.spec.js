@@ -1,7 +1,7 @@
 /**
  * Rotation de page PDF — E14 (AC-ROT-01 à 10).
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");

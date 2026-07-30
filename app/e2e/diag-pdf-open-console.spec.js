@@ -5,7 +5,7 @@
  * Log écrit dans test-results/diag-pdf-open-console.log
  * Voir scripts/diag-e2e-console.md
  */
-const { test, _electron: electron } = require("@playwright/test");
+const { test, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const e2eCi = require("./electron-ci-env");
 const path = require("path");

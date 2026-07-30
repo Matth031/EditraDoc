@@ -3,7 +3,7 @@
  * Miroir des scénarios baseline export (regression / soft-wrap / Enter / packagé si dispo).
  * Sortie : tmp/p1-export-payloads/*.json (src_base64 tronqué).
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");

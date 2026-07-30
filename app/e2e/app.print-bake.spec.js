@@ -2,7 +2,7 @@
  * Impression : bake via apply_annotations vers editradoc-print (temp), mock OS en E2E.
  * Prérequis : pipeline export partagé (baseline app.export-annotations-regression).
  */
-const { test, expect, _electron: electron } = require("@playwright/test");
+const { test, expect, _electron: electron } = require("./editra-test");
 const electronPath = require("electron");
 const path = require("path");
 const fs = require("fs");
