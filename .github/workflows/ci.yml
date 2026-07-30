@@ -119,7 +119,12 @@ jobs:
         run: npm run test:node
 
       - name: Run electron smoke e2e
-        run: npm run e2e
+        # Partage Python : lancements Electron enchaînés sans pause ~32s → EMFILE
+        # si la soft limit FD du runner reste basse (souvent 256).
+        run: |
+          ulimit -n 10240
+          echo "ulimit -n=$(ulimit -n)"
+          npm run e2e
         env:
           ELECTRON_DISABLE_GPU: "1"
 

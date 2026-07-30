@@ -86,15 +86,11 @@ module.exports = async function globalSetup() {
       PYTHONUTF8: "1",
       MANI_PDF_SERVICE_TOKEN: token
     },
-    stdio: ["ignore", "ignore", "pipe"],
+    // ignore total : évite un pipe stderr tenu ouvert (fuite FD / flood logs → EMFILE).
+    stdio: "ignore",
     detached: true
   });
   child.unref();
-
-  child.stderr?.on("data", (chunk) => {
-    const s = chunk?.toString?.() || String(chunk);
-    if (s.trim()) console.log("[python-shared:stderr]", s.trimEnd());
-  });
 
   child.on("exit", (code, signal) => {
     console.log("[python-shared] process exit", { code, signal, pid: child.pid });

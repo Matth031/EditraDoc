@@ -52,7 +52,21 @@ function killElectronProcess(proc) {
     proc.kill(process.platform === "win32" ? undefined : "SIGKILL");
   } catch {
     /* intentional: kill electron child best-effort */
-    /* ignore */
+  }
+}
+
+/**
+ * @param {number | undefined} pid
+ * @returns {boolean}
+ */
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    /* intentional: ESRCH / EPERM ⇒ process absent */
+    return false;
   }
 }
 
@@ -80,14 +94,39 @@ async function waitChildExitOrKill(proc, maxWaitMs) {
 }
 
 /**
+ * Attente réelle disparition du PID (handles OS), au-delà du flag `proc.killed`.
+ * @param {number | undefined} pid
+ * @param {number} maxWaitMs
+ */
+async function waitPidFullyGone(pid, maxWaitMs) {
+  if (!Number.isInteger(pid) || pid <= 0) return;
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (!isPidAlive(pid)) {
+      await new Promise((r) => setTimeout(r, 100));
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch {
+    /* intentional: déjà mort ou non signalable */
+  }
+  await new Promise((r) => setTimeout(r, 300));
+}
+
+/**
  * Ferme l’app Playwright Electron ; sous xvfb/CI, `app.close()` peut ne jamais résoudre
  * (processus bloqué) ou laisser le PID vivre → « Worker teardown timeout ».
+ * Sous CI macOS (partage Python), attend la mort réelle du PID + court settle FD.
  * @param {import("@playwright/test").ElectronApplication} app
  * @param {number} [closeMs]
  */
 async function closeElectronApp(app, closeMs) {
   const ms = closeMs ?? (process.env.CI ? 25000 : 12000);
   const proc = typeof app.process === "function" ? app.process() : null;
+  const pid = proc?.pid;
   try {
     await Promise.race([
       app.close(),
@@ -97,11 +136,16 @@ async function closeElectronApp(app, closeMs) {
     ]);
   } catch {
     killElectronProcess(proc);
-    await app.close().catch(() => {});
+    try {
+      await app.close();
+    } catch {
+      /* intentional: best-effort second close after kill */
+    }
   }
   if (process.env.CI) {
     // Tuer les enfants directs d'Electron (Python, renderer) AVANT d'attendre leur mort
     // — ne pas tuer le groupe de processus : cela peut inclure xvfb et casser les tests suivants
+    // Sous MANI_PDF_PYTHON_EXTERNAL, le Python partagé n'est PAS enfant d'Electron.
     if (proc?.pid && process.platform === "linux") {
       const { execSync } = require("child_process");
       try {
@@ -111,6 +155,12 @@ async function closeElectronApp(app, closeMs) {
       }
     }
     await waitChildExitOrKill(proc, 8000);
+    // Preuve OS : le PID n'accepte plus kill(0) avant le prochain electron.launch
+    await waitPidFullyGone(pid, 5000);
+    // macOS : laisser le kernel libérer les FD du process mort (évite EMFILE en suite rapide)
+    if (process.platform === "darwin") {
+      await new Promise((r) => setTimeout(r, 250));
+    }
   }
 }
 
@@ -120,5 +170,7 @@ module.exports = {
   electronFirstWindowTimeoutMs,
   mergeProcessEnv,
   waitForBareI18nTimeoutMs,
-  closeElectronApp
+  closeElectronApp,
+  isPidAlive,
+  waitPidFullyGone
 };

@@ -154,6 +154,6 @@ test("spellcheck diag — scénario B x3 même session + cold IPC direct", async
 
     expect(warmProbe.ipcMs).toBeLessThan(500);
   } finally {
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   }
 });

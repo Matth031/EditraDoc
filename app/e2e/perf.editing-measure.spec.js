@@ -171,6 +171,6 @@ test("mesure perf édition — rapport chiffré", async () => {
     const rowC = report.scenarios.find((s) => s.scenario === "C_rapid_props");
     expect(rowC?.renderAnnotations?.count).toBeGreaterThan(3);
   } finally {
-    await app.close();
+    await e2eCi.closeElectronApp(app);
   }
 });
